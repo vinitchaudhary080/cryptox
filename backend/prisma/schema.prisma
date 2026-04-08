@@ -1,0 +1,152 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  name          String?
+  passwordHash  String?
+  googleId      String?   @unique
+  avatarUrl     String?
+  plan          Plan      @default(FREE)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  brokers             Broker[]
+  deployedStrategies  DeployedStrategy[]
+  refreshTokens       RefreshToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+model Broker {
+  id              String       @id @default(uuid())
+  userId          String
+  exchangeId      String       // ccxt exchange id: "delta", "binance", etc.
+  name            String       // display name
+  apiKey          String       // encrypted
+  apiSecret       String       // encrypted
+  passphrase      String?      // encrypted, optional
+  status          BrokerStatus @default(CONNECTED)
+  ipWhitelist     Boolean      @default(false)
+  connectedAt     DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deployedStrategies DeployedStrategy[]
+
+  @@unique([userId, exchangeId, apiKey])
+  @@map("brokers")
+}
+
+model Strategy {
+  id            String        @id @default(uuid())
+  name          String
+  description   String
+  category      String        // Grid, DCA, Trend, Mean Reversion, Arbitrage, Scalping
+  riskLevel     RiskLevel
+  config        Json          // strategy-specific parameters
+  isSystem      Boolean       @default(true) // system = pre-built template
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  deployedStrategies DeployedStrategy[]
+
+  @@map("strategies")
+}
+
+model DeployedStrategy {
+  id              String              @id @default(uuid())
+  userId          String
+  strategyId      String
+  brokerId        String
+  pair            String              // e.g. "BTC/USDT"
+  status          DeployedStatus      @default(ACTIVE)
+  investedAmount  Float
+  currentValue    Float               @default(0)
+  config          Json                // user overrides: stop loss, take profit, etc.
+  deployedAt      DateTime            @default(now())
+  stoppedAt       DateTime?
+  updatedAt       DateTime            @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  strategy Strategy @relation(fields: [strategyId], references: [id])
+  broker   Broker   @relation(fields: [brokerId], references: [id])
+  trades   Trade[]
+
+  @@map("deployed_strategies")
+}
+
+model Trade {
+  id                 String   @id @default(uuid())
+  deployedStrategyId String
+  pair               String
+  side               Side
+  entryPrice         Float
+  exitPrice          Float?
+  quantity           Float
+  pnl                Float    @default(0)
+  fee                Float    @default(0)
+  status             TradeStatus @default(OPEN)
+  exchangeOrderId    String?  // order id from exchange
+  openedAt           DateTime @default(now())
+  closedAt           DateTime?
+
+  deployedStrategy DeployedStrategy @relation(fields: [deployedStrategyId], references: [id], onDelete: Cascade)
+
+  @@index([deployedStrategyId, status])
+  @@index([deployedStrategyId, openedAt])
+  @@map("trades")
+}
+
+enum Plan {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+enum BrokerStatus {
+  CONNECTED
+  DISCONNECTED
+  ERROR
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum DeployedStatus {
+  ACTIVE
+  PAUSED
+  STOPPED
+}
+
+enum Side {
+  BUY
+  SELL
+}
+
+enum TradeStatus {
+  OPEN
+  CLOSED
+}
