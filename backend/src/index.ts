@@ -34,7 +34,10 @@ const app = express();
 const server = createServer(app);
 
 // Middleware
-app.use(helmet());
+app.use(helmet({
+  hsts: false,
+  contentSecurityPolicy: false,
+}));
 app.use(cors({
   origin: [env.frontendUrl, "http://0.0.0.0:3000", "http://172.20.10.2:3000", "http://13.55.42.137:3000", "http://13.55.42.137", "http://10.67.170.229:3000"],
   credentials: true,
