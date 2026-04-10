@@ -232,7 +232,7 @@ function HeroSection() {
               {/* Mock chart bars */}
               <div className="flex h-40 items-end gap-1 sm:h-48">
                 {Array.from({ length: 40 }, (_, i) => {
-                  const h = 30 + Math.sin(i * 0.3) * 25 + Math.cos(i * 0.7) * 15 + i * 0.8
+                  const h = Math.round(30 + Math.sin(i * 0.3) * 25 + Math.cos(i * 0.7) * 15 + i * 0.8)
                   return (
                     <div
                       key={i}
@@ -494,7 +494,7 @@ function StrategiesPreview() {
                         key={i}
                         className="flex-1 rounded-t bg-primary/20"
                         style={{
-                          height: `${30 + Math.sin(i * 0.5) * 20 + i * 2.5}%`,
+                          height: `${Math.round(30 + Math.sin(i * 0.5) * 20 + i * 2.5)}%`,
                         }}
                       />
                     ))}

@@ -16,7 +16,6 @@ import {
   Square,
   ArrowUpRight,
   ArrowDownRight,
-  Filter,
   ChevronDown,
   Loader2,
   Trash2,
@@ -42,7 +41,7 @@ import {
   ResponsiveContainer,
 } from "recharts"
 import { deployedApi, brokerApi } from "@/lib/api"
-import { deployedStrategies as mockDeployed, brokers as mockBrokers, type DeployedStrategy } from "@/lib/mock-data"
+import { type DeployedStrategy } from "@/lib/mock-data"
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -52,6 +51,8 @@ const fadeUp = {
 const stagger = {
   visible: { transition: { staggerChildren: 0.06 } },
 }
+
+type ApiBroker = { id: string; name: string; exchangeId: string }
 
 const statusConfig = {
   active: { label: "Active", className: "bg-profit/10 text-profit border-profit/20", dot: "bg-profit animate-pulse" },
@@ -66,6 +67,7 @@ function StrategyList({
   setBrokerFilter,
   statusFilter,
   setStatusFilter,
+  brokers,
 }: {
   strategies: DeployedStrategy[]
   onSelect: (s: DeployedStrategy) => void
@@ -73,6 +75,7 @@ function StrategyList({
   setBrokerFilter: (v: string) => void
   statusFilter: string
   setStatusFilter: (v: string) => void
+  brokers: ApiBroker[]
 }) {
   const filtered = strategies.filter((s) => {
     const matchesBroker = brokerFilter === "all" || s.brokerId === brokerFilter
@@ -126,43 +129,53 @@ function StrategyList({
       </motion.div>
 
       {/* Filters */}
-      <motion.div variants={fadeUp} className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-muted-foreground" />
-          <span className="text-xs font-medium text-muted-foreground">Filter:</span>
+      <motion.div variants={fadeUp} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {/* Status pills */}
+        <div className="flex items-center gap-1 rounded-lg bg-muted/50 p-1">
+          {[
+            { value: "all", label: "All" },
+            { value: "active", label: "Active", dot: "bg-profit" },
+            { value: "paused", label: "Paused", dot: "bg-warning" },
+          ].map((tab) => (
+            <button
+              key={tab.value}
+              onClick={() => setStatusFilter(tab.value)}
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
+                statusFilter === tab.value
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {tab.dot && <span className={`h-1.5 w-1.5 rounded-full ${tab.dot}`} />}
+              {tab.label}
+            </button>
+          ))}
         </div>
-        <Select value={brokerFilter} onValueChange={(v) => setBrokerFilter(v ?? "all")}>
-          <SelectTrigger className="h-8 w-[160px] bg-muted/50 text-xs">
-            <SelectValue placeholder="All Brokers" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Brokers</SelectItem>
-            {mockBrokers.filter((b) => b.status === "connected").map((b) => (
-              <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? "all")}>
-          <SelectTrigger className="h-8 w-[140px] bg-muted/50 text-xs">
-            <SelectValue placeholder="All Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="paused">Paused</SelectItem>
-            <SelectItem value="stopped">Stopped</SelectItem>
-          </SelectContent>
-        </Select>
-        {(brokerFilter !== "all" || statusFilter !== "all") && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 text-xs"
-            onClick={() => { setBrokerFilter("all"); setStatusFilter("all") }}
-          >
-            Clear Filters
-          </Button>
-        )}
+
+        {/* Broker dropdown */}
+        <div className="flex items-center gap-2">
+          <Select value={brokerFilter} onValueChange={(v) => setBrokerFilter(v ?? "all")}>
+            <SelectTrigger className="h-8 w-[180px] bg-muted/50 text-xs">
+              <SelectValue placeholder="All Brokers" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Brokers</SelectItem>
+              {brokers.map((b) => (
+                <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {(brokerFilter !== "all" || statusFilter !== "all") && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 text-xs text-muted-foreground"
+              onClick={() => { setBrokerFilter("all"); setStatusFilter("all") }}
+            >
+              Clear
+            </Button>
+          )}
+        </div>
       </motion.div>
 
       {/* Strategy Cards */}
@@ -624,8 +637,22 @@ export default function DeployedPage() {
   const [brokerFilter, setBrokerFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
   const [apiData, setApiData] = useState<DeployedStrategy[]>([])
+  const [brokers, setBrokers] = useState<ApiBroker[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshKey, setRefreshKey] = useState(0)
+
+  // Fetch connected brokers once
+  useEffect(() => {
+    brokerApi.list().then((res) => {
+      if (res.success && res.data) {
+        setBrokers((res.data as Array<Record<string, unknown>>).map((b) => ({
+          id: b.id as string,
+          name: b.name as string,
+          exchangeId: b.exchangeId as string,
+        })))
+      }
+    })
+  }, [])
 
   const fetchList = useCallback(() => {
     deployedApi.list({ brokerId: brokerFilter, status: statusFilter }).then((res) => {
@@ -679,6 +706,7 @@ export default function DeployedPage() {
           setBrokerFilter={setBrokerFilter}
           statusFilter={statusFilter}
           setStatusFilter={setStatusFilter}
+          brokers={brokers}
         />
       )}
     </AnimatePresence>
