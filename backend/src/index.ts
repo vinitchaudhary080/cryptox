@@ -36,7 +36,7 @@ const server = createServer(app);
 // Middleware
 app.use(helmet());
 app.use(cors({
-  origin: [env.frontendUrl, "http://0.0.0.0:3000", "http://10.67.170.229:3000"],
+  origin: [env.frontendUrl, "http://0.0.0.0:3000", "http://172.20.10.2:3000", "http://13.55.42.137:3000", "http://13.55.42.137", "http://10.67.170.229:3000"],
   credentials: true,
 }));
 app.use(compression());
@@ -75,7 +75,7 @@ app.use(errorHandler);
 initSocket(server);
 
 // Start server
-server.listen(env.port, "127.0.0.1", async () => {
+server.listen(env.port, "13.55.42.137", async () => {
   console.log(`
 ╔═══════════════════════════════════════════╗
 ║         CryptoX Backend Server            ║
