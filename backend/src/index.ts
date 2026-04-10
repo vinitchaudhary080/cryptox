@@ -36,7 +36,7 @@ const server = createServer(app);
 // Middleware
 app.use(helmet());
 app.use(cors({
-  origin: [env.frontendUrl, "http://10.67.170.229:3000"],
+  origin: [env.frontendUrl, "http://0.0.0.0:3000", "http://10.67.170.229:3000"],
   credentials: true,
 }));
 app.use(compression());
