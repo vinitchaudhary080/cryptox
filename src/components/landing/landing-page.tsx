@@ -278,9 +278,9 @@ function FeaturesSection() {
     },
     {
       icon: Users,
-      title: "Copy Trading",
+      title: "Strategy Backtesting",
       description:
-        "Follow top-performing traders with verified track records. Mirror their strategies automatically.",
+        "Test your strategies against historical data before going live. Validate performance with real market conditions.",
     },
     {
       icon: Bell,
