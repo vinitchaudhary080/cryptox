@@ -9,7 +9,7 @@ let io: SocketServer;
 export function initSocket(server: HttpServer): SocketServer {
   io = new SocketServer(server, {
     cors: {
-      origin: env.frontendUrl,
+      origin: [env.frontendUrl, "http://10.67.170.229:3000"],
       methods: ["GET", "POST"],
       credentials: true,
     },
@@ -78,6 +78,15 @@ export function emitPortfolioUpdate(userId: string, data: unknown): void {
 export function emitTicker(symbol: string, data: unknown): void {
   if (io) {
     io.to(`ticker:${symbol}`).emit("ticker:data", data);
+  }
+}
+
+/**
+ * Broadcast market overview to all connected clients
+ */
+export function emitMarketOverview(data: unknown): void {
+  if (io) {
+    io.emit("market:overview", data);
   }
 }
 

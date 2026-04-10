@@ -4,7 +4,7 @@ type FetchOptions = RequestInit & { skipAuth?: boolean };
 
 function getTokens() {
   if (typeof window === "undefined") return null;
-  const raw = localStorage.getItem("cryptox-auth");
+  const raw = sessionStorage.getItem("cryptox-auth");
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw);
@@ -16,13 +16,13 @@ function getTokens() {
 
 function setTokens(accessToken: string, refreshToken: string) {
   if (typeof window === "undefined") return;
-  const raw = localStorage.getItem("cryptox-auth");
+  const raw = sessionStorage.getItem("cryptox-auth");
   if (!raw) return;
   try {
     const parsed = JSON.parse(raw);
     parsed.state.accessToken = accessToken;
     parsed.state.refreshToken = refreshToken;
-    localStorage.setItem("cryptox-auth", JSON.stringify(parsed));
+    sessionStorage.setItem("cryptox-auth", JSON.stringify(parsed));
   } catch { /* ignore */ }
 }
 
@@ -105,10 +105,24 @@ export const authApi = {
       body: JSON.stringify({ refreshToken }),
     }),
 
-  google: (googleId: string, email: string, name?: string) =>
+  google: (params: { credential?: string; code?: string }) =>
     apiFetch("/auth/google", {
       method: "POST",
-      body: JSON.stringify({ googleId, email, name }),
+      body: JSON.stringify(params),
+      skipAuth: true,
+    }),
+
+  verifyOtp: (email: string, otp: string) =>
+    apiFetch("/auth/verify-otp", {
+      method: "POST",
+      body: JSON.stringify({ email, otp }),
+      skipAuth: true,
+    }),
+
+  resendOtp: (email: string) =>
+    apiFetch("/auth/resend-otp", {
+      method: "POST",
+      body: JSON.stringify({ email }),
       skipAuth: true,
     }),
 };
@@ -119,8 +133,11 @@ export const brokerApi = {
 
   get: (id: string) => apiFetch(`/brokers/${id}`),
 
-  connect: (data: { exchangeId: string; name: string; apiKey: string; apiSecret: string; passphrase?: string }) =>
+  connect: (data: { uid: string; exchangeId: string; name: string; apiKey: string; apiSecret: string; passphrase?: string }) =>
     apiFetch("/brokers", { method: "POST", body: JSON.stringify(data) }),
+
+  update: (id: string, data: { uid?: string; apiKey?: string; apiSecret?: string; passphrase?: string; ipWhitelist?: boolean }) =>
+    apiFetch(`/brokers/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
 
   getBalance: (id: string) => apiFetch(`/brokers/${id}/balance`),
 
@@ -148,6 +165,9 @@ export const deployedApi = {
 
   get: (id: string) => apiFetch(`/deployed/${id}`),
 
+  getTrades: (id: string, status?: "OPEN" | "CLOSED") =>
+    apiFetch(`/deployed/${id}/trades${status ? `?status=${status}` : ""}`),
+
   deploy: (data: {
     strategyId: string;
     brokerId: string;
@@ -156,16 +176,114 @@ export const deployedApi = {
     config?: Record<string, unknown>;
   }) => apiFetch("/deployed", { method: "POST", body: JSON.stringify(data) }),
 
-  updateStatus: (id: string, status: "ACTIVE" | "PAUSED" | "STOPPED") =>
-    apiFetch(`/deployed/${id}/status`, {
-      method: "PATCH",
-      body: JSON.stringify({ status }),
-    }),
+  pause: (id: string) =>
+    apiFetch(`/deployed/${id}/pause`, { method: "PATCH" }),
+
+  resume: (id: string) =>
+    apiFetch(`/deployed/${id}/resume`, { method: "PATCH" }),
+
+  stop: (id: string) =>
+    apiFetch(`/deployed/${id}/stop`, { method: "PATCH" }),
+
+  remove: (id: string) =>
+    apiFetch(`/deployed/${id}`, { method: "DELETE" }),
 };
+
+// User Profile
+export const userApi = {
+  getProfile: () => apiFetch("/user/profile"),
+
+  updateProfile: (data: {
+    name?: string
+    displayName?: string
+    phone?: string
+    bio?: string
+    timezone?: string
+    country?: string
+  }) => apiFetch("/user/profile", { method: "PATCH", body: JSON.stringify(data) }),
+
+  changePassword: (currentPassword: string, newPassword: string) =>
+    apiFetch("/user/password", {
+      method: "PATCH",
+      body: JSON.stringify({ currentPassword, newPassword }),
+    }),
+}
+
+// Market (public, no auth)
+export const marketApi = {
+  overview: () => apiFetch("/market/overview", { skipAuth: true }),
+  candles: (symbol: string, timeframe = "1d", limit = 90) =>
+    apiFetch(`/market/candles/${symbol}?timeframe=${timeframe}&limit=${limit}`, { skipAuth: true }),
+}
+
+// Backtest
+export const backtestApi = {
+  run: (config: {
+    coin: string
+    startDate: string
+    endDate: string
+    strategyType: "code" | "ui"
+    strategyName: string
+    strategyConfig: Record<string, unknown>
+    initialCapital: number
+    makerFee?: number
+    slippage?: number
+  }) => apiFetch("/backtest/run", { method: "POST", body: JSON.stringify(config) }),
+
+  listRuns: (page = 1, limit = 20) =>
+    apiFetch(`/backtest/runs?page=${page}&limit=${limit}`),
+
+  getRun: (id: string) => apiFetch(`/backtest/runs/${id}`),
+
+  getTrades: (id: string, page = 1, limit = 50) =>
+    apiFetch(`/backtest/runs/${id}/trades?page=${page}&limit=${limit}`),
+
+  getEquity: (id: string) => apiFetch(`/backtest/runs/${id}/equity`),
+
+  deleteRun: (id: string) =>
+    apiFetch(`/backtest/runs/${id}`, { method: "DELETE" }),
+
+  getStrategies: () => apiFetch("/backtest/strategies"),
+
+  getCoins: () => apiFetch("/backtest/coins"),
+}
+
+// Historical Data
+export const historicalApi = {
+  status: () => apiFetch("/historical/status"),
+  syncStatus: () => apiFetch("/historical/sync/status"),
+  sync: (coin?: string) =>
+    apiFetch("/historical/sync", {
+      method: "POST",
+      body: JSON.stringify(coin ? { coin } : { all: true }),
+    }),
+}
+
+// Subscription
+export const subscriptionApi = {
+  plans: () => apiFetch("/subscription/plans", { skipAuth: true }),
+  current: () => apiFetch("/subscription"),
+  subscribe: (plan: string, cycle: string) =>
+    apiFetch("/subscription/subscribe", { method: "POST", body: JSON.stringify({ plan, cycle }) }),
+  cancel: () => apiFetch("/subscription/cancel", { method: "POST" }),
+  limits: () => apiFetch("/subscription/limits"),
+}
+
+// Notifications
+export const notificationApi = {
+  list: (limit = 30, unreadOnly = false) =>
+    apiFetch(`/notifications?limit=${limit}${unreadOnly ? "&unread=true" : ""}`),
+  unreadCount: () => apiFetch("/notifications/unread-count"),
+  markRead: (id: string) =>
+    apiFetch(`/notifications/${id}/read`, { method: "PATCH" }),
+  markAllRead: () =>
+    apiFetch("/notifications/read-all", { method: "PATCH" }),
+}
 
 // Portfolio
 export const portfolioApi = {
   stats: () => apiFetch("/portfolio/stats"),
   trades: (limit = 20) => apiFetch(`/portfolio/trades?limit=${limit}`),
   pnlHistory: (days = 30) => apiFetch(`/portfolio/pnl-history?days=${days}`),
+  report: () => apiFetch("/portfolio/report"),
 };

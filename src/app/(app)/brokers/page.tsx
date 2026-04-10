@@ -7,7 +7,6 @@ import {
   Check,
   Trash2,
   Edit3,
-  ExternalLink,
   Shield,
   Wallet,
   Zap,
@@ -15,9 +14,10 @@ import {
   AlertCircle,
   Eye,
   EyeOff,
-  Copy,
   ArrowRight,
-  X,
+  Loader2,
+  Save,
+  Plug,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -39,7 +39,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { brokerApi } from "@/lib/api"
+import { brokerApi, portfolioApi } from "@/lib/api"
 import { availableBrokers } from "@/lib/mock-data"
 
 const fadeUp = {
@@ -59,6 +59,7 @@ const statusConfig: Record<string, { label: string; className: string; dot: stri
 
 type ApiBroker = {
   id: string
+  uid: string
   exchangeId: string
   name: string
   status: string
@@ -74,27 +75,108 @@ export default function BrokersPage() {
   const [showApiKey, setShowApiKey] = useState(false)
   const [step, setStep] = useState<"select" | "configure">("select")
   const [brokers, setBrokers] = useState<ApiBroker[]>([])
+  const [newUid, setNewUid] = useState("")
   const [newApiKey, setNewApiKey] = useState("")
   const [newApiSecret, setNewApiSecret] = useState("")
   const [newPassphrase, setNewPassphrase] = useState("")
   const [connecting, setConnecting] = useState(false)
   const [connectError, setConnectError] = useState("")
 
-  const fetchBrokers = () => {
-    brokerApi.list().then((res) => {
-      if (res.success && res.data) setBrokers(res.data as ApiBroker[])
-    })
+  // Edit dialog state
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [editBroker, setEditBroker] = useState<ApiBroker | null>(null)
+  const [editUid, setEditUid] = useState("")
+  const [editApiKey, setEditApiKey] = useState("")
+  const [editApiSecret, setEditApiSecret] = useState("")
+  const [editPassphrase, setEditPassphrase] = useState("")
+  const [editSaving, setEditSaving] = useState(false)
+  const [editError, setEditError] = useState("")
+  const [editSuccess, setEditSuccess] = useState(false)
+  const [showEditApiKey, setShowEditApiKey] = useState(false)
+
+  // Loading state
+  const [loading, setLoading] = useState(true)
+  const [portfolioPnl, setPortfolioPnl] = useState(0)
+
+  // Delete state
+  const [deleting, setDeleting] = useState<string | null>(null)
+
+  const handleOpenEdit = (broker: ApiBroker) => {
+    setEditBroker(broker)
+    setEditUid(broker.uid)
+    setEditApiKey("")
+    setEditApiSecret("")
+    setEditPassphrase("")
+    setEditError("")
+    setEditSuccess(false)
+    setShowEditApiKey(false)
+    setEditDialogOpen(true)
   }
 
-  useEffect(() => { fetchBrokers() }, [])
+  const handleSaveEdit = async () => {
+    if (!editBroker) return
+    setEditSaving(true)
+    setEditError("")
+    setEditSuccess(false)
+
+    const data: Record<string, string | boolean> = {}
+    if (editUid && editUid !== editBroker.uid) data.uid = editUid
+    if (editApiKey) data.apiKey = editApiKey
+    if (editApiSecret) data.apiSecret = editApiSecret
+    if (editPassphrase) data.passphrase = editPassphrase
+
+    if (Object.keys(data).length === 0) {
+      setEditError("No changes to save")
+      setEditSaving(false)
+      return
+    }
+
+    const res = await brokerApi.update(editBroker.id, data as Parameters<typeof brokerApi.update>[1])
+    setEditSaving(false)
+
+    if (res.success) {
+      setEditSuccess(true)
+      fetchBrokers()
+      setTimeout(() => setEditDialogOpen(false), 1200)
+    } else {
+      setEditError(res.error || "Failed to update")
+    }
+  }
+
+  const handleDelete = async (brokerId: string) => {
+    setDeleting(brokerId)
+    const res = await brokerApi.remove(brokerId)
+    setDeleting(null)
+    if (res.success) fetchBrokers()
+  }
+
+  const fetchBrokers = () => {
+    Promise.all([
+      brokerApi.list().then((res) => {
+        if (res.success && res.data) setBrokers(res.data as ApiBroker[])
+      }),
+      portfolioApi.stats().then((res) => {
+        if (res.success && res.data) {
+          setPortfolioPnl((res.data as { totalPnl: number }).totalPnl)
+        }
+      }),
+    ]).finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    fetchBrokers()
+    const interval = setInterval(fetchBrokers, 10_000) // refresh every 10s
+    return () => clearInterval(interval)
+  }, [])
 
   const connectedBrokers = brokers.filter((b) => b.status === "CONNECTED")
   const totalBalance = connectedBrokers.reduce((s, b) => s + (b.balance ?? 0), 0)
-  const totalPnl = 0 // Will come from portfolio API
+  const totalPnl = portfolioPnl
 
   const handleOpenAdd = () => {
     setStep("select")
     setSelectedBroker(null)
+    setNewUid("")
     setNewApiKey("")
     setNewApiSecret("")
     setNewPassphrase("")
@@ -103,13 +185,14 @@ export default function BrokersPage() {
   }
 
   const handleConnect = async () => {
-    if (!selectedBroker || !newApiKey || !newApiSecret) return
+    if (!selectedBroker || !newUid || !newApiKey || !newApiSecret) return
     const ab = availableBrokers.find((b) => b.id === selectedBroker)
     if (!ab) return
 
     setConnecting(true)
     setConnectError("")
     const res = await brokerApi.connect({
+      uid: newUid,
       exchangeId: ab.id,
       name: ab.name,
       apiKey: newApiKey,
@@ -129,6 +212,14 @@ export default function BrokersPage() {
   const handleSelectBroker = (id: string) => {
     setSelectedBroker(id)
     setStep("configure")
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
   }
 
   return (
@@ -179,6 +270,28 @@ export default function BrokersPage() {
       {/* Connected Brokers */}
       <motion.div variants={fadeUp} className="space-y-3">
         <h2 className="text-sm font-semibold text-muted-foreground">Your Brokers</h2>
+
+        {brokers.length === 0 && (
+          <Card className="border-border/50">
+            <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+                <Plug className="h-7 w-7 text-primary" />
+              </div>
+              <h3 className="mt-4 text-sm font-semibold">No brokers connected</h3>
+              <p className="mt-1.5 max-w-xs text-xs text-muted-foreground">
+                Connect your exchange account to start deploying trading strategies. We support Binance, Delta Exchange, Bybit, OKX, KuCoin, and more.
+              </p>
+              <Button size="sm" className="mt-5" onClick={handleOpenAdd}>
+                <Plus className="mr-2 h-3.5 w-3.5" /> Connect Your First Broker
+              </Button>
+              <div className="mt-4 flex items-center gap-3 text-[10px] text-muted-foreground">
+                <Shield className="h-3 w-3" />
+                Your API keys are encrypted and stored securely
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {brokers.map((broker) => {
           const sc = statusConfig[broker.status]
           return (
@@ -192,7 +305,7 @@ export default function BrokersPage() {
                     </div>
                     <div>
                       <div className="flex items-center gap-2.5">
-                        <h3 className="font-semibold">{broker.name}</h3>
+                        <h3 className="font-semibold">{broker.name} <span className="text-xs font-normal text-muted-foreground">({broker.uid})</span></h3>
                         <Badge variant="outline" className={sc.className}>
                           <span className={`mr-1.5 h-1.5 w-1.5 rounded-full ${sc.dot} ${broker.status === "CONNECTED" ? "animate-pulse" : ""}`} />
                           {sc.label}
@@ -224,11 +337,21 @@ export default function BrokersPage() {
                         </div>
                       </div>
                       <div className="flex gap-1.5">
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" onClick={() => handleOpenEdit(broker)}>
                           <Edit3 className="mr-1.5 h-3 w-3" /> Edit
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-loss">
-                          <Trash2 className="h-3.5 w-3.5" />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-loss"
+                          onClick={() => handleDelete(broker.id)}
+                          disabled={deleting === broker.id}
+                        >
+                          {deleting === broker.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3.5 w-3.5" />
+                          )}
                         </Button>
                       </div>
                     </div>
@@ -346,6 +469,10 @@ export default function BrokersPage() {
 
                   <div className="space-y-4">
                     <div>
+                      <Label className="text-xs text-muted-foreground">Broker UID <span className="text-foreground">(your label to identify this account)</span></Label>
+                      <Input className="mt-1.5 bg-muted/50 text-sm" placeholder="e.g. My Delta Main, Trading Account 1" value={newUid} onChange={(e) => setNewUid(e.target.value)} />
+                    </div>
+                    <div>
                       <Label className="text-xs text-muted-foreground">API Key</Label>
                       <Input className="mt-1.5 bg-muted/50 font-mono text-sm" placeholder="Enter your API key" value={newApiKey} onChange={(e) => setNewApiKey(e.target.value)} />
                     </div>
@@ -404,7 +531,7 @@ export default function BrokersPage() {
                     <Button variant="outline" className="flex-1" onClick={() => setStep("select")}>
                       Back
                     </Button>
-                    <Button className="flex-1" onClick={handleConnect} disabled={connecting || !newApiKey || !newApiSecret}>
+                    <Button className="flex-1" onClick={handleConnect} disabled={connecting || !newUid || !newApiKey || !newApiSecret}>
                       {connecting ? (
                         <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
                       ) : (
@@ -414,6 +541,121 @@ export default function BrokersPage() {
                   </div>
                 </>
               )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Broker Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit3 className="h-5 w-5 text-primary" /> Edit Broker
+            </DialogTitle>
+          </DialogHeader>
+
+          {editSuccess ? (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="flex flex-col items-center gap-3 py-8"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-profit/10">
+                <Check className="h-6 w-6 text-profit" />
+              </div>
+              <p className="font-semibold">Broker Updated!</p>
+            </motion.div>
+          ) : editBroker && (
+            <div className="space-y-5">
+              {/* Broker info */}
+              <div className="flex items-center gap-3 rounded-lg border border-border/50 bg-muted/20 p-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-sm font-bold text-primary">
+                  {editBroker.name.slice(0, 2).toUpperCase()}
+                </div>
+                <div>
+                  <p className="font-semibold">{editBroker.name}</p>
+                  <p className="text-xs text-muted-foreground">Current UID: {editBroker.uid}</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {/* UID */}
+                <div>
+                  <Label className="text-xs text-muted-foreground">Broker UID</Label>
+                  <Input
+                    className="mt-1.5 bg-muted/50 text-sm"
+                    value={editUid}
+                    onChange={(e) => setEditUid(e.target.value)}
+                    placeholder="Your label for this broker"
+                  />
+                </div>
+
+                <Separator />
+                <p className="text-xs text-muted-foreground">Leave blank to keep current API keys</p>
+
+                {/* API Key */}
+                <div>
+                  <Label className="text-xs text-muted-foreground">New API Key <span className="text-muted-foreground/50">(optional)</span></Label>
+                  <Input
+                    className="mt-1.5 bg-muted/50 font-mono text-sm"
+                    placeholder={`Current: ${editBroker.apiKeyPreview}`}
+                    value={editApiKey}
+                    onChange={(e) => setEditApiKey(e.target.value)}
+                  />
+                </div>
+
+                {/* API Secret */}
+                <div>
+                  <Label className="text-xs text-muted-foreground">New API Secret <span className="text-muted-foreground/50">(optional)</span></Label>
+                  <div className="relative mt-1.5">
+                    <Input
+                      className="bg-muted/50 pr-10 font-mono text-sm"
+                      placeholder="Enter new secret"
+                      type={showEditApiKey ? "text" : "password"}
+                      value={editApiSecret}
+                      onChange={(e) => setEditApiSecret(e.target.value)}
+                    />
+                    <button
+                      onClick={() => setShowEditApiKey(!showEditApiKey)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showEditApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Passphrase */}
+                <div>
+                  <Label className="text-xs text-muted-foreground">New Passphrase <span className="text-muted-foreground/50">(optional)</span></Label>
+                  <Input
+                    className="mt-1.5 bg-muted/50 font-mono text-sm"
+                    placeholder="Optional"
+                    type="password"
+                    value={editPassphrase}
+                    onChange={(e) => setEditPassphrase(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {editError && (
+                <div className="rounded-lg border border-loss/20 bg-loss/5 p-3 text-xs text-loss">
+                  {editError}
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <Button variant="outline" className="flex-1" onClick={() => setEditDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button className="flex-1" onClick={handleSaveEdit} disabled={editSaving}>
+                  {editSaving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <><Save className="mr-2 h-3.5 w-3.5" /> Save Changes</>
+                  )}
+                </Button>
+              </div>
             </div>
           )}
         </DialogContent>

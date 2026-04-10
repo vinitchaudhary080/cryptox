@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   Rocket,
@@ -17,6 +18,9 @@ import {
   ArrowDownRight,
   Filter,
   ChevronDown,
+  Loader2,
+  Trash2,
+  Activity,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -243,16 +247,110 @@ function StrategyList({
   )
 }
 
+type ApiTrade = {
+  id: string
+  pair: string
+  side: string
+  entryPrice: number
+  exitPrice: number | null
+  quantity: number
+  pnl: number
+  fee: number
+  status: string
+  openedAt: string
+  closedAt: string | null
+}
+
 function StrategyDetail({
-  strategy,
+  strategy: initialStrategy,
   onBack,
 }: {
   strategy: DeployedStrategy
   onBack: () => void
 }) {
-  const sc = statusConfig[strategy.status]
-  const openTrades = strategy.trades.filter((t) => t.status === "open")
-  const closedTrades = strategy.trades.filter((t) => t.status === "closed")
+  const [strategy, setStrategy] = useState(initialStrategy)
+  const [currentStatus, setCurrentStatus] = useState(initialStrategy.status)
+  const sc = statusConfig[currentStatus] || statusConfig["active"]
+  const [liveTrades, setLiveTrades] = useState<ApiTrade[]>([])
+  const [tradesLoading, setTradesLoading] = useState(true)
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [actionMsg, setActionMsg] = useState("")
+  const router = useRouter()
+
+  const handlePause = async () => {
+    setActionLoading("pause")
+    const res = await deployedApi.pause(strategy.id)
+    setActionLoading(null)
+    if (res.success) {
+      setCurrentStatus("paused")
+      setActionMsg((res as { message?: string }).message || "Paused")
+      // Refresh trades to show closed positions
+      const tr = await deployedApi.getTrades(strategy.id)
+      if (tr.success && tr.data) setLiveTrades(tr.data as ApiTrade[])
+    }
+  }
+
+  const handleResume = async () => {
+    setActionLoading("resume")
+    const res = await deployedApi.resume(strategy.id)
+    setActionLoading(null)
+    if (res.success) {
+      setCurrentStatus("active")
+      setActionMsg((res as { message?: string }).message || "Resumed")
+    }
+  }
+
+  const handleStop = async () => {
+    setActionLoading("stop")
+    const res = await deployedApi.stop(strategy.id)
+    setActionLoading(null)
+    if (res.success) {
+      setCurrentStatus("stopped")
+      setActionMsg((res as { message?: string }).message || "Stopped")
+      const tr = await deployedApi.getTrades(strategy.id)
+      if (tr.success && tr.data) setLiveTrades(tr.data as ApiTrade[])
+    }
+  }
+
+  const handleDelete = async () => {
+    setActionLoading("delete")
+    const res = await deployedApi.remove(strategy.id)
+    setActionLoading(null)
+    if (res.success) {
+      onBack()
+    }
+  }
+
+  // Auto-refresh trades + strategy stats every 5s for real-time updates
+  useEffect(() => {
+    const fetchAll = () => {
+      // Refresh trades
+      deployedApi.getTrades(strategy.id).then((res) => {
+        if (res.success && res.data) setLiveTrades(res.data as ApiTrade[])
+        setTradesLoading(false)
+      })
+      // Refresh strategy stats (PnL, currentValue, etc.)
+      deployedApi.get(strategy.id).then((res) => {
+        if (res.success && res.data) {
+          const d = res.data as Record<string, unknown>
+          setStrategy((prev) => ({
+            ...prev,
+            currentValue: Number(d.currentValue ?? prev.currentValue),
+            totalPnl: Number((d.currentValue as number) ?? prev.currentValue) - prev.investedAmount,
+            totalTrades: (d._count as Record<string, number>)?.trades ?? prev.totalTrades,
+          }))
+          setCurrentStatus(String(d.status ?? currentStatus).toLowerCase() as "active" | "paused" | "stopped")
+        }
+      })
+    }
+    fetchAll()
+    const interval = setInterval(fetchAll, 5_000)
+    return () => clearInterval(interval)
+  }, [strategy.id])
+
+  const trades = liveTrades.length > 0 ? liveTrades : strategy.trades as unknown as ApiTrade[]
+  const openTrades = trades.filter((t) => t.status === "OPEN" || t.status === "open")
+  const closedTrades = trades.filter((t) => t.status === "CLOSED" || t.status === "closed")
 
   return (
     <motion.div
@@ -281,37 +379,60 @@ function StrategyDetail({
           </div>
         </div>
         <div className="flex gap-2">
-          {strategy.status === "active" && (
-            <Button variant="outline" size="sm">
-              <Pause className="mr-1.5 h-3.5 w-3.5" /> Pause
+          {currentStatus === "active" && (
+            <Button variant="outline" size="sm" onClick={handlePause} disabled={actionLoading !== null}>
+              {actionLoading === "pause" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Pause className="mr-1.5 h-3.5 w-3.5" />}
+              Pause
             </Button>
           )}
-          {strategy.status === "paused" && (
-            <Button variant="outline" size="sm">
-              <Play className="mr-1.5 h-3.5 w-3.5" /> Resume
+          {currentStatus === "paused" && (
+            <Button variant="outline" size="sm" onClick={handleResume} disabled={actionLoading !== null}>
+              {actionLoading === "resume" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Play className="mr-1.5 h-3.5 w-3.5" />}
+              Resume
             </Button>
           )}
-          {strategy.status !== "stopped" && (
-            <Button variant="outline" size="sm" className="text-loss hover:bg-loss/10 hover:text-loss">
-              <Square className="mr-1.5 h-3.5 w-3.5" /> Stop
-            </Button>
-          )}
+
+          <Button variant="outline" size="sm" className="text-loss hover:bg-loss/10 hover:text-loss" onClick={handleDelete} disabled={actionLoading !== null}>
+            {actionLoading === "delete" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Trash2 className="mr-1.5 h-3.5 w-3.5" />}
+            Delete
+          </Button>
         </div>
       </motion.div>
 
+      {/* Action feedback message */}
+      {actionMsg && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-2.5 text-xs text-primary"
+        >
+          {actionMsg}
+        </motion.div>
+      )}
+
       {/* Stats */}
-      <motion.div variants={fadeUp} className="grid gap-4 grid-cols-2 lg:grid-cols-5">
-        {[
-          { label: "Invested", value: `$${strategy.investedAmount.toLocaleString()}`, icon: DollarSign },
-          { label: "Current Value", value: `$${strategy.currentValue.toLocaleString()}`, icon: DollarSign },
-          { label: "Total PnL", value: `${strategy.totalPnl >= 0 ? "+" : ""}$${strategy.totalPnl.toFixed(2)}`, icon: strategy.totalPnl >= 0 ? TrendingUp : TrendingDown, positive: strategy.totalPnl >= 0 },
-          { label: "Win Rate", value: `${strategy.winRate}%`, icon: Target },
-          { label: "Total Trades", value: strategy.totalTrades.toString(), icon: Zap },
-        ].map((stat) => (
-          <Card key={stat.label} className="border-border/50 bg-card/80">
+      <motion.div variants={fadeUp} className="grid gap-4 grid-cols-2 lg:grid-cols-6">
+        {(() => {
+          const realizedPnl = closedTrades.reduce((s, t) => s + t.pnl, 0)
+          const unrealizedPnl = strategy.currentValue - strategy.investedAmount - realizedPnl
+          return [
+            { label: "Invested", value: `$${strategy.investedAmount.toLocaleString()}`, icon: DollarSign },
+            { label: "Current Value", value: `$${strategy.currentValue.toLocaleString()}`, icon: DollarSign, positive: strategy.currentValue >= strategy.investedAmount },
+            { label: "Total PnL", value: `${strategy.totalPnl >= 0 ? "+" : ""}$${strategy.totalPnl.toFixed(2)}`, icon: strategy.totalPnl >= 0 ? TrendingUp : TrendingDown, positive: strategy.totalPnl >= 0 },
+            { label: "Unrealized PnL", value: `${unrealizedPnl >= 0 ? "+" : ""}$${unrealizedPnl.toFixed(2)}`, icon: Activity, positive: unrealizedPnl >= 0, live: openTrades.length > 0 },
+            { label: "Win Rate", value: `${strategy.winRate}%`, icon: Target },
+            { label: "Open / Total", value: `${openTrades.length} / ${strategy.totalTrades}`, icon: Zap },
+          ]
+        })().map((stat) => (
+          <Card key={stat.label} className={`border-border/50 bg-card/80 ${"live" in stat && stat.live ? "border-primary/30" : ""}`}>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
-                <p className="text-[10px] text-muted-foreground">{stat.label}</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-[10px] text-muted-foreground">{stat.label}</p>
+                  {"live" in stat && stat.live && (
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+                  )}
+                </div>
                 <stat.icon className={`h-3.5 w-3.5 ${stat.positive === false ? "text-loss" : stat.positive ? "text-profit" : "text-muted-foreground"}`} />
               </div>
               <p className={`mt-1 text-lg font-bold ${stat.positive === false ? "text-loss" : stat.positive ? "text-profit" : ""}`}>
@@ -366,9 +487,12 @@ function StrategyDetail({
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base">Open Positions</CardTitle>
-                <Badge className="bg-profit/10 text-profit text-[10px]">
-                  {openTrades.length} open
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-profit/10 text-profit text-[10px]">
+                    <span className="mr-1 h-1.5 w-1.5 animate-pulse rounded-full bg-profit" />
+                    {openTrades.length} open &middot; Live
+                  </Badge>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -389,7 +513,7 @@ function StrategyDetail({
                       <tr key={trade.id} className="border-b border-border/30 last:border-0">
                         <td className="py-2.5 font-medium">{trade.pair}</td>
                         <td className="py-2.5">
-                          <Badge variant="outline" className={trade.side === "buy" ? "border-profit/30 text-profit" : "border-loss/30 text-loss"}>
+                          <Badge variant="outline" className={trade.side.toUpperCase() === "BUY" ? "border-profit/30 text-profit" : "border-loss/30 text-loss"}>
                             {trade.side.toUpperCase()}
                           </Badge>
                         </td>
@@ -440,7 +564,7 @@ function StrategyDetail({
                     <tr key={trade.id} className="border-b border-border/30 last:border-0">
                       <td className="py-2.5 font-medium">{trade.pair}</td>
                       <td className="py-2.5">
-                        <Badge variant="outline" className={trade.side === "buy" ? "border-profit/30 text-profit" : "border-loss/30 text-loss"}>
+                        <Badge variant="outline" className={trade.side.toUpperCase() === "BUY" ? "border-profit/30 text-profit" : "border-loss/30 text-loss"}>
                           {trade.side.toUpperCase()}
                         </Badge>
                       </td>
@@ -471,44 +595,72 @@ function StrategyDetail({
   )
 }
 
+function mapApiToStrategy(d: Record<string, unknown>): DeployedStrategy {
+  return {
+    id: d.id as string,
+    strategyName: d.strategyName as string,
+    strategyType: d.strategyType as string,
+    brokerId: d.brokerId as string,
+    brokerName: d.brokerName as string,
+    brokerShortName: ((d.brokerName as string) || "").slice(0, 2).toUpperCase(),
+    pair: d.pair as string,
+    status: (d.status as string).toLowerCase() as "active" | "paused" | "stopped",
+    deployedAt: d.deployedAt as string,
+    investedAmount: d.investedAmount as number,
+    currentValue: d.currentValue as number,
+    totalPnl: d.totalPnl as number,
+    totalPnlPercent: d.totalPnlPercent as number,
+    todayPnl: 0,
+    totalTrades: d.totalTrades as number,
+    winRate: d.winRate as number,
+    openPositions: d.openPositions as number,
+    trades: [],
+    pnlHistory: [],
+  }
+}
+
 export default function DeployedPage() {
   const [selected, setSelected] = useState<DeployedStrategy | null>(null)
   const [brokerFilter, setBrokerFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
   const [apiData, setApiData] = useState<DeployedStrategy[]>([])
+  const [loading, setLoading] = useState(true)
+  const [refreshKey, setRefreshKey] = useState(0)
 
-  useEffect(() => {
+  const fetchList = useCallback(() => {
     deployedApi.list({ brokerId: brokerFilter, status: statusFilter }).then((res) => {
       if (res.success && res.data) {
-        // Map API data to frontend shape (add missing fields with defaults)
-        const mapped = (res.data as Array<Record<string, unknown>>).map((d): DeployedStrategy => ({
-          id: d.id as string,
-          strategyName: d.strategyName as string,
-          strategyType: d.strategyType as string,
-          brokerId: d.brokerId as string,
-          brokerName: d.brokerName as string,
-          brokerShortName: ((d.brokerName as string) || "").slice(0, 2).toUpperCase(),
-          pair: d.pair as string,
-          status: (d.status as string).toLowerCase() as "active" | "paused" | "stopped",
-          deployedAt: d.deployedAt as string,
-          investedAmount: d.investedAmount as number,
-          currentValue: d.currentValue as number,
-          totalPnl: d.totalPnl as number,
-          totalPnlPercent: d.totalPnlPercent as number,
-          todayPnl: 0,
-          totalTrades: d.totalTrades as number,
-          winRate: d.winRate as number,
-          openPositions: d.openPositions as number,
-          trades: [],
-          pnlHistory: [],
-        }))
-        setApiData(mapped)
+        setApiData((res.data as Array<Record<string, unknown>>).map(mapApiToStrategy))
       }
-    })
+    }).finally(() => setLoading(false))
   }, [brokerFilter, statusFilter])
 
-  // Use API data if available, fall back to mock
-  const strategies = apiData.length > 0 ? apiData : mockDeployed
+  // Fetch on mount, filter change, and refreshKey change
+  useEffect(() => {
+    fetchList()
+  }, [fetchList, refreshKey])
+
+  // Auto-refresh list every 10s when on list view
+  useEffect(() => {
+    if (selected) return
+    const interval = setInterval(fetchList, 10_000)
+    return () => clearInterval(interval)
+  }, [selected, fetchList])
+
+  const strategies = apiData
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  const handleBack = () => {
+    setSelected(null)
+    setRefreshKey((k) => k + 1) // force re-fetch list on back
+  }
 
   return (
     <AnimatePresence mode="wait">
@@ -516,7 +668,7 @@ export default function DeployedPage() {
         <StrategyDetail
           key="detail"
           strategy={selected}
-          onBack={() => setSelected(null)}
+          onBack={handleBack}
         />
       ) : (
         <StrategyList

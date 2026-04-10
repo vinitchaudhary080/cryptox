@@ -11,9 +11,17 @@ model User {
   id            String    @id @default(uuid())
   email         String    @unique
   name          String?
+  displayName   String?
+  phone         String?
+  bio           String?
+  timezone      String    @default("UTC+5:30")
+  country       String?
   passwordHash  String?
   googleId      String?   @unique
   avatarUrl     String?
+  emailVerified Boolean   @default(false)
+  verifyCode    String?
+  verifyExpiry  DateTime?
   plan          Plan      @default(FREE)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -21,6 +29,9 @@ model User {
   brokers             Broker[]
   deployedStrategies  DeployedStrategy[]
   refreshTokens       RefreshToken[]
+  backtestRuns        BacktestRun[]
+  notifications       Notification[]
+  subscriptions       Subscription[]
 
   @@map("users")
 }
@@ -40,8 +51,9 @@ model RefreshToken {
 model Broker {
   id              String       @id @default(uuid())
   userId          String
+  uid             String       @default("") // user-given label to identify broker
   exchangeId      String       // ccxt exchange id: "delta", "binance", etc.
-  name            String       // display name
+  name            String       // exchange display name
   apiKey          String       // encrypted
   apiSecret       String       // encrypted
   passphrase      String?      // encrypted, optional
@@ -120,7 +132,38 @@ model Trade {
 enum Plan {
   FREE
   PRO
-  ENTERPRISE
+  MAX
+}
+
+enum BillingCycle {
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+}
+
+model Subscription {
+  id            String             @id @default(uuid())
+  userId        String
+  plan          Plan
+  cycle         BillingCycle
+  status        SubscriptionStatus @default(ACTIVE)
+  amount        Float              // price paid
+  startDate     DateTime           @default(now())
+  endDate       DateTime           // when billing period ends
+  cancelledAt   DateTime?
+  createdAt     DateTime           @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([userId, createdAt])
+  @@map("subscriptions")
 }
 
 enum BrokerStatus {
@@ -139,6 +182,7 @@ enum DeployedStatus {
   ACTIVE
   PAUSED
   STOPPED
+  DELETED
 }
 
 enum Side {
@@ -149,4 +193,87 @@ enum Side {
 enum TradeStatus {
   OPEN
   CLOSED
+}
+
+// ── Backtest Models ─────────────────────────────────────────
+
+model BacktestRun {
+  id              String    @id @default(uuid())
+  userId          String
+  coin            String
+  startDate       DateTime
+  endDate         DateTime
+  strategyType    String    // "code" or "ui"
+  strategyName    String
+  strategyConfig  Json
+  initialCapital  Float
+  finalEquity     Float     @default(0)
+  totalPnl        Float     @default(0)
+  grossPnl        Float     @default(0)
+  totalFees       Float     @default(0)
+  makerFee        Float     @default(0.0005)
+  slippage        Float     @default(0.0001)
+  totalTrades     Int       @default(0)
+  winTrades       Int       @default(0)
+  lossTrades      Int       @default(0)
+  winRate         Float     @default(0)
+  maxDrawdown     Float     @default(0)
+  sharpeRatio     Float     @default(0)
+  profitFactor    Float     @default(0)
+  avgWin          Float     @default(0)
+  avgLoss         Float     @default(0)
+  bestTrade       Float     @default(0)
+  worstTrade      Float     @default(0)
+  equityCurve     Json      @default("[]")
+  status          String    @default("RUNNING") // RUNNING, COMPLETED, FAILED
+  duration        Int?      // ms to complete
+  createdAt       DateTime  @default(now())
+
+  user   User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trades BacktestTrade[]
+
+  @@index([userId, createdAt])
+  @@map("backtest_runs")
+}
+
+model BacktestTrade {
+  id            String    @id @default(uuid())
+  backtestRunId String
+  entryTime     DateTime
+  entryPrice    Float
+  qty           Float
+  side          String    // "BUY" or "SELL"
+  leverage      Float     @default(1)
+  sl            Float?
+  tp            Float?
+  exitTime      DateTime?
+  exitPrice     Float?
+  pnl           Float     @default(0)
+  fee           Float     @default(0)
+  exitReason    String?   // "TP", "SL", "SIGNAL", "END"
+  status        String    @default("OPEN")
+
+  backtestRun BacktestRun @relation(fields: [backtestRunId], references: [id], onDelete: Cascade)
+
+  @@index([backtestRunId])
+  @@map("backtest_trades")
+}
+
+// ── Notifications ───────────────────────────────────────────
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String   // "trade_open", "trade_close", "strategy_deploy", "strategy_stop"
+  title     String
+  message   String
+  data      Json?    // extra context: { pair, pnl, strategyName, ... }
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([userId, createdAt])
+  @@map("notifications")
 }

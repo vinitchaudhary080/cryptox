@@ -28,5 +28,12 @@ export const env = {
     apiSecret: process.env.DELTA_API_SECRET || "",
     baseUrl: process.env.DELTA_BASE_URL || "https://api.india.delta.exchange",
   },
+  smtp: {
+    host: process.env.SMTP_HOST || "smtp.gmail.com",
+    port: parseInt(process.env.SMTP_PORT || "587", 10),
+    user: process.env.SMTP_USER || "",
+    pass: process.env.SMTP_PASS || "",
+    from: process.env.SMTP_FROM || "",
+  },
   frontendUrl: process.env.FRONTEND_URL || "http://localhost:3000",
 } as const;

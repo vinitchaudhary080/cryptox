@@ -3,12 +3,14 @@ import { z } from "zod";
 import { PrismaClient } from "@prisma/client";
 import { authenticate } from "../middleware/auth.js";
 import { exchangeService } from "../services/exchange.service.js";
+import { strategyWorker } from "../workers/strategy-executor.js";
 import type { AuthRequest } from "../types/index.js";
 
 const router = Router();
 const prisma = new PrismaClient();
 
 const addBrokerSchema = z.object({
+  uid: z.string().min(1, "Broker UID is required"),
   exchangeId: z.string(),
   name: z.string(),
   apiKey: z.string().min(1),
@@ -24,6 +26,7 @@ router.get("/", authenticate, async (req: AuthRequest, res: Response) => {
       where: { userId: req.user!.userId },
       select: {
         id: true,
+        uid: true,
         exchangeId: true,
         name: true,
         status: true,
@@ -52,6 +55,7 @@ router.get("/", authenticate, async (req: AuthRequest, res: Response) => {
         }
         return {
           id: broker.id,
+          uid: broker.uid,
           exchangeId: broker.exchangeId,
           name: broker.name,
           status: broker.status,
@@ -87,6 +91,7 @@ router.post("/", authenticate, async (req: AuthRequest, res: Response) => {
     const broker = await prisma.broker.create({
       data: {
         userId: req.user!.userId,
+        uid: data.uid,
         exchangeId: data.exchangeId,
         name: data.name,
         apiKey: data.apiKey,
@@ -95,7 +100,7 @@ router.post("/", authenticate, async (req: AuthRequest, res: Response) => {
         ipWhitelist: data.ipWhitelist ?? false,
         status: "CONNECTED",
       },
-      select: { id: true, exchangeId: true, name: true, status: true, connectedAt: true },
+      select: { id: true, uid: true, exchangeId: true, name: true, status: true, connectedAt: true },
     });
 
     res.status(201).json({ success: true, data: broker });
@@ -194,6 +199,90 @@ router.get("/:id/ticker/:symbol", authenticate, async (req: AuthRequest, res: Re
   }
 });
 
+// Edit broker
+const editBrokerSchema = z.object({
+  uid: z.string().min(1).optional(),
+  apiKey: z.string().min(1).optional(),
+  apiSecret: z.string().min(1).optional(),
+  passphrase: z.string().optional(),
+  ipWhitelist: z.boolean().optional(),
+});
+
+router.patch("/:id", authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const data = editBrokerSchema.parse(req.body);
+
+    const broker = await prisma.broker.findFirst({
+      where: { id, userId: req.user!.userId },
+    });
+    if (!broker) {
+      res.status(404).json({ success: false, error: "Broker not found" });
+      return;
+    }
+
+    // Build update data
+    const updateData: Record<string, unknown> = {};
+    if (data.uid !== undefined) updateData.uid = data.uid;
+    if (data.ipWhitelist !== undefined) updateData.ipWhitelist = data.ipWhitelist;
+
+    // If API keys changed, test the new connection
+    const newApiKey = data.apiKey || broker.apiKey;
+    const newApiSecret = data.apiSecret || broker.apiSecret;
+    const newPassphrase = data.passphrase !== undefined ? data.passphrase : broker.passphrase;
+
+    if (data.apiKey || data.apiSecret) {
+      // Remove old cached exchange instance
+      exchangeService.removeExchange(broker.id);
+
+      const testId = "test-edit-" + Date.now();
+      const exchange = exchangeService.getExchange(testId, broker.exchangeId, newApiKey, newApiSecret, newPassphrase || undefined);
+      const testResult = await exchangeService.testConnection(exchange);
+      exchangeService.removeExchange(testId);
+
+      if (!testResult.ok) {
+        res.status(400).json({ success: false, error: testResult.error || "New API credentials failed to connect" });
+        return;
+      }
+
+      updateData.apiKey = newApiKey;
+      updateData.apiSecret = newApiSecret;
+      if (data.passphrase !== undefined) updateData.passphrase = newPassphrase;
+
+      // Clear cached exchange so it reconnects with new keys
+      exchangeService.removeExchange(broker.id);
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      res.status(400).json({ success: false, error: "No fields to update" });
+      return;
+    }
+
+    const updated = await prisma.broker.update({
+      where: { id: broker.id },
+      data: updateData,
+      select: {
+        id: true,
+        uid: true,
+        exchangeId: true,
+        name: true,
+        status: true,
+        connectedAt: true,
+        ipWhitelist: true,
+      },
+    });
+
+    res.json({ success: true, data: updated, message: "Broker updated" });
+  } catch (err: unknown) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ success: false, error: err.issues[0].message });
+      return;
+    }
+    const e = err as { statusCode?: number; message: string };
+    res.status(e.statusCode || 500).json({ success: false, error: e.message });
+  }
+});
+
 // Delete broker
 router.delete("/:id", authenticate, async (req: AuthRequest, res: Response) => {
   try {
@@ -205,16 +294,25 @@ router.delete("/:id", authenticate, async (req: AuthRequest, res: Response) => {
       res.status(404).json({ success: false, error: "Broker not found" });
       return;
     }
-    const activeDeployments = await prisma.deployedStrategy.count({
-      where: { brokerId: broker.id, status: "ACTIVE" },
+
+    // Stop all strategies on this broker + soft delete (keep trade data)
+    const deployments = await prisma.deployedStrategy.findMany({
+      where: { brokerId: broker.id, status: { not: "DELETED" } },
+      select: { id: true },
     });
-    if (activeDeployments > 0) {
-      res.status(400).json({ success: false, error: "Stop all active strategies before disconnecting" });
-      return;
+
+    for (const d of deployments) {
+      strategyWorker.stopStrategy(d.id);
+      await strategyWorker.closeAllOpenTrades(d.id);
     }
+    await prisma.deployedStrategy.updateMany({
+      where: { brokerId: broker.id },
+      data: { status: "DELETED", stoppedAt: new Date() },
+    });
+
     exchangeService.removeExchange(broker.id);
     await prisma.broker.delete({ where: { id: broker.id } });
-    res.json({ success: true, message: "Broker disconnected" });
+    res.json({ success: true, message: "Broker disconnected and all strategies removed" });
   } catch (err: unknown) {
     const e = err as { message: string };
     res.status(500).json({ success: false, error: e.message });

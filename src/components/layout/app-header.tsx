@@ -18,6 +18,7 @@ import {
   X,
   Plug,
   Rocket,
+  FlaskConical,
   ChevronRight,
   LogOut,
 } from "lucide-react"
@@ -35,12 +36,14 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
+import { NotificationPanel } from "./notification-panel"
 
 const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, description: "Portfolio overview" },
   { label: "Strategies", href: "/strategies", icon: Zap, description: "Browse & deploy" },
   { label: "Brokers", href: "/brokers", icon: Plug, description: "Manage exchanges" },
   { label: "Deployed", href: "/deployed", icon: Rocket, description: "Active strategies" },
+  { label: "Backtest", href: "/backtest", icon: FlaskConical, description: "Test strategies" },
   { label: "Reports", href: "/reports", icon: BarChart3, description: "Analytics & PnL" },
   { label: "Settings", href: "/settings", icon: Settings, description: "Account & alerts" },
 ]
@@ -137,10 +140,7 @@ export function AppHeader() {
               <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
             </Button>
 
-            <Button variant="ghost" size="icon" className="relative h-8 w-8">
-              <Bell className="h-4 w-4" />
-              <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-primary" />
-            </Button>
+            <NotificationPanel />
 
             <DropdownMenu>
               <DropdownMenuTrigger className="hidden h-8 items-center gap-2 rounded-lg px-2 text-sm font-medium transition-colors hover:bg-muted md:flex">
@@ -152,9 +152,8 @@ export function AppHeader() {
                 <span className="text-sm font-medium">{user?.name || user?.email || "User"}</span>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem>Profile</DropdownMenuItem>
-                <DropdownMenuItem>API Keys</DropdownMenuItem>
-                <DropdownMenuItem>Billing</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push("/settings")}>Profile</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push("/billing")}>Billing</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout}>Log out</DropdownMenuItem>
               </DropdownMenuContent>

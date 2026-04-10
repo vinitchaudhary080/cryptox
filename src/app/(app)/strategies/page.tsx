@@ -35,6 +35,7 @@ import {
 } from "recharts"
 import { strategyApi } from "@/lib/api"
 import { strategies as mockStrategies } from "@/lib/mock-data"
+import { DeployDialog } from "@/components/strategies/deploy-dialog"
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -45,7 +46,7 @@ const stagger = {
   visible: { transition: { staggerChildren: 0.06 } },
 }
 
-const categories = ["All", "Grid", "DCA", "Trend", "Mean Reversion", "Arbitrage", "Scalping"]
+const categories = ["All", "Grid", "DCA", "Trend", "Mean Reversion", "Meri Strategy", "Arbitrage", "Scalping"]
 
 const riskColors = {
   low: "border-profit/30 text-profit bg-profit/5",
@@ -66,6 +67,8 @@ export default function StrategiesPage() {
   const [search, setSearch] = useState("")
   const [activeCategory, setActiveCategory] = useState("All")
   const [apiStrategies, setApiStrategies] = useState<ApiStrategy[]>([])
+  const [deployOpen, setDeployOpen] = useState(false)
+  const [deployTarget, setDeployTarget] = useState<{ id: string; name: string; category: string } | null>(null)
 
   useEffect(() => {
     strategyApi.list().then((res) => {
@@ -135,6 +138,25 @@ export default function StrategiesPage() {
       </motion.div>
 
       {/* Strategy Cards */}
+      {filtered.length === 0 && (
+        <motion.div variants={fadeUp}>
+          <Card className="border-border/50">
+            <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+              <Zap className="mb-3 h-10 w-10 text-muted-foreground/20" />
+              <p className="text-sm font-medium text-muted-foreground">No strategies match your filter</p>
+              <p className="mt-1 text-xs text-muted-foreground/60">
+                Try a different category or clear your search
+              </p>
+              <button
+                onClick={() => { setActiveCategory("All"); setSearch("") }}
+                className="mt-3 text-xs font-medium text-primary hover:underline"
+              >
+                Show all strategies
+              </button>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {filtered.map((strategy) => (
           <motion.div key={strategy.id} variants={fadeUp}>
@@ -285,10 +307,20 @@ export default function StrategiesPage() {
 
                   {/* Deploy Button */}
                   <div className="flex gap-3">
-                    <Button className="flex-1">
+                    <Button
+                      className="flex-1"
+                      onClick={() => {
+                        const apiMatch = apiStrategies.find((a) => a.name === strategy.name)
+                        setDeployTarget({
+                          id: apiMatch?.id || strategy.id,
+                          name: strategy.name,
+                          category: apiMatch?.category || strategy.category,
+                        })
+                        setDeployOpen(true)
+                      }}
+                    >
                       Deploy Strategy <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
-                    <Button variant="outline">Paper Trade</Button>
                   </div>
 
                   <p className="text-center text-[10px] text-muted-foreground">
@@ -300,6 +332,17 @@ export default function StrategiesPage() {
           </motion.div>
         ))}
       </div>
+
+      {/* Deploy Dialog */}
+      {deployTarget && (
+        <DeployDialog
+          open={deployOpen}
+          onOpenChange={setDeployOpen}
+          strategyId={deployTarget.id}
+          strategyName={deployTarget.name}
+          strategyType={deployTarget.category}
+        />
+      )}
     </motion.div>
   )
 }

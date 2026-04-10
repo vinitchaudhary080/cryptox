@@ -4,6 +4,7 @@ import { PrismaClient, type Prisma } from "@prisma/client";
 import { authenticate } from "../middleware/auth.js";
 import { strategyWorker } from "../workers/strategy-executor.js";
 import type { AuthRequest } from "../types/index.js";
+import { createNotification } from "../services/notification.service.js";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -22,7 +23,10 @@ router.get("/", authenticate, async (req: AuthRequest, res: Response) => {
     const brokerId = req.query.brokerId as string | undefined;
     const status = req.query.status as string | undefined;
 
-    const where: Prisma.DeployedStrategyWhereInput = { userId: req.user!.userId };
+    const where: Prisma.DeployedStrategyWhereInput = {
+      userId: req.user!.userId,
+      status: { not: "DELETED" }, // hide deleted from deployed page
+    };
     if (brokerId && brokerId !== "all") where.brokerId = brokerId;
     if (status && status !== "all") where.status = status.toUpperCase() as "ACTIVE" | "PAUSED" | "STOPPED";
 
@@ -30,7 +34,7 @@ router.get("/", authenticate, async (req: AuthRequest, res: Response) => {
       where,
       include: {
         strategy: { select: { name: true, category: true } },
-        broker: { select: { name: true, exchangeId: true } },
+        broker: { select: { name: true, uid: true, exchangeId: true } },
         trades: { orderBy: { openedAt: "desc" }, take: 10 },
         _count: { select: { trades: true } },
       },
@@ -50,6 +54,7 @@ router.get("/", authenticate, async (req: AuthRequest, res: Response) => {
         strategyName: d.strategy.name,
         strategyType: d.strategy.category,
         brokerName: d.broker.name,
+        brokerUid: d.broker.uid,
         brokerId: d.brokerId,
         pair: d.pair,
         status: d.status,
@@ -79,7 +84,7 @@ router.get("/:id", authenticate, async (req: AuthRequest, res: Response) => {
       where: { id, userId: req.user!.userId },
       include: {
         strategy: true,
-        broker: { select: { name: true, exchangeId: true } },
+        broker: { select: { name: true, uid: true, exchangeId: true } },
         trades: { orderBy: { openedAt: "desc" } },
       },
     });
@@ -88,6 +93,37 @@ router.get("/:id", authenticate, async (req: AuthRequest, res: Response) => {
       return;
     }
     res.json({ success: true, data: deployed });
+  } catch (err: unknown) {
+    const e = err as { message: string };
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// Get trades for a deployed strategy
+router.get("/:id/trades", authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const status = req.query.status as string | undefined;
+
+    const deployed = await prisma.deployedStrategy.findFirst({
+      where: { id, userId: req.user!.userId },
+      select: { id: true },
+    });
+    if (!deployed) {
+      res.status(404).json({ success: false, error: "Not found" });
+      return;
+    }
+
+    const where: Prisma.TradeWhereInput = { deployedStrategyId: id };
+    if (status === "OPEN" || status === "CLOSED") where.status = status;
+
+    const trades = await prisma.trade.findMany({
+      where,
+      orderBy: { openedAt: "desc" },
+      take: 100,
+    });
+
+    res.json({ success: true, data: trades });
   } catch (err: unknown) {
     const e = err as { message: string };
     res.status(500).json({ success: false, error: e.message });
@@ -132,6 +168,14 @@ router.post("/", authenticate, async (req: AuthRequest, res: Response) => {
 
     await strategyWorker.startStrategy(deployed.id);
 
+    createNotification({
+      userId: req.user!.userId,
+      type: "strategy_deploy",
+      title: `Strategy Deployed`,
+      message: `${deployed.strategy.name} deployed on ${deployed.pair} with $${data.investedAmount}`,
+      data: { pair: data.pair, strategyName: deployed.strategy.name, amount: data.investedAmount, deployedId: deployed.id },
+    }).catch(() => {});
+
     res.status(201).json({ success: true, data: deployed });
   } catch (err: unknown) {
     if (err instanceof z.ZodError) {
@@ -143,16 +187,118 @@ router.post("/", authenticate, async (req: AuthRequest, res: Response) => {
   }
 });
 
-// Update status (pause / resume / stop)
-router.patch("/:id/status", authenticate, async (req: AuthRequest, res: Response) => {
+// Pause strategy — stops worker + closes all open trades
+router.patch("/:id/pause", authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
-    const { status } = req.body;
-    if (!["ACTIVE", "PAUSED", "STOPPED"].includes(status)) {
-      res.status(400).json({ success: false, error: "Invalid status" });
+    const deployed = await prisma.deployedStrategy.findFirst({
+      where: { id, userId: req.user!.userId },
+    });
+    if (!deployed) {
+      res.status(404).json({ success: false, error: "Deployed strategy not found" });
+      return;
+    }
+    if (deployed.status !== "ACTIVE") {
+      res.status(400).json({ success: false, error: "Strategy is not active" });
       return;
     }
 
+    // 1. Stop the worker
+    strategyWorker.stopStrategy(deployed.id);
+
+    // 2. Close all open trades at current market price
+    const result = await strategyWorker.closeAllOpenTrades(deployed.id);
+
+    // 3. Update status
+    const updated = await prisma.deployedStrategy.update({
+      where: { id: deployed.id },
+      data: { status: "PAUSED" },
+    });
+
+    res.json({
+      success: true,
+      data: updated,
+      message: `Paused. Closed ${result.closed} positions (PnL: $${result.totalPnl})`,
+    });
+  } catch (err: unknown) {
+    const e = err as { message: string };
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// Resume strategy — restarts the worker
+router.patch("/:id/resume", authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const deployed = await prisma.deployedStrategy.findFirst({
+      where: { id, userId: req.user!.userId },
+    });
+    if (!deployed) {
+      res.status(404).json({ success: false, error: "Deployed strategy not found" });
+      return;
+    }
+    if (deployed.status !== "PAUSED") {
+      res.status(400).json({ success: false, error: "Strategy is not paused" });
+      return;
+    }
+
+    const updated = await prisma.deployedStrategy.update({
+      where: { id: deployed.id },
+      data: { status: "ACTIVE" },
+    });
+
+    await strategyWorker.startStrategy(deployed.id);
+
+    res.json({ success: true, data: updated, message: "Strategy resumed" });
+  } catch (err: unknown) {
+    const e = err as { message: string };
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// Stop strategy — stops worker + closes all trades + marks stopped permanently
+router.patch("/:id/stop", authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const deployed = await prisma.deployedStrategy.findFirst({
+      where: { id, userId: req.user!.userId },
+    });
+    if (!deployed) {
+      res.status(404).json({ success: false, error: "Deployed strategy not found" });
+      return;
+    }
+    if (deployed.status === "STOPPED") {
+      res.status(400).json({ success: false, error: "Strategy is already stopped" });
+      return;
+    }
+
+    // 1. Stop worker
+    strategyWorker.stopStrategy(deployed.id);
+
+    // 2. Close all open trades
+    const result = await strategyWorker.closeAllOpenTrades(deployed.id);
+
+    // 3. Mark as stopped
+    const updated = await prisma.deployedStrategy.update({
+      where: { id: deployed.id },
+      data: { status: "STOPPED", stoppedAt: new Date() },
+    });
+
+    res.json({
+      success: true,
+      data: updated,
+      message: `Stopped. Closed ${result.closed} positions (PnL: $${result.totalPnl})`,
+    });
+  } catch (err: unknown) {
+    const e = err as { message: string };
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// Delete strategy — closes all trades + marks as DELETED (keeps data for reports)
+router.delete("/:id", authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
     const deployed = await prisma.deployedStrategy.findFirst({
       where: { id, userId: req.user!.userId },
     });
@@ -161,18 +307,22 @@ router.patch("/:id/status", authenticate, async (req: AuthRequest, res: Response
       return;
     }
 
-    const updated = await prisma.deployedStrategy.update({
+    // 1. Stop the worker if running
+    strategyWorker.stopStrategy(deployed.id);
+
+    // 2. Close all open trades at market price
+    const result = await strategyWorker.closeAllOpenTrades(deployed.id);
+
+    // 3. Mark as DELETED (soft delete — keeps trades for reports)
+    await prisma.deployedStrategy.update({
       where: { id: deployed.id },
-      data: { status, stoppedAt: status === "STOPPED" ? new Date() : null },
+      data: { status: "DELETED", stoppedAt: new Date() },
     });
 
-    if (status === "ACTIVE") {
-      await strategyWorker.startStrategy(deployed.id);
-    } else {
-      strategyWorker.stopStrategy(deployed.id);
-    }
-
-    res.json({ success: true, data: updated });
+    res.json({
+      success: true,
+      message: `Removed. Closed ${result.closed} positions (PnL: $${result.totalPnl}). Trade history preserved in reports.`,
+    });
   } catch (err: unknown) {
     const e = err as { message: string };
     res.status(500).json({ success: false, error: e.message });

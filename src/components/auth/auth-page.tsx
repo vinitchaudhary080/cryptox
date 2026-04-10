@@ -23,6 +23,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
+import { useGoogleLogin } from "@react-oauth/google"
+import { authApi } from "@/lib/api"
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -65,16 +67,91 @@ export function AuthPage({ defaultTab = "login" }: { defaultTab?: "login" | "sig
   const [confirmPassword, setConfirmPassword] = useState("")
   const [name, setName] = useState("")
   const { theme, setTheme } = useTheme()
-  const { login, signup, isLoading, error, clearError } = useAuthStore()
+  const { login, signup, googleLogin, isLoading, error, clearError } = useAuthStore()
   const router = useRouter()
+  const [googleLoading, setGoogleLoading] = useState(false)
+
+  // OTP verification state
+  const [showOtp, setShowOtp] = useState(false)
+  const [otpEmail, setOtpEmail] = useState("")
+  const [otp, setOtp] = useState("")
+  const [otpLoading, setOtpLoading] = useState(false)
+  const [otpError, setOtpError] = useState("")
+  const [otpSuccess, setOtpSuccess] = useState("")
+
+  const handleGoogleLogin = useGoogleLogin({
+    flow: "auth-code",
+    onSuccess: async (response) => {
+      setGoogleLoading(true)
+      clearError()
+      const success = await googleLogin({ code: response.code })
+      setGoogleLoading(false)
+      if (success) router.push("/dashboard")
+    },
+    onError: () => {
+      setGoogleLoading(false)
+    },
+  })
 
   const handleSubmit = async () => {
     if (tab === "signup" && password !== confirmPassword) return
     clearError()
-    const success = tab === "login"
-      ? await login(email, password)
-      : await signup(email, password, name || undefined)
-    if (success) router.push("/dashboard")
+
+    if (tab === "signup") {
+      const success = await signup(email, password, name || undefined)
+      if (success) {
+        // Show OTP verification screen
+        setOtpEmail(email)
+        setShowOtp(true)
+        setOtpError("")
+        setOtpSuccess("A verification code has been sent to your email.")
+      }
+    } else {
+      const success = await login(email, password)
+      if (success) {
+        router.push("/dashboard")
+      } else {
+        // Check if error is about unverified email
+        const currentError = useAuthStore.getState().error
+        if (currentError?.includes("not verified")) {
+          setOtpEmail(email)
+          setShowOtp(true)
+          setOtpError("")
+          setOtpSuccess("Your email is not verified. A new OTP has been sent.")
+          clearError()
+        }
+      }
+    }
+  }
+
+  const handleVerifyOtp = async () => {
+    setOtpLoading(true)
+    setOtpError("")
+    const res = await authApi.verifyOtp(otpEmail, otp)
+    if (res.success) {
+      setOtpSuccess("Email verified! Logging you in...")
+      // Auto-login after verification
+      setTimeout(async () => {
+        const loginSuccess = await login(otpEmail, password)
+        if (loginSuccess) router.push("/dashboard")
+        setOtpLoading(false)
+      }, 1000)
+    } else {
+      setOtpError(res.error || "Invalid OTP")
+      setOtpLoading(false)
+    }
+  }
+
+  const handleResendOtp = async () => {
+    setOtpLoading(true)
+    setOtpError("")
+    const res = await authApi.resendOtp(otpEmail)
+    if (res.success) {
+      setOtpSuccess("New OTP sent to your email.")
+    } else {
+      setOtpError(res.error || "Failed to resend OTP")
+    }
+    setOtpLoading(false)
   }
 
   return (
@@ -160,6 +237,81 @@ export function AuthPage({ defaultTab = "login" }: { defaultTab?: "login" | "sig
 
         {/* Form area */}
         <div className="flex flex-1 items-center justify-center px-4 pb-12">
+          {/* OTP Verification Screen */}
+          {showOtp ? (
+            <motion.div
+              initial="hidden"
+              animate="visible"
+              variants={stagger}
+              className="w-full max-w-[400px]"
+            >
+              <motion.div variants={fadeUp} className="text-center">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
+                  <Mail className="h-8 w-8 text-primary" />
+                </div>
+                <h1 className="mt-6 text-2xl font-bold tracking-tight">Verify your email</h1>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  We sent a 6-digit code to <span className="font-medium text-foreground">{otpEmail}</span>
+                </p>
+              </motion.div>
+
+              <motion.div variants={fadeUp} className="mt-8 space-y-4">
+                <div>
+                  <Label className="text-xs font-medium text-muted-foreground">Verification Code</Label>
+                  <Input
+                    placeholder="Enter 6-digit code"
+                    className="mt-1.5 h-12 rounded-xl bg-muted/30 text-center text-lg font-bold tracking-[0.5em]"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    onKeyDown={(e) => e.key === "Enter" && otp.length === 6 && handleVerifyOtp()}
+                    maxLength={6}
+                  />
+                </div>
+              </motion.div>
+
+              {otpSuccess && (
+                <motion.div variants={fadeUp} className="mt-4 rounded-xl border border-profit/20 bg-profit/5 p-3 text-center text-xs text-profit">
+                  {otpSuccess}
+                </motion.div>
+              )}
+
+              {otpError && (
+                <motion.div variants={fadeUp} className="mt-4 rounded-xl border border-loss/20 bg-loss/5 p-3 text-center text-xs text-loss">
+                  {otpError}
+                </motion.div>
+              )}
+
+              <motion.div variants={fadeUp} className="mt-6">
+                <Button
+                  className="h-11 w-full rounded-xl text-sm font-semibold"
+                  onClick={handleVerifyOtp}
+                  disabled={otpLoading || otp.length !== 6}
+                >
+                  {otpLoading ? (
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                  ) : (
+                    "Verify Email"
+                  )}
+                </Button>
+              </motion.div>
+
+              <motion.div variants={fadeUp} className="mt-4 flex items-center justify-center gap-1 text-sm">
+                <span className="text-muted-foreground">Didn&apos;t receive the code?</span>
+                <button onClick={handleResendOtp} disabled={otpLoading} className="font-semibold text-primary hover:underline">
+                  Resend
+                </button>
+              </motion.div>
+
+              <motion.div variants={fadeUp} className="mt-2 text-center">
+                <button
+                  onClick={() => { setShowOtp(false); setOtp(""); setOtpError(""); setOtpSuccess("") }}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Back to {tab === "signup" ? "Sign Up" : "Log In"}
+                </button>
+              </motion.div>
+            </motion.div>
+          ) : (
           <motion.div
             initial="hidden"
             animate="visible"
@@ -215,8 +367,14 @@ export function AuthPage({ defaultTab = "login" }: { defaultTab?: "login" | "sig
               <Button
                 variant="outline"
                 className="h-11 w-full gap-3 rounded-xl text-sm font-medium"
+                onClick={() => handleGoogleLogin()}
+                disabled={isLoading || googleLoading}
               >
-                <GoogleIcon className="h-5 w-5" />
+                {googleLoading ? (
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-foreground border-t-transparent" />
+                ) : (
+                  <GoogleIcon className="h-5 w-5" />
+                )}
                 Continue with Google
               </Button>
             </motion.div>
@@ -399,6 +557,7 @@ export function AuthPage({ defaultTab = "login" }: { defaultTab?: "login" | "sig
               </button>
             </motion.p>
           </motion.div>
+          )}
         </div>
       </div>
     </div>
