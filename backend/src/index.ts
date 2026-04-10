@@ -75,13 +75,14 @@ app.use(errorHandler);
 initSocket(server);
 
 // Start server
-server.listen(env.port, async () => {
+server.listen(env.port, "127.0.0.1", async () => {
   console.log(`
 ╔═══════════════════════════════════════════╗
 ║         CryptoX Backend Server            ║
 ╠═══════════════════════════════════════════╣
-║  HTTP:  http://localhost:${env.port}            ║
-║  WS:    ws://localhost:${env.port}              ║
+║  HTTP:  http://127.0.0.1:${env.port}           ║
+║  WS:    ws://127.0.0.1:${env.port}             ║
+║  Docs:  http://127.0.0.1:${env.port}/docs      ║
 ║  Env:   ${env.nodeEnv.padEnd(32)}║
 ╚═══════════════════════════════════════════╝
   `);
