@@ -91,6 +91,7 @@ export default function StrategiesPage() {
           subscribers: 0,
           trades: 0,
           pairs: ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
+          tags: [api.category],
           performance: Array.from({ length: 30 }, (_, i) => ({ day: i + 1, value: 100 + Math.round(Math.sin(i * 0.3) * 10 + i * 0.5) })),
         }
       })
