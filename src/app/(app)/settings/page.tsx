@@ -126,7 +126,9 @@ export default function SettingsPage() {
     if (res.success) {
       setSaved(true)
       setEditing(false)
-      if (res.data) setProfile(res.data as Profile)
+      // Re-fetch full profile (with stats) instead of using partial PATCH response
+      const fresh = await userApi.getProfile()
+      if (fresh.success && fresh.data) setProfile(fresh.data as Profile)
       setTimeout(() => setSaved(false), 3000)
     }
   }
