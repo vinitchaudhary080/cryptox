@@ -38,7 +38,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
 import { brokerApi, portfolioApi } from "@/lib/api"
 import { availableBrokers } from "@/lib/mock-data"
 
@@ -499,12 +498,28 @@ export default function BrokersPage() {
                       <Input className="mt-1.5 bg-muted/50 font-mono text-sm" placeholder="Optional" type="password" value={newPassphrase} onChange={(e) => setNewPassphrase(e.target.value)} />
                     </div>
 
-                    <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/20 p-3">
-                      <div>
-                        <p className="text-sm font-medium">IP Whitelisting</p>
-                        <p className="text-[10px] text-muted-foreground">Restrict API to CryptoX servers only</p>
+                    <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+                      <div className="flex items-start gap-2">
+                        <Shield className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                        <div className="flex-1">
+                          <p className="text-xs font-medium">IP Whitelist Required</p>
+                          <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
+                            Add this IP in your exchange API settings to allow CryptoX to trade:
+                          </p>
+                          <div className="mt-2 flex items-center gap-2">
+                            <code className="rounded bg-muted px-2.5 py-1 font-mono text-xs font-semibold text-foreground">3.24.173.212</code>
+                            <button
+                              type="button"
+                              className="rounded-md px-2 py-1 text-[10px] font-medium text-primary hover:bg-primary/10 transition-colors"
+                              onClick={() => {
+                                navigator.clipboard.writeText("3.24.173.212")
+                              }}
+                            >
+                              Copy
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                      <Switch defaultChecked />
                     </div>
 
                     <div className="rounded-lg border border-warning/20 bg-warning/5 p-3">
