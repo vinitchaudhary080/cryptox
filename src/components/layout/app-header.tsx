@@ -38,12 +38,14 @@ import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
 import { NotificationPanel } from "./notification-panel"
 
+const showBacktest = process.env.NEXT_PUBLIC_SHOW_BACKTEST !== "false"
+
 const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, description: "Portfolio overview" },
   { label: "Strategies", href: "/strategies", icon: Zap, description: "Browse & deploy" },
   { label: "Brokers", href: "/brokers", icon: Plug, description: "Manage exchanges" },
   { label: "Deployed", href: "/deployed", icon: Rocket, description: "Active strategies" },
-  { label: "Backtest", href: "/backtest", icon: FlaskConical, description: "Test strategies" },
+  ...(showBacktest ? [{ label: "Backtest", href: "/backtest", icon: FlaskConical, description: "Test strategies" }] : []),
   { label: "Reports", href: "/reports", icon: BarChart3, description: "Analytics & PnL" },
   { label: "Settings", href: "/settings", icon: Settings, description: "Account & alerts" },
 ]
