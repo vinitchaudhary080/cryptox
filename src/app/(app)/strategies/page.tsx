@@ -120,9 +120,6 @@ export default function StrategiesPage() {
             Browse and deploy battle-tested trading strategies
           </p>
         </div>
-        <a href="/builder" className={buttonVariants()}>
-          <Zap className="mr-2 h-4 w-4" /> Build Custom
-        </a>
       </motion.div>
 
       {/* Filters */}
