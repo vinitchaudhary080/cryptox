@@ -9,7 +9,7 @@ const options: swaggerJsdoc.Options = {
       description: "Algorithmic Crypto Trading Platform — Backend API",
     },
     servers: [
-      { url: "http://13.55.42.137:4000", description: "Local Development" },
+      { url: "http://3.24.173.212:4000", description: "Local Development" },
     ],
     components: {
       securitySchemes: {

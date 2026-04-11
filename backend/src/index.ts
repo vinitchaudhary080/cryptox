@@ -39,7 +39,7 @@ app.use(helmet({
   contentSecurityPolicy: false,
 }));
 app.use(cors({
-  origin: [env.frontendUrl, "http://0.0.0.0:3000", "http://172.20.10.2:3000", "http://13.55.42.137:3000", "http://13.55.42.137", "http://10.67.170.229:3000"],
+  origin: [env.frontendUrl, "http://0.0.0.0:3000", "http://172.20.10.2:3000", "http://3.24.173.212:3000", "http://3.24.173.212", "http://10.67.170.229:3000"],
   credentials: true,
 }));
 app.use(compression());
