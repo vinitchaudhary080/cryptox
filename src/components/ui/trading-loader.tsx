@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 
 const candleData = [
@@ -59,7 +60,16 @@ function Candle({
   )
 }
 
-export function TradingLoader({ message }: { message?: string }) {
+export function TradingLoader({ message, delay = 300 }: { message?: string; delay?: number }) {
+  const [show, setShow] = useState(false)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShow(true), delay)
+    return () => clearTimeout(timer)
+  }, [delay])
+
+  if (!show) return null
+
   return (
     <div className="flex flex-col items-center justify-center gap-4 py-24">
       {/* Candlestick chart animation */}
