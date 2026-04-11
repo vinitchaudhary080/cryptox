@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
+import { TradingLoader } from "@/components/ui/trading-loader"
 import {
   Plus,
   Check,
@@ -214,11 +215,7 @@ export default function BrokersPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
+    return <TradingLoader message="Loading brokers..." />
   }
 
   return (

@@ -14,7 +14,6 @@ import {
   ArrowDownRight,
   Plug,
   Rocket,
-  Loader2,
   BarChart3,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -34,6 +33,7 @@ import {
 } from "recharts"
 import { portfolioApi } from "@/lib/api"
 import { MarketOverview } from "@/components/dashboard/market-overview"
+import { TradingLoader } from "@/components/ui/trading-loader"
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -117,11 +117,7 @@ export default function DashboardPage() {
   }, [])
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
+    return <TradingLoader message="Loading dashboard..." />
   }
 
   const isNewUser = !stats || (stats.totalTrades === 0 && stats.activeStrategies === 0 && stats.totalValue === 0)

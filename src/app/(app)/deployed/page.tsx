@@ -42,6 +42,7 @@ import {
 } from "recharts"
 import { deployedApi, brokerApi } from "@/lib/api"
 import { type DeployedStrategy } from "@/lib/mock-data"
+import { TradingLoader } from "@/components/ui/trading-loader"
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -677,11 +678,7 @@ export default function DeployedPage() {
   const strategies = apiData
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
+    return <TradingLoader message="Loading strategies..." />
   }
 
   const handleBack = () => {

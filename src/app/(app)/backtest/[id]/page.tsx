@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { backtestApi } from "@/lib/api"
+import { TradingLoader } from "@/components/ui/trading-loader"
 import { BacktestSummaryCards } from "@/components/backtest/backtest-summary-cards"
 import { EquityCurveChart } from "@/components/backtest/equity-curve-chart"
 import { MonthlyHeatmap } from "@/components/backtest/monthly-heatmap"
@@ -117,11 +118,7 @@ export default function BacktestDetailPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
+    return <TradingLoader message="Loading backtest..." />
   }
 
   if (!run) {

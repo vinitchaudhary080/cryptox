@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { useAuthStore } from "@/stores/auth-store"
 import { subscriptionApi } from "@/lib/api"
+import { TradingLoader } from "@/components/ui/trading-loader"
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -145,11 +146,7 @@ export default function BillingPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
+    return <TradingLoader message="Loading plans..." />
   }
 
   return (

@@ -35,6 +35,7 @@ import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { userApi } from "@/lib/api"
+import { TradingLoader } from "@/components/ui/trading-loader"
 import { useAuthStore } from "@/stores/auth-store"
 
 const fadeUp = {
@@ -147,11 +148,7 @@ export default function SettingsPage() {
     : profile?.email?.slice(0, 2).toUpperCase() || "U"
 
   if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    )
+    return <TradingLoader message="Loading settings..." />
   }
 
   return (
