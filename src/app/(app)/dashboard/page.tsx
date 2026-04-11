@@ -15,6 +15,7 @@ import {
   Plug,
   Rocket,
   BarChart3,
+  Check,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -31,7 +32,7 @@ import {
   Pie,
   Cell,
 } from "recharts"
-import { portfolioApi } from "@/lib/api"
+import { portfolioApi, brokerApi } from "@/lib/api"
 import { MarketOverview } from "@/components/dashboard/market-overview"
 import { TradingLoader } from "@/components/ui/trading-loader"
 
@@ -72,6 +73,7 @@ export default function DashboardPage() {
   const [trades, setTrades] = useState<TradeItem[]>([])
   const [pnlHistory, setPnlHistory] = useState<{ date: string; pnl: number }[]>([])
   const [allocation, setAllocation] = useState<{ name: string; value: number; color: string }[]>([])
+  const [hasBrokerConnected, setHasBrokerConnected] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -82,6 +84,14 @@ export default function DashboardPage() {
     }
 
     Promise.all([
+      brokerApi.list().then((res) => {
+        if (res.success && Array.isArray(res.data)) {
+          const connected = (res.data as { status: string }[]).some(
+            (b) => b.status === "CONNECTED"
+          )
+          setHasBrokerConnected(connected)
+        }
+      }).catch(() => {}),
       portfolioApi.stats().then((res) => {
         if (res.success && res.data) setStats(res.data as PortfolioStats)
       }),
@@ -120,7 +130,10 @@ export default function DashboardPage() {
     return <TradingLoader message="Loading dashboard..." />
   }
 
-  const isNewUser = !stats || (stats.totalTrades === 0 && stats.activeStrategies === 0 && stats.totalValue === 0)
+  const hasStrategy = (stats?.activeStrategies ?? 0) > 0
+  const hasTrades = (stats?.totalTrades ?? 0) > 0
+  const allStepsComplete = hasBrokerConnected && hasStrategy && hasTrades
+  const isNewUser = !allStepsComplete && (!stats || (stats.totalTrades === 0 && stats.activeStrategies === 0 && stats.totalValue === 0))
   const pnlPositive = (stats?.totalPnl ?? 0) >= 0
 
   const statCards = [
@@ -191,6 +204,7 @@ export default function DashboardPage() {
                     icon: Plug,
                     action: () => router.push("/brokers"),
                     btn: "Add Broker",
+                    done: hasBrokerConnected,
                   },
                   {
                     step: "2",
@@ -199,6 +213,7 @@ export default function DashboardPage() {
                     icon: Rocket,
                     action: () => router.push("/strategies"),
                     btn: "Browse Strategies",
+                    done: hasStrategy,
                   },
                   {
                     step: "3",
@@ -207,8 +222,9 @@ export default function DashboardPage() {
                     icon: BarChart3,
                     action: () => router.push("/reports"),
                     btn: "View Reports",
+                    done: hasTrades,
                   },
-                ].map((s) => (
+                ].filter((s) => !s.done).map((s) => (
                   <div key={s.step} className="flex flex-col rounded-xl border border-border/40 bg-background/50 p-4">
                     <div className="flex items-center gap-3">
                       <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-sm font-bold text-primary">
