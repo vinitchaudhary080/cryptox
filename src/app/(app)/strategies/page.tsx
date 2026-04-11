@@ -48,7 +48,7 @@ const stagger = {
 
 const categories = ["All", "Grid", "DCA", "Trend", "Mean Reversion", "Meri Strategy", "Arbitrage", "Scalping"]
 
-const riskColors = {
+const riskColors: Record<string, string> = {
   low: "border-profit/30 text-profit bg-profit/5",
   medium: "border-warning/30 text-warning bg-warning/5",
   high: "border-loss/30 text-loss bg-loss/5",
