@@ -76,11 +76,25 @@ export default function StrategiesPage() {
     })
   }, [])
 
-  // Merge API strategies into the mock data display format
-  const strategies = mockStrategies.map((mock) => {
-    const api = apiStrategies.find((a) => a.name === mock.name)
-    return api ? { ...mock, id: api.id, description: api.description } : mock
-  })
+  // Use API strategies directly
+  const strategies = apiStrategies.length > 0
+    ? apiStrategies.map((api) => {
+        const mock = mockStrategies.find((m) => m.name === api.name)
+        return mock ? { ...mock, id: api.id, description: api.description } : {
+          id: api.id,
+          name: api.name,
+          description: api.description,
+          category: api.category,
+          return: 0,
+          winRate: 0,
+          risk: api.riskLevel === "HIGH" ? "High" : api.riskLevel === "LOW" ? "Low" : "Medium",
+          subscribers: 0,
+          trades: 0,
+          pairs: ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
+          performance: Array.from({ length: 30 }, (_, i) => ({ day: i + 1, value: 100 + Math.round(Math.sin(i * 0.3) * 10 + i * 0.5) })),
+        }
+      })
+    : []
 
   const filtered = strategies.filter((s) => {
     const matchesSearch = s.name.toLowerCase().includes(search.toLowerCase())
