@@ -32,6 +32,7 @@ import {
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
+import { marketApi } from "@/lib/api"
 
 /* ─── Animations ─── */
 const fadeUp = {
@@ -186,14 +187,50 @@ function AnimatedNumber({ value, suffix = "" }: { value: number; suffix?: string
 }
 
 /* ─── Live Ticker Bar ─── */
+type TickerCoin = { name: string; price: string; change: string }
+
+const FALLBACK_COINS: TickerCoin[] = [
+  { name: "BTC", price: "83,412", change: "+2.4%" },
+  { name: "ETH", price: "1,845", change: "+1.8%" },
+  { name: "SOL", price: "124.5", change: "+5.2%" },
+  { name: "XRP", price: "2.08", change: "-0.3%" },
+  { name: "DOGE", price: "0.168", change: "+3.1%" },
+]
+
+function formatPrice(price: number): string {
+  if (price >= 1000) return price.toLocaleString("en-US", { maximumFractionDigits: 0 })
+  if (price >= 1) return price.toLocaleString("en-US", { maximumFractionDigits: 2 })
+  return price.toLocaleString("en-US", { maximumFractionDigits: 4 })
+}
+
 function LiveTickerBar() {
-  const coins = [
-    { name: "BTC", price: "83,412", change: "+2.4%" },
-    { name: "ETH", price: "1,845", change: "+1.8%" },
-    { name: "SOL", price: "124.5", change: "+5.2%" },
-    { name: "XRP", price: "2.08", change: "-0.3%" },
-    { name: "DOGE", price: "0.168", change: "+3.1%" },
-  ]
+  const [coins, setCoins] = useState<TickerCoin[]>(FALLBACK_COINS)
+
+  useEffect(() => {
+    let cancelled = false
+
+    const fetchTickers = async () => {
+      try {
+        const res = await marketApi.overview()
+        if (cancelled || !res.success || !Array.isArray(res.data)) return
+        const mapped = (res.data as Array<{ symbol: string; price: number; change24h: number }>).map((c) => ({
+          name: c.symbol,
+          price: formatPrice(c.price),
+          change: `${c.change24h >= 0 ? "+" : ""}${c.change24h.toFixed(1)}%`,
+        }))
+        if (mapped.length > 0) setCoins(mapped)
+      } catch {
+        // keep last-known values on error
+      }
+    }
+
+    fetchTickers()
+    const id = setInterval(fetchTickers, 45_000)
+    return () => {
+      cancelled = true
+      clearInterval(id)
+    }
+  }, [])
 
   return (
     <div className="w-full overflow-hidden border-y border-border/30 bg-muted/20">
