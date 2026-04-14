@@ -105,7 +105,7 @@ export const authApi = {
       body: JSON.stringify({ refreshToken }),
     }),
 
-  google: (params: { credential?: string; code?: string }) =>
+  google: (params: { credential?: string; code?: string; redirectUri?: string }) =>
     apiFetch("/auth/google", {
       method: "POST",
       body: JSON.stringify(params),

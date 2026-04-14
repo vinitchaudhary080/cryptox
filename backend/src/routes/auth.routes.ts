@@ -246,7 +246,11 @@ router.post("/logout", async (req: Request, res: Response) => {
 
 router.post("/google", async (req: Request, res: Response) => {
   try {
-    const { credential, code } = req.body;
+    const { credential, code, redirectUri } = req.body as {
+      credential?: string;
+      code?: string;
+      redirectUri?: string;
+    };
 
     let googleId: string;
     let email: string;
@@ -254,12 +258,19 @@ router.post("/google", async (req: Request, res: Response) => {
     let avatarUrl: string | null = null;
 
     if (code) {
-      const { tokens } = await googleClient.getToken(code);
+      // Use a per-request client so we can match the redirect_uri the frontend
+      // actually used (popup flow → "postmessage", redirect flow → site URL).
+      const client = new OAuth2Client(
+        env.google.clientId,
+        env.google.clientSecret,
+        redirectUri || "postmessage",
+      );
+      const { tokens } = await client.getToken(code);
       if (!tokens.id_token) {
         res.status(401).json({ success: false, error: "Failed to get ID token from Google" });
         return;
       }
-      const ticket = await googleClient.verifyIdToken({ idToken: tokens.id_token, audience: env.google.clientId });
+      const ticket = await client.verifyIdToken({ idToken: tokens.id_token, audience: env.google.clientId });
       const payload = ticket.getPayload();
       if (!payload?.sub || !payload?.email) {
         res.status(401).json({ success: false, error: "Invalid Google token" });

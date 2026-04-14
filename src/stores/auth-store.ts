@@ -19,7 +19,7 @@ type AuthState = {
 
   login: (email: string, password: string) => Promise<boolean>
   signup: (email: string, password: string, name?: string) => Promise<boolean>
-  googleLogin: (params: { credential?: string; code?: string }) => Promise<boolean>
+  googleLogin: (params: { credential?: string; code?: string; redirectUri?: string }) => Promise<boolean>
   logout: () => Promise<void>
   clearError: () => void
 }

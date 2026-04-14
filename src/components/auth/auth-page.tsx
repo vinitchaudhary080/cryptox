@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
 import { useTheme } from "next-themes"
 import { useAuthStore } from "@/stores/auth-store"
@@ -23,8 +23,21 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
-import { useGoogleLogin } from "@react-oauth/google"
 import { authApi } from "@/lib/api"
+
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? ""
+
+function buildGoogleAuthUrl(redirectUri: string): string {
+  const params = new URLSearchParams({
+    client_id: GOOGLE_CLIENT_ID,
+    redirect_uri: redirectUri,
+    response_type: "code",
+    scope: "openid email profile",
+    access_type: "offline",
+    prompt: "select_account",
+  })
+  return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
+}
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -79,36 +92,54 @@ export function AuthPage({ defaultTab = "login" }: { defaultTab?: "login" | "sig
   const [otpError, setOtpError] = useState("")
   const [otpSuccess, setOtpSuccess] = useState("")
 
-  const handleGoogleLogin = useGoogleLogin({
-    flow: "auth-code",
-    onSuccess: async (response) => {
-      console.log("[GoogleLogin] onSuccess fired", response)
-      setGoogleLoading(true)
-      clearError()
-      try {
-        const success = await googleLogin({ code: response.code })
-        console.log("[GoogleLogin] googleLogin returned:", success)
-        setGoogleLoading(false)
+  // Redirect-based Google OAuth — no popup, works reliably with COOP.
+  const handleGoogleLogin = () => {
+    const redirectUri = `${window.location.origin}/login`
+    window.location.href = buildGoogleAuthUrl(redirectUri)
+  }
+
+  // Handle the redirect back from Google: ?code=... in URL → exchange via backend.
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const url = new URL(window.location.href)
+    const code = url.searchParams.get("code")
+    const error = url.searchParams.get("error")
+
+    if (error) {
+      console.error("[GoogleLogin] Google returned error:", error)
+      url.searchParams.delete("error")
+      window.history.replaceState({}, "", url.pathname + url.search)
+      return
+    }
+
+    if (!code) return
+
+    const redirectUri = `${window.location.origin}/login`
+    setGoogleLoading(true)
+    clearError()
+
+    googleLogin({ code, redirectUri })
+      .then((success) => {
         if (success) {
-          console.log("[GoogleLogin] redirecting to /dashboard")
-          router.push("/dashboard")
+          router.replace("/dashboard")
         } else {
-          console.error("[GoogleLogin] googleLogin returned false — backend rejected")
+          setGoogleLoading(false)
         }
-      } catch (err) {
-        console.error("[GoogleLogin] exception during googleLogin call:", err)
+      })
+      .catch((err) => {
+        console.error("[GoogleLogin] exchange failed:", err)
         setGoogleLoading(false)
-      }
-    },
-    onError: (err) => {
-      console.error("[GoogleLogin] onError fired:", err)
-      setGoogleLoading(false)
-    },
-    onNonOAuthError: (err) => {
-      console.error("[GoogleLogin] onNonOAuthError fired:", err)
-      setGoogleLoading(false)
-    },
-  })
+      })
+      .finally(() => {
+        // Strip code from URL so refresh doesn't try to re-exchange it.
+        url.searchParams.delete("code")
+        url.searchParams.delete("scope")
+        url.searchParams.delete("authuser")
+        url.searchParams.delete("prompt")
+        window.history.replaceState({}, "", url.pathname + url.search)
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleSubmit = async () => {
     if (tab === "signup" && password !== confirmPassword) return
