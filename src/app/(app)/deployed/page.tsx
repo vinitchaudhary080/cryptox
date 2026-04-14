@@ -261,6 +261,19 @@ function StrategyList({
   )
 }
 
+function formatTradeTime(iso: string | null | undefined): string {
+  if (!iso) return "—"
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return "—"
+  return d.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  })
+}
+
 type ApiTrade = {
   id: string
   pair: string
@@ -536,7 +549,7 @@ function StrategyDetail({
                         <td className={`py-2.5 font-medium ${trade.pnl >= 0 ? "text-profit" : "text-loss"}`}>
                           {trade.pnl >= 0 ? "+" : ""}${trade.pnl.toFixed(2)}
                         </td>
-                        <td className="py-2.5 text-right text-xs text-muted-foreground">{trade.openedAt}</td>
+                        <td className="py-2.5 text-right text-xs text-muted-foreground">{formatTradeTime(trade.openedAt)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -570,7 +583,8 @@ function StrategyDetail({
                     <th className="pb-2.5 font-medium">Qty</th>
                     <th className="pb-2.5 font-medium">PnL</th>
                     <th className="pb-2.5 font-medium">Fee</th>
-                    <th className="pb-2.5 text-right font-medium">Closed</th>
+                    <th className="pb-2.5 font-medium">Entry Time</th>
+                    <th className="pb-2.5 text-right font-medium">Exit Time</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -589,12 +603,13 @@ function StrategyDetail({
                         {trade.pnl >= 0 ? "+" : ""}${trade.pnl.toFixed(2)}
                       </td>
                       <td className="py-2.5 text-xs text-muted-foreground">${trade.fee.toFixed(2)}</td>
-                      <td className="py-2.5 text-right text-xs text-muted-foreground">{trade.closedAt}</td>
+                      <td className="py-2.5 text-xs text-muted-foreground">{formatTradeTime(trade.openedAt)}</td>
+                      <td className="py-2.5 text-right text-xs text-muted-foreground">{formatTradeTime(trade.closedAt)}</td>
                     </tr>
                   ))}
                   {closedTrades.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="py-8 text-center text-xs text-muted-foreground">
+                      <td colSpan={9} className="py-8 text-center text-xs text-muted-foreground">
                         No closed trades yet
                       </td>
                     </tr>
