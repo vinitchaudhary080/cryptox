@@ -9,7 +9,19 @@ let io: SocketServer;
 export function initSocket(server: HttpServer): SocketServer {
   io = new SocketServer(server, {
     cors: {
-      origin: [env.frontendUrl, "http://10.67.170.229:3000"],
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        const allowed = [
+          env.frontendUrl,
+          "http://10.67.170.229:3000",
+          "http://3.24.173.212:3000",
+          "https://cryptox-lovat-six.vercel.app",
+        ];
+        if (allowed.includes(origin)) return callback(null, true);
+        if (/^https:\/\/cryptox-[a-z0-9-]+\.vercel\.app$/.test(origin)) return callback(null, true);
+        if (/^https:\/\/cryptox-[a-z0-9-]+-vinits-projects-2eeca486\.vercel\.app$/.test(origin)) return callback(null, true);
+        callback(new Error(`Origin ${origin} not allowed by CORS`));
+      },
       methods: ["GET", "POST"],
       credentials: true,
     },
