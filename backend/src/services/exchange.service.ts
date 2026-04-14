@@ -151,11 +151,18 @@ export class ExchangeService {
   }
 
   /**
-   * Place a market order
+   * Place a market order. `params.leverage` is forwarded to adapters that
+   * support futures leverage (CoinDCX futures adapter).
    */
-  async placeMarketOrder(exchange: Exchange, symbol: string, side: "buy" | "sell", amount: number): Promise<Order> {
+  async placeMarketOrder(
+    exchange: Exchange,
+    symbol: string,
+    side: "buy" | "sell",
+    amount: number,
+    params: Record<string, unknown> = {},
+  ): Promise<Order> {
     try {
-      return await exchange.createOrder(symbol, "market", side, amount);
+      return await exchange.createOrder(symbol, "market", side, amount, undefined, params);
     } catch (err) {
       throw new AppError(502, `Failed to place market order: ${(err as Error).message}`);
     }
@@ -164,9 +171,16 @@ export class ExchangeService {
   /**
    * Place a limit order
    */
-  async placeLimitOrder(exchange: Exchange, symbol: string, side: "buy" | "sell", amount: number, price: number): Promise<Order> {
+  async placeLimitOrder(
+    exchange: Exchange,
+    symbol: string,
+    side: "buy" | "sell",
+    amount: number,
+    price: number,
+    params: Record<string, unknown> = {},
+  ): Promise<Order> {
     try {
-      return await exchange.createOrder(symbol, "limit", side, amount, price);
+      return await exchange.createOrder(symbol, "limit", side, amount, price, params);
     } catch (err) {
       throw new AppError(502, `Failed to place limit order: ${(err as Error).message}`);
     }

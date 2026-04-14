@@ -1,8 +1,14 @@
 /**
- * CoinDCX adapter — mimics the subset of the CCXT Exchange interface that
- * CryptoX actually uses, talking to CoinDCX's REST API directly.
+ * CoinDCX Futures adapter — mimics the subset of the CCXT Exchange interface
+ * that CryptoX actually uses, talking to CoinDCX's derivatives/futures REST
+ * API directly.
  *
- * Reference: https://docs.coindcx.com
+ * Platform policy: CryptoX trades exclusively on futures markets. This adapter
+ * only supports perpetual futures — no spot, no INR margin conversion.
+ *
+ * References:
+ *   - https://docs.coindcx.com
+ *   - https://gist.github.com/Quantaindew/09c0443e1cf935d774204d47815d6e1b
  */
 import crypto from "crypto";
 import type { Balances, Market, OHLCV, Order, Ticker } from "ccxt";
@@ -10,63 +16,93 @@ import type { Balances, Market, OHLCV, Order, Ticker } from "ccxt";
 const PUBLIC_BASE = "https://public.coindcx.com";
 const PRIVATE_BASE = "https://api.coindcx.com";
 
-interface CoinDCXMarketDetail {
-  symbol: string; // e.g. "BTCUSDT"
-  pair: string; // e.g. "B-BTC_USDT"
-  target_currency_short_name: string; // "BTC"
-  base_currency_short_name: string; // "USDT"
-  ecode: string; // "B" / "I" / "HB" / etc
-  status?: string;
-  min_quantity?: number;
-  min_notional?: number;
-  step?: number;
-}
+// CoinDCX futures pair format: "B-BTC_USDT" ↔ CCXT: "BTC/USDT:USDT"
+const PAIR_RE = /^B-([A-Z0-9]+)_([A-Z]+)$/;
 
-interface CoinDCXTickerEntry {
-  market: string;
-  change_24_hour: string;
-  high: string;
-  low: string;
-  volume: string;
-  last_price: string;
-  bid: string;
-  ask: string;
-  timestamp: number;
-}
-
-interface CoinDCXBalance {
-  currency: string;
-  balance: string;
-  locked_balance: string;
-}
-
-interface CoinDCXOrder {
-  id: string;
+interface CoinDCXInstrumentDetail {
+  pair: string;
+  underlying_currency_short_name: string;
+  quote_currency_short_name: string;
+  settle_currency_short_name: string;
+  margin_currency_short_name: string;
   status: string;
-  market: string;
-  order_type: string;
-  side: string;
-  price_per_unit: number;
-  total_quantity: number;
-  remaining_quantity: number;
-  avg_price: number;
-  fee_amount: number;
-  created_at?: string;
-  updated_at?: string;
-  timestamp?: number;
+  kind: string;
+  max_leverage_long: number;
+  max_leverage_short: number;
+  price_increment: number;
+  quantity_increment: number;
+  min_trade_size: number;
+  min_quantity: number;
+  max_quantity: number;
+  min_notional: number;
+  order_types: string[];
 }
 
-interface CoinDCXOrdersResponse {
-  orders?: CoinDCXOrder[];
+interface CoinDCXFuturesTickerEntry {
+  fr: number;
+  h: number;
+  l: number;
+  v: number;
+  ls: number;
+  pc: number;
+  mkt: string;
+  mp: number;
+  bmST?: number;
+  cmRT?: number;
+  ctRT?: number;
+}
+
+interface CoinDCXFuturesTickerResponse {
+  ts: number;
+  vs: number;
+  prices: Record<string, CoinDCXFuturesTickerEntry>;
 }
 
 interface CoinDCXCandle {
-  time: number;
   open: number;
   high: number;
   low: number;
   close: number;
   volume: number;
+  time: number;
+}
+
+interface CoinDCXCandleResponse {
+  s: string;
+  data: CoinDCXCandle[];
+}
+
+interface CoinDCXFuturesWalletEntry {
+  currency_short_name?: string;
+  asset?: string;
+  currency?: string;
+  balance?: string | number;
+  available_balance?: string | number;
+  locked_balance?: string | number;
+  margin_balance?: string | number;
+  position_margin?: string | number;
+  unrealized_pnl?: string | number;
+}
+
+interface CoinDCXFuturesOrder {
+  id: string;
+  status: string;
+  pair: string;
+  order_type: string;
+  side: string;
+  price: number;
+  total_quantity: number;
+  remaining_quantity?: number;
+  avg_price?: number;
+  fee?: number;
+  created_at?: string | number;
+  updated_at?: string | number;
+  leverage?: number;
+}
+
+interface CoinDCXFuturesOrderResponse {
+  orders?: CoinDCXFuturesOrder[];
+  order?: CoinDCXFuturesOrder;
 }
 
 const TIMEFRAME_MAP: Record<string, string> = {
@@ -95,8 +131,8 @@ export class CoinDCXAdapter {
   public symbols: string[] = [];
 
   private symbolToPair: Record<string, string> = {};
-  private symbolToMarket: Record<string, string> = {};
-  private marketToSymbol: Record<string, string> = {};
+  private pairToSymbol: Record<string, string> = {};
+  private instrumentCache: Record<string, CoinDCXInstrumentDetail> = {};
 
   constructor(private readonly apiKey: string, private readonly apiSecret: string) {}
 
@@ -134,36 +170,35 @@ export class CoinDCXAdapter {
 
   // ─── Symbol mapping ────────────────────────────────────────────────
 
-  private unknownSymbolError(symbol: string): Error {
-    // Futures/perpetual pairs use CCXT's "base/quote:settle" format. CoinDCX
-    // (spot only in this adapter) can't trade those — guide the user clearly.
-    if (symbol.includes(":")) {
-      return new Error(
-        `CoinDCX spot adapter doesn't support futures pair "${symbol}". ` +
-          `Use a spot pair like "${symbol.split(":")[0].split("/")[0]}/USDT" instead.`,
-      );
-    }
-    return new Error(`CoinDCX: unknown symbol ${symbol} — not listed on CoinDCX`);
+  private pairToCcxtSymbol(pair: string): string | null {
+    const m = PAIR_RE.exec(pair);
+    if (!m) return null;
+    const base = m[1];
+    const quote = m[2];
+    if (quote !== "USDT") return null;
+    return `${base}/${quote}:${quote}`;
   }
 
   private requirePair(symbol: string): string {
     const pair = this.symbolToPair[symbol];
-    if (!pair) throw this.unknownSymbolError(symbol);
+    if (!pair) {
+      throw new Error(
+        `CoinDCX futures: unsupported symbol "${symbol}". ` +
+          `Expected format "BASE/USDT:USDT" (e.g. "BTC/USDT:USDT").`,
+      );
+    }
     return pair;
   }
 
-  private requireMarket(symbol: string): string {
-    const market = this.symbolToMarket[symbol];
-    if (!market) throw this.unknownSymbolError(symbol);
-    return market;
-  }
-
-  /**
-   * CoinDCX's /exchange/ticker returns timestamp in SECONDS while
-   * /market_data/candles returns it in MILLISECONDS. Normalise to ms.
-   */
-  private normalizeTimestamp(ts: number): number {
-    return ts < 1e12 ? ts * 1000 : ts;
+  private async loadInstrumentDetail(pair: string): Promise<CoinDCXInstrumentDetail> {
+    const cached = this.instrumentCache[pair];
+    if (cached) return cached;
+    const res = await this.publicGet<{ instrument: CoinDCXInstrumentDetail }>(
+      PRIVATE_BASE,
+      `/exchange/v1/derivatives/futures/data/instrument?pair=${encodeURIComponent(pair)}`,
+    );
+    this.instrumentCache[pair] = res.instrument;
+    return res.instrument;
   }
 
   // ─── CCXT-compatible methods ───────────────────────────────────────
@@ -171,40 +206,47 @@ export class CoinDCXAdapter {
   async loadMarkets(): Promise<Record<string, Market>> {
     if (Object.keys(this.markets).length > 0) return this.markets;
 
-    const list = await this.publicGet<CoinDCXMarketDetail[]>(PRIVATE_BASE, "/exchange/v1/markets_details");
+    const list = await this.publicGet<string[]>(
+      PRIVATE_BASE,
+      "/exchange/v1/derivatives/futures/data/active_instruments",
+    );
 
-    for (const m of list) {
-      const base = m.target_currency_short_name;
-      const quote = m.base_currency_short_name;
-      if (!base || !quote) continue;
-      const symbol = `${base}/${quote}`;
+    for (const pair of list) {
+      const symbol = this.pairToCcxtSymbol(pair);
+      if (!symbol) continue;
+      const m = PAIR_RE.exec(pair)!;
+      const base = m[1];
+      const quote = m[2];
 
-      this.symbolToPair[symbol] = m.pair;
-      this.symbolToMarket[symbol] = m.symbol;
-      this.marketToSymbol[m.symbol] = symbol;
+      this.symbolToPair[symbol] = pair;
+      this.pairToSymbol[pair] = symbol;
 
       this.markets[symbol] = {
-        id: m.pair,
+        id: pair,
         symbol,
         base,
         quote,
+        settle: quote,
         baseId: base,
         quoteId: quote,
-        active: m.status !== "inactive",
-        type: "spot",
-        spot: true,
+        settleId: quote,
+        active: true,
+        type: "swap",
+        spot: false,
         margin: false,
-        swap: false,
+        swap: true,
         future: false,
         option: false,
-        contract: false,
+        contract: true,
+        linear: true,
+        inverse: false,
         precision: { amount: undefined, price: undefined },
         limits: {
-          amount: { min: m.min_quantity, max: undefined },
-          cost: { min: m.min_notional, max: undefined },
+          amount: { min: undefined, max: undefined },
+          cost: { min: undefined, max: undefined },
           price: { min: undefined, max: undefined },
         },
-        info: m,
+        info: { pair },
       } as unknown as Market;
     }
 
@@ -215,46 +257,48 @@ export class CoinDCXAdapter {
   async fetchTickers(symbols?: string[]): Promise<Record<string, Ticker>> {
     if (Object.keys(this.markets).length === 0) await this.loadMarkets();
 
-    const list = await this.publicGet<CoinDCXTickerEntry[]>(PRIVATE_BASE, "/exchange/ticker");
-    const result: Record<string, Ticker> = {};
+    const res = await this.publicGet<CoinDCXFuturesTickerResponse>(
+      PUBLIC_BASE,
+      "/market_data/v3/current_prices/futures/rt",
+    );
+    const out: Record<string, Ticker> = {};
 
-    for (const t of list) {
-      const symbol = this.marketToSymbol[t.market];
+    for (const [pair, t] of Object.entries(res.prices ?? {})) {
+      const symbol = this.pairToSymbol[pair];
       if (!symbol) continue;
       if (symbols && symbols.length > 0 && !symbols.includes(symbol)) continue;
-      result[symbol] = this.normalizeTicker(symbol, t);
+      out[symbol] = this.normalizeTicker(symbol, t);
     }
-
-    return result;
+    return out;
   }
 
   async fetchTicker(symbol: string): Promise<Ticker> {
     if (Object.keys(this.markets).length === 0) await this.loadMarkets();
-    this.requireMarket(symbol); // throws descriptive error for unsupported pairs
+    this.requirePair(symbol);
     const all = await this.fetchTickers([symbol]);
     const t = all[symbol];
-    if (!t) throw new Error(`CoinDCX: ticker not found for ${symbol}`);
+    if (!t) throw new Error(`CoinDCX futures: ticker not found for ${symbol}`);
     return t;
   }
 
-  private normalizeTicker(symbol: string, t: CoinDCXTickerEntry): Ticker {
-    const last = parseFloat(t.last_price);
-    const ts = this.normalizeTimestamp(t.timestamp);
+  private normalizeTicker(symbol: string, t: CoinDCXFuturesTickerEntry): Ticker {
+    const last = Number(t.ls);
+    const ts = Number(t.cmRT ?? t.ctRT ?? t.bmST ?? Date.now());
     return {
       symbol,
       timestamp: ts,
       datetime: new Date(ts).toISOString(),
-      high: parseFloat(t.high),
-      low: parseFloat(t.low),
-      bid: parseFloat(t.bid),
-      ask: parseFloat(t.ask),
+      high: Number(t.h),
+      low: Number(t.l),
+      bid: last,
+      ask: last,
       last,
       close: last,
       previousClose: undefined,
       change: undefined,
-      percentage: parseFloat(t.change_24_hour),
+      percentage: Number(t.pc),
       average: undefined,
-      baseVolume: parseFloat(t.volume),
+      baseVolume: Number(t.v),
       quoteVolume: undefined,
       info: t,
     } as unknown as Ticker;
@@ -265,38 +309,71 @@ export class CoinDCXAdapter {
     const pair = this.requirePair(symbol);
     const interval = TIMEFRAME_MAP[timeframe] || timeframe;
 
-    const params = new URLSearchParams({ pair, interval, limit: String(limit) });
-    if (since !== undefined) params.set("startTime", String(since));
+    const now = Math.floor(Date.now() / 1000);
+    const tfSeconds = this.timeframeToSeconds(interval);
+    const fromSec = since !== undefined ? Math.floor(since / 1000) : now - tfSeconds * limit;
 
-    const data = await this.publicGet<CoinDCXCandle[]>(
+    const params = new URLSearchParams({
+      pair,
+      from: String(fromSec),
+      to: String(now),
+      resolution: interval,
+      pcode: "f",
+    });
+    const res = await this.publicGet<CoinDCXCandleResponse>(
       PUBLIC_BASE,
-      `/market_data/candles?${params.toString()}`,
+      `/market_data/candlesticks?${params.toString()}`,
     );
-
-    return data
+    const rows = res.data ?? [];
+    return rows
       .map((c) => [c.time, c.open, c.high, c.low, c.close, c.volume] as OHLCV)
-      .sort((a, b) => Number(a[0]) - Number(b[0]));
+      .sort((a, b) => Number(a[0]) - Number(b[0]))
+      .slice(-limit);
   }
 
+  private timeframeToSeconds(tf: string): number {
+    const unit = tf.slice(-1);
+    const n = parseInt(tf.slice(0, -1), 10) || 1;
+    if (unit === "m") return n * 60;
+    if (unit === "h") return n * 3600;
+    if (unit === "d") return n * 86400;
+    if (unit === "w") return n * 604800;
+    if (unit === "M") return n * 2592000;
+    return 3600;
+  }
+
+  // ─── Private endpoints ─────────────────────────────────────────────
+
   async fetchBalance(): Promise<Balances> {
-    const list = await this.privatePost<CoinDCXBalance[]>("/exchange/v1/users/balances");
+    const raw = await this.privatePost<unknown>("/exchange/v1/derivatives/futures/wallets");
+
+    let entries: CoinDCXFuturesWalletEntry[] = [];
+    if (Array.isArray(raw)) {
+      entries = raw as CoinDCXFuturesWalletEntry[];
+    } else if (raw && typeof raw === "object") {
+      const obj = raw as { wallets?: CoinDCXFuturesWalletEntry[] };
+      if (Array.isArray(obj.wallets)) entries = obj.wallets;
+    }
 
     const free: Record<string, number> = {};
     const used: Record<string, number> = {};
     const total: Record<string, number> = {};
     const perCurrency: Record<string, { free: number; used: number; total: number }> = {};
 
-    for (const b of list) {
-      const f = parseFloat(b.balance);
-      const u = parseFloat(b.locked_balance);
-      free[b.currency] = f;
-      used[b.currency] = u;
-      total[b.currency] = f + u;
-      perCurrency[b.currency] = { free: f, used: u, total: f + u };
+    for (const e of entries) {
+      const ccy = String(e.currency_short_name ?? e.asset ?? e.currency ?? "").toUpperCase();
+      if (!ccy) continue;
+      const available = Number(e.available_balance ?? e.balance ?? 0);
+      const locked = Number(e.locked_balance ?? e.position_margin ?? 0);
+      const totalVal = Number(e.margin_balance ?? available + locked);
+      free[ccy] = available;
+      used[ccy] = locked;
+      total[ccy] = totalVal;
+      perCurrency[ccy] = { free: available, used: locked, total: totalVal };
     }
 
     return {
-      info: list,
+      info: raw,
       free,
       used,
       total,
@@ -310,76 +387,85 @@ export class CoinDCXAdapter {
     side: "buy" | "sell",
     amount: number,
     price?: number,
+    params: Record<string, unknown> = {},
   ): Promise<Order> {
     if (Object.keys(this.markets).length === 0) await this.loadMarkets();
-    const market = this.requireMarket(symbol);
+    const pair = this.requirePair(symbol);
+    const instrument = await this.loadInstrumentDetail(pair);
 
-    const body: Record<string, unknown> = {
-      market,
-      total_quantity: amount,
+    const leverageRaw = Number(params.leverage ?? 1);
+    const maxLev = Math.max(instrument.max_leverage_long, instrument.max_leverage_short);
+    const leverage = Math.min(Math.max(1, leverageRaw), maxLev || 20);
+
+    const orderBody: Record<string, unknown> = {
       side,
+      pair,
       order_type: type === "market" ? "market_order" : "limit_order",
+      total_quantity: amount,
+      leverage,
+      margin_currency_short_name: instrument.margin_currency_short_name || "USDT",
     };
     if (type === "limit" && price !== undefined) {
-      body.price_per_unit = price;
+      orderBody.price = price;
     }
 
-    const res = await this.privatePost<CoinDCXOrdersResponse>("/exchange/v1/orders/create", body);
-    const o = res.orders?.[0];
-    if (!o) throw new Error("CoinDCX: create order returned no order");
+    const res = await this.privatePost<CoinDCXFuturesOrderResponse>(
+      "/exchange/v1/derivatives/futures/orders/create",
+      { order: orderBody },
+    );
+    const o = res.orders?.[0] ?? res.order;
+    if (!o) throw new Error("CoinDCX futures: create order returned no order");
     return this.normalizeOrder(symbol, o);
   }
 
   async cancelOrder(orderId: string, _symbol?: string): Promise<unknown> {
-    return this.privatePost("/exchange/v1/orders/cancel", { id: orderId });
+    return this.privatePost("/exchange/v1/derivatives/futures/orders/cancel", { id: orderId });
   }
 
-  async fetchOpenOrders(symbol?: string): Promise<Order[]> {
-    const body: Record<string, unknown> = {};
-    if (symbol) {
-      if (Object.keys(this.markets).length === 0) await this.loadMarkets();
-      body.market = this.requireMarket(symbol);
-    }
-    const res = await this.privatePost<CoinDCXOrdersResponse>(
-      "/exchange/v1/orders/active_orders",
-      body,
-    );
-    return (res.orders ?? []).map((o) =>
-      this.normalizeOrder(this.marketToSymbol[o.market] ?? o.market, o),
-    );
-  }
-
-  async fetchClosedOrders(_symbol?: string, _since?: number, limit = 50): Promise<Order[]> {
-    const res = await this.privatePost<CoinDCXOrdersResponse>("/exchange/v1/orders/trade_history", {
-      limit,
-    });
-    return (res.orders ?? []).map((o) =>
-      this.normalizeOrder(this.marketToSymbol[o.market] ?? o.market, o),
-    );
-  }
-
-  async fetchPositions(): Promise<unknown[]> {
-    // Spot only — no positions to report. Futures support is a future phase.
+  async fetchOpenOrders(_symbol?: string): Promise<Order[]> {
     return [];
   }
 
-  private normalizeOrder(symbol: string, o: CoinDCXOrder): Order {
-    const filled = o.total_quantity - o.remaining_quantity;
-    const price = o.avg_price || o.price_per_unit;
-    const ts = o.timestamp ?? (o.created_at ? Date.parse(o.created_at) : Date.now());
+  async fetchClosedOrders(_symbol?: string, _since?: number, _limit = 50): Promise<Order[]> {
+    return [];
+  }
+
+  async fetchPositions(_symbols?: string[]): Promise<unknown[]> {
+    const res = await this.privatePost<unknown>(
+      "/exchange/v1/derivatives/futures/positions",
+      { page: 1, size: 50 },
+    );
+    if (Array.isArray(res)) return res;
+    if (res && typeof res === "object") {
+      const obj = res as { positions?: unknown[] };
+      if (Array.isArray(obj.positions)) return obj.positions;
+    }
+    return [];
+  }
+
+  private normalizeOrder(symbol: string, o: CoinDCXFuturesOrder): Order {
+    const filled = Number(o.total_quantity) - Number(o.remaining_quantity ?? 0);
+    const price = Number(o.avg_price ?? o.price ?? 0);
+    const tsRaw = o.updated_at ?? o.created_at;
+    const ts =
+      typeof tsRaw === "number"
+        ? tsRaw
+        : typeof tsRaw === "string"
+          ? Date.parse(tsRaw)
+          : Date.now();
     return {
-      id: o.id,
+      id: String(o.id),
       symbol,
       type: o.order_type === "market_order" ? "market" : "limit",
       side: o.side as "buy" | "sell",
       price,
-      average: o.avg_price,
-      amount: o.total_quantity,
+      average: Number(o.avg_price ?? 0),
+      amount: Number(o.total_quantity),
       filled,
-      remaining: o.remaining_quantity,
+      remaining: Number(o.remaining_quantity ?? 0),
       cost: price * filled,
       status: this.mapStatus(o.status),
-      fee: { cost: o.fee_amount, currency: symbol.split("/")[1] ?? "USDT" },
+      fee: { cost: Number(o.fee ?? 0), currency: "USDT" },
       timestamp: ts,
       datetime: new Date(ts).toISOString(),
       info: o,
@@ -387,8 +473,9 @@ export class CoinDCXAdapter {
   }
 
   private mapStatus(s: string): "open" | "closed" | "canceled" {
-    if (s === "filled") return "closed";
-    if (s === "cancelled" || s === "canceled" || s === "rejected") return "canceled";
+    const v = s.toLowerCase();
+    if (v === "filled") return "closed";
+    if (v === "cancelled" || v === "canceled" || v === "rejected") return "canceled";
     return "open";
   }
 }

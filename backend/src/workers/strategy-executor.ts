@@ -17,6 +17,15 @@ function log(strategyName: string, pair: string, msg: string) {
   console.log(`[${time}] [Worker] [${strategyName}] ${pair} — ${msg}`);
 }
 
+function readLeverage(config: unknown): number {
+  if (config && typeof config === "object") {
+    const lev = (config as { leverage?: unknown }).leverage;
+    const n = Number(lev);
+    if (Number.isFinite(n) && n >= 1) return Math.floor(n);
+  }
+  return 1;
+}
+
 // ── OHLCV → Candle conversion ───────────────────────────────────
 
 function ohlcvToCandles(ohlcv: OHLCV[]): Candle[] {
@@ -297,11 +306,13 @@ class StrategyWorker {
     if (!isPaperTrade) {
       // ── Real trade: place order on exchange ──
       try {
+        const leverage = readLeverage(deployed.config);
         const order = await exchangeService.placeMarketOrder(
           exchange,
           deployed.pair,
           side.toLowerCase() as "buy" | "sell",
           quantity,
+          { leverage },
         );
 
         const fillPrice = Number(order.average ?? order.price ?? price);
@@ -405,11 +416,13 @@ class StrategyWorker {
       // ── Real trade: place closing order ──
       try {
         const closeSide = trade.side === "BUY" ? "sell" : "buy";
+        const leverage = readLeverage(deployed.config);
         const order = await exchangeService.placeMarketOrder(
           exchange,
           deployed.pair,
           closeSide as "buy" | "sell",
           trade.quantity,
+          { leverage },
         );
 
         actualExitPrice = Number(order.average ?? order.price ?? exitPrice);

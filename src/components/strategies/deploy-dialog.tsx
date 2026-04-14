@@ -46,49 +46,24 @@ type DeployDialogProps = {
   defaultPairs?: string[]
 }
 
-// Futures/perpetual pairs — for exchanges like Delta Exchange
+// CryptoX is a futures-only platform. All brokers trade perpetual futures
+// quoted in USDT. The USDT:USDT suffix is CCXT's linear-perpetual format.
 const FUTURES_PAIRS = [
-  "BTC/USD:USD",
-  "ETH/USD:USD",
-  "SOL/USD:USD",
-  "XRP/USD:USD",
-  "DOGE/USD:USD",
-  "SUI/USD:USD",
-  "LINK/USD:USD",
-  "AVAX/USD:USD",
-  "ADA/USD:USD",
-  "DOT/USD:USD",
-  "NEAR/USD:USD",
-  "INJ/USD:USD",
-  "ARB/USD:USD",
-  "OP/USD:USD",
+  "BTC/USDT:USDT",
+  "ETH/USDT:USDT",
+  "SOL/USDT:USDT",
+  "XRP/USDT:USDT",
+  "DOGE/USDT:USDT",
+  "SUI/USDT:USDT",
+  "LINK/USDT:USDT",
+  "AVAX/USDT:USDT",
+  "ADA/USDT:USDT",
+  "DOT/USDT:USDT",
+  "NEAR/USDT:USDT",
+  "INJ/USDT:USDT",
+  "ARB/USDT:USDT",
+  "OP/USDT:USDT",
 ]
-
-// Spot pairs — for exchanges like CoinDCX, Binance, KuCoin spot
-const SPOT_PAIRS = [
-  "BTC/USDT",
-  "ETH/USDT",
-  "SOL/USDT",
-  "XRP/USDT",
-  "DOGE/USDT",
-  "SUI/USDT",
-  "LINK/USDT",
-  "AVAX/USDT",
-  "ADA/USDT",
-  "DOT/USDT",
-  "NEAR/USDT",
-  "INJ/USDT",
-  "ARB/USDT",
-  "OP/USDT",
-]
-
-// Broker IDs that use spot trading (no futures contracts)
-const SPOT_BROKERS = new Set(["coindcx"])
-
-function pairsForBroker(exchangeId: string | undefined): string[] {
-  if (exchangeId && SPOT_BROKERS.has(exchangeId)) return SPOT_PAIRS
-  return FUTURES_PAIRS
-}
 
 type Step = "broker" | "config" | "confirm"
 
@@ -109,25 +84,12 @@ export function DeployDialog({
 
   // Form state
   const [selectedBrokerId, setSelectedBrokerId] = useState("")
-  const [selectedPair, setSelectedPair] = useState("BTC/USD:USD")
+  const [selectedPair, setSelectedPair] = useState("BTC/USDT:USDT")
   const [amount, setAmount] = useState("500")
   const [leverage, setLeverage] = useState("10")
 
-  // Broker-aware pair list. Spot exchanges (coindcx) use BTC/USDT style,
-  // futures exchanges (delta) use BTC/USD:USD style. Reset the selected
-  // pair whenever the broker changes so we never try to deploy a
-  // futures pair on a spot broker (or vice versa).
   const selectedBrokerMeta = brokers.find((b) => b.id === selectedBrokerId)
-  const availablePairs = pairsForBroker(selectedBrokerMeta?.exchangeId)
-  const isSpotBroker = selectedBrokerMeta ? SPOT_BROKERS.has(selectedBrokerMeta.exchangeId) : false
-
-  useEffect(() => {
-    if (!selectedBrokerMeta) return
-    if (!availablePairs.includes(selectedPair)) {
-      setSelectedPair(availablePairs[0])
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedBrokerId])
+  const availablePairs = FUTURES_PAIRS
 
   // Fetch connected brokers
   useEffect(() => {
@@ -450,7 +412,7 @@ export function DeployDialog({
                     {[
                       { label: "Strategy", value: strategyName },
                       { label: "Broker", value: selectedBroker ? `${selectedBroker.name} (${selectedBroker.uid})` : "" },
-                      { label: "Pair", value: selectedPair.replace("/USD:USD", "/USD") },
+                      { label: "Pair", value: selectedPair.replace(/:USDT$/, "") + " Perp" },
                       { label: "Amount", value: `$${parseFloat(amount).toLocaleString()}` },
                       { label: "Leverage", value: `${leverage}X` },
                     ].map((row) => (
