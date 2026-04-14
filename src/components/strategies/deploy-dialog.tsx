@@ -46,7 +46,8 @@ type DeployDialogProps = {
   defaultPairs?: string[]
 }
 
-const AVAILABLE_PAIRS = [
+// Futures/perpetual pairs — for exchanges like Delta Exchange
+const FUTURES_PAIRS = [
   "BTC/USD:USD",
   "ETH/USD:USD",
   "SOL/USD:USD",
@@ -62,6 +63,32 @@ const AVAILABLE_PAIRS = [
   "ARB/USD:USD",
   "OP/USD:USD",
 ]
+
+// Spot pairs — for exchanges like CoinDCX, Binance, KuCoin spot
+const SPOT_PAIRS = [
+  "BTC/USDT",
+  "ETH/USDT",
+  "SOL/USDT",
+  "XRP/USDT",
+  "DOGE/USDT",
+  "SUI/USDT",
+  "LINK/USDT",
+  "AVAX/USDT",
+  "ADA/USDT",
+  "DOT/USDT",
+  "NEAR/USDT",
+  "INJ/USDT",
+  "ARB/USDT",
+  "OP/USDT",
+]
+
+// Broker IDs that use spot trading (no futures contracts)
+const SPOT_BROKERS = new Set(["coindcx"])
+
+function pairsForBroker(exchangeId: string | undefined): string[] {
+  if (exchangeId && SPOT_BROKERS.has(exchangeId)) return SPOT_PAIRS
+  return FUTURES_PAIRS
+}
 
 type Step = "broker" | "config" | "confirm"
 
@@ -86,6 +113,22 @@ export function DeployDialog({
   const [amount, setAmount] = useState("500")
   const [leverage, setLeverage] = useState("10")
 
+  // Broker-aware pair list. Spot exchanges (coindcx) use BTC/USDT style,
+  // futures exchanges (delta) use BTC/USD:USD style. Reset the selected
+  // pair whenever the broker changes so we never try to deploy a
+  // futures pair on a spot broker (or vice versa).
+  const selectedBrokerMeta = brokers.find((b) => b.id === selectedBrokerId)
+  const availablePairs = pairsForBroker(selectedBrokerMeta?.exchangeId)
+  const isSpotBroker = selectedBrokerMeta ? SPOT_BROKERS.has(selectedBrokerMeta.exchangeId) : false
+
+  useEffect(() => {
+    if (!selectedBrokerMeta) return
+    if (!availablePairs.includes(selectedPair)) {
+      setSelectedPair(availablePairs[0])
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBrokerId])
+
   // Fetch connected brokers
   useEffect(() => {
     if (!open) return
@@ -107,7 +150,7 @@ export function DeployDialog({
     })
   }, [open])
 
-  const selectedBroker = brokers.find((b) => b.id === selectedBrokerId)
+  const selectedBroker = selectedBrokerMeta
 
   const handleDeploy = async () => {
     if (!selectedBrokerId || !selectedPair || !amount) return
@@ -305,8 +348,8 @@ export function DeployDialog({
                   <div>
                     <Label className="text-xs text-muted-foreground">Trading Pair</Label>
                     <div className="mt-1.5 grid grid-cols-3 gap-1.5">
-                      {AVAILABLE_PAIRS.slice(0, 9).map((pair) => {
-                        const display = pair.replace("/USD:USD", "")
+                      {availablePairs.slice(0, 9).map((pair) => {
+                        const display = pair.split("/")[0]
                         return (
                           <button
                             key={pair}
