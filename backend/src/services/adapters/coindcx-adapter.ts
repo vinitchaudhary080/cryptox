@@ -397,16 +397,40 @@ export class CoinDCXAdapter {
     const maxLev = Math.max(instrument.max_leverage_long, instrument.max_leverage_short);
     const leverage = Math.min(Math.max(1, leverageRaw), maxLev || 20);
 
+    // CoinDCX rejects quantities that aren't a multiple of quantity_increment.
+    // Floor to the nearest step so we never over-order, and enforce min_quantity.
+    const step = Number(instrument.quantity_increment) || 0;
+    const minQty = Number(instrument.min_quantity) || 0;
+    let qty = amount;
+    if (step > 0) {
+      const decimals = Math.max(0, -Math.floor(Math.log10(step)));
+      qty = Math.floor(qty / step) * step;
+      qty = Number(qty.toFixed(decimals));
+    }
+    if (qty < minQty) {
+      throw new Error(
+        `CoinDCX futures: quantity ${amount} rounds to ${qty}, below min ${minQty} for ${symbol}. ` +
+          `Increase investment amount or leverage.`,
+      );
+    }
+
     const orderBody: Record<string, unknown> = {
       side,
       pair,
       order_type: type === "market" ? "market_order" : "limit_order",
-      total_quantity: amount,
+      total_quantity: qty,
       leverage,
       margin_currency_short_name: instrument.margin_currency_short_name || "USDT",
     };
     if (type === "limit" && price !== undefined) {
-      orderBody.price = price;
+      const priceStep = Number(instrument.price_increment) || 0;
+      let px = price;
+      if (priceStep > 0) {
+        const pdec = Math.max(0, -Math.floor(Math.log10(priceStep)));
+        px = Math.round(px / priceStep) * priceStep;
+        px = Number(px.toFixed(pdec));
+      }
+      orderBody.price = px;
     }
 
     const res = await this.privatePost<CoinDCXFuturesOrderResponse>(
