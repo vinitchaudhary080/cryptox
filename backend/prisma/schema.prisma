@@ -45,6 +45,8 @@ model RefreshToken {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
+  @@index([expiresAt])
   @@map("refresh_tokens")
 }
 
@@ -66,6 +68,8 @@ model Broker {
   deployedStrategies DeployedStrategy[]
 
   @@unique([userId, exchangeId, apiKey])
+  @@index([userId])
+  @@index([userId, status])
   @@map("brokers")
 }
 
@@ -104,6 +108,11 @@ model DeployedStrategy {
   broker   Broker   @relation(fields: [brokerId], references: [id])
   trades   Trade[]
 
+  @@index([userId, status])
+  @@index([userId, deployedAt])
+  @@index([brokerId])
+  @@index([strategyId])
+  @@index([status])
   @@map("deployed_strategies")
 }
 
