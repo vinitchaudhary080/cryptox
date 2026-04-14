@@ -85,7 +85,12 @@ app.get("/api/health", (_req, res) => {
 app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/brokers", brokerRoutes);
 app.use("/api/strategies", strategyRoutes);
-app.use("/api/deployed", deployLimiter, deployedRoutes);
+// Deploy limiter only applies to the POST that creates a new deployment;
+// reads (dashboard polling) must not be throttled.
+app.use("/api/deployed", (req, res, next) => {
+  if (req.method === "POST" && req.path === "/") return deployLimiter(req, res, next);
+  return next();
+}, deployedRoutes);
 app.use("/api/portfolio", portfolioRoutes);
 app.use("/api/market", marketRoutes);
 app.use("/api/user", userRoutes);

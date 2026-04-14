@@ -114,14 +114,24 @@ export function AuthPage({ defaultTab = "login" }: { defaultTab?: "login" | "sig
 
     if (!code) return
 
+    console.log("[GoogleLogin] code detected in URL, exchanging…")
     const redirectUri = `${window.location.origin}/login`
     setGoogleLoading(true)
     clearError()
 
+    // Strip the code from the URL immediately so a refresh never re-tries it.
+    url.searchParams.delete("code")
+    url.searchParams.delete("scope")
+    url.searchParams.delete("authuser")
+    url.searchParams.delete("prompt")
+    window.history.replaceState({}, "", url.pathname + url.search)
+
     googleLogin({ code, redirectUri })
       .then((success) => {
+        console.log("[GoogleLogin] backend returned:", success)
         if (success) {
-          router.replace("/dashboard")
+          // Hard navigation — bypasses any client-router state issues.
+          window.location.href = "/dashboard"
         } else {
           setGoogleLoading(false)
         }
@@ -129,14 +139,6 @@ export function AuthPage({ defaultTab = "login" }: { defaultTab?: "login" | "sig
       .catch((err) => {
         console.error("[GoogleLogin] exchange failed:", err)
         setGoogleLoading(false)
-      })
-      .finally(() => {
-        // Strip code from URL so refresh doesn't try to re-exchange it.
-        url.searchParams.delete("code")
-        url.searchParams.delete("scope")
-        url.searchParams.delete("authuser")
-        url.searchParams.delete("prompt")
-        window.history.replaceState({}, "", url.pathname + url.search)
       })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
