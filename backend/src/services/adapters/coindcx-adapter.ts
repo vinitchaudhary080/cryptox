@@ -331,6 +331,19 @@ export class CoinDCXAdapter {
       .slice(-limit);
   }
 
+  private async getMarkPrice(pair: string): Promise<number> {
+    try {
+      const res = await this.publicGet<CoinDCXFuturesTickerResponse>(
+        PUBLIC_BASE,
+        "/market_data/v3/current_prices/futures/rt",
+      );
+      const t = res.prices?.[pair];
+      return Number(t?.mp ?? t?.ls ?? 0);
+    } catch {
+      return 0;
+    }
+  }
+
   private timeframeToSeconds(tf: string): number {
     const unit = tf.slice(-1);
     const n = parseInt(tf.slice(0, -1), 10) || 1;
@@ -412,6 +425,19 @@ export class CoinDCXAdapter {
         `CoinDCX futures: quantity ${amount} rounds to ${qty}, below min ${minQty} for ${symbol}. ` +
           `Increase investment amount or leverage.`,
       );
+    }
+
+    // Min notional check — CoinDCX rejects orders where qty * price < min_notional.
+    // For market orders we use the last-known mark price from ticker as an estimate.
+    const minNotional = Number(instrument.min_notional) || 0;
+    if (minNotional > 0) {
+      const refPrice = price ?? await this.getMarkPrice(pair);
+      if (refPrice > 0 && qty * refPrice < minNotional) {
+        throw new Error(
+          `CoinDCX futures: order notional ${(qty * refPrice).toFixed(2)} USDT below min ${minNotional} USDT for ${symbol}. ` +
+            `Increase investment amount (at least ${(minNotional / refPrice).toFixed(4)} ${symbol.split("/")[0]}).`,
+        );
+      }
     }
 
     const orderBody: Record<string, unknown> = {
