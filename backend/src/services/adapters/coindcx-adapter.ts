@@ -134,16 +134,36 @@ export class CoinDCXAdapter {
 
   // ─── Symbol mapping ────────────────────────────────────────────────
 
+  private unknownSymbolError(symbol: string): Error {
+    // Futures/perpetual pairs use CCXT's "base/quote:settle" format. CoinDCX
+    // (spot only in this adapter) can't trade those — guide the user clearly.
+    if (symbol.includes(":")) {
+      return new Error(
+        `CoinDCX spot adapter doesn't support futures pair "${symbol}". ` +
+          `Use a spot pair like "${symbol.split(":")[0].split("/")[0]}/USDT" instead.`,
+      );
+    }
+    return new Error(`CoinDCX: unknown symbol ${symbol} — not listed on CoinDCX`);
+  }
+
   private requirePair(symbol: string): string {
     const pair = this.symbolToPair[symbol];
-    if (!pair) throw new Error(`CoinDCX: unknown symbol ${symbol}`);
+    if (!pair) throw this.unknownSymbolError(symbol);
     return pair;
   }
 
   private requireMarket(symbol: string): string {
     const market = this.symbolToMarket[symbol];
-    if (!market) throw new Error(`CoinDCX: unknown symbol ${symbol}`);
+    if (!market) throw this.unknownSymbolError(symbol);
     return market;
+  }
+
+  /**
+   * CoinDCX's /exchange/ticker returns timestamp in SECONDS while
+   * /market_data/candles returns it in MILLISECONDS. Normalise to ms.
+   */
+  private normalizeTimestamp(ts: number): number {
+    return ts < 1e12 ? ts * 1000 : ts;
   }
 
   // ─── CCXT-compatible methods ───────────────────────────────────────
@@ -209,6 +229,8 @@ export class CoinDCXAdapter {
   }
 
   async fetchTicker(symbol: string): Promise<Ticker> {
+    if (Object.keys(this.markets).length === 0) await this.loadMarkets();
+    this.requireMarket(symbol); // throws descriptive error for unsupported pairs
     const all = await this.fetchTickers([symbol]);
     const t = all[symbol];
     if (!t) throw new Error(`CoinDCX: ticker not found for ${symbol}`);
@@ -217,10 +239,11 @@ export class CoinDCXAdapter {
 
   private normalizeTicker(symbol: string, t: CoinDCXTickerEntry): Ticker {
     const last = parseFloat(t.last_price);
+    const ts = this.normalizeTimestamp(t.timestamp);
     return {
       symbol,
-      timestamp: t.timestamp,
-      datetime: new Date(t.timestamp).toISOString(),
+      timestamp: ts,
+      datetime: new Date(ts).toISOString(),
       high: parseFloat(t.high),
       low: parseFloat(t.low),
       bid: parseFloat(t.bid),
