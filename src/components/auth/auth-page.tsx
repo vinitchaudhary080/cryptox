@@ -82,13 +82,30 @@ export function AuthPage({ defaultTab = "login" }: { defaultTab?: "login" | "sig
   const handleGoogleLogin = useGoogleLogin({
     flow: "auth-code",
     onSuccess: async (response) => {
+      console.log("[GoogleLogin] onSuccess fired", response)
       setGoogleLoading(true)
       clearError()
-      const success = await googleLogin({ code: response.code })
-      setGoogleLoading(false)
-      if (success) router.push("/dashboard")
+      try {
+        const success = await googleLogin({ code: response.code })
+        console.log("[GoogleLogin] googleLogin returned:", success)
+        setGoogleLoading(false)
+        if (success) {
+          console.log("[GoogleLogin] redirecting to /dashboard")
+          router.push("/dashboard")
+        } else {
+          console.error("[GoogleLogin] googleLogin returned false — backend rejected")
+        }
+      } catch (err) {
+        console.error("[GoogleLogin] exception during googleLogin call:", err)
+        setGoogleLoading(false)
+      }
     },
-    onError: () => {
+    onError: (err) => {
+      console.error("[GoogleLogin] onError fired:", err)
+      setGoogleLoading(false)
+    },
+    onNonOAuthError: (err) => {
+      console.error("[GoogleLogin] onNonOAuthError fired:", err)
       setGoogleLoading(false)
     },
   })
