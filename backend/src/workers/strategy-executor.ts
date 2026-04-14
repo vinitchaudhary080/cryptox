@@ -723,7 +723,7 @@ class StrategyWorker {
     if (!currentPrice) return;
 
     try {
-      const ohlcv = await exchangeService.getCandles(exchange, deployed.pair, "1m", 50);
+      const ohlcv = await exchangeService.getCandles(exchange, deployed.pair, "5m", 50);
       if (!ohlcv || ohlcv.length < 20) return;
 
       const candles = ohlcvToCandles(ohlcv);
