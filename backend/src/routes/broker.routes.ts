@@ -35,7 +35,11 @@ router.get("/", authenticate, async (req: AuthRequest, res: Response) => {
         apiKey: true,
         apiSecret: true,
         passphrase: true,
-        _count: { select: { deployedStrategies: true } },
+        _count: {
+          select: {
+            deployedStrategies: { where: { status: "ACTIVE" } },
+          },
+        },
       },
       orderBy: { connectedAt: "desc" },
     });
