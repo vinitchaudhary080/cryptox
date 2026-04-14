@@ -7,10 +7,15 @@ const nextConfig: NextConfig = {
         source: "/(.*)",
         headers: [
           {
-            // Allows the parent window to inspect popups it opens
-            // (Google sign-in popup needs this to communicate back).
+            // Google Identity Services polls popup.closed to detect when
+            // the OAuth popup is closed. Modern Chrome blocks that read
+            // unless COOP is unsafe-none, even with same-origin-allow-popups.
             key: "Cross-Origin-Opener-Policy",
-            value: "same-origin-allow-popups",
+            value: "unsafe-none",
+          },
+          {
+            key: "Cross-Origin-Embedder-Policy",
+            value: "unsafe-none",
           },
         ],
       },
