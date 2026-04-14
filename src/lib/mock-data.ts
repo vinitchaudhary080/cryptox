@@ -352,6 +352,7 @@ export const brokers: Broker[] = [
 
 export const availableBrokers = [
   { id: "delta", name: "Delta Exchange", shortName: "DE", description: "India's leading crypto derivatives exchange. Supports futures and options trading.", features: ["Futures", "Options", "Perpetuals"], region: "India / Global" },
+  { id: "coindcx", name: "CoinDCX", shortName: "CD", description: "India's largest crypto exchange with spot trading and wide altcoin coverage.", features: ["Spot", "Margin", "Staking"], region: "India" },
   { id: "binance", name: "Binance", shortName: "BN", description: "World's largest crypto exchange by volume. Extensive spot and derivatives markets.", features: ["Spot", "Futures", "Margin"], region: "Global" },
   { id: "bybit", name: "Bybit", shortName: "BB", description: "Top derivatives exchange with deep liquidity and advanced trading tools.", features: ["Spot", "Futures", "Copy Trading"], region: "Global" },
   { id: "okx", name: "OKX", shortName: "OK", description: "Full-service crypto exchange with DeFi wallet and advanced trading features.", features: ["Spot", "Futures", "DeFi"], region: "Global" },

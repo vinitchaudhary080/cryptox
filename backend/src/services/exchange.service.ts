@@ -1,5 +1,6 @@
 import ccxt, { type Exchange, type Order, type Balances, type Ticker, type OHLCV } from "ccxt";
 import { AppError } from "../middleware/error-handler.js";
+import { CoinDCXAdapter } from "./adapters/coindcx-adapter.js";
 
 // Map our broker exchangeId to ccxt exchange class names
 const EXCHANGE_MAP: Record<string, string> = {
@@ -9,6 +10,7 @@ const EXCHANGE_MAP: Record<string, string> = {
   okx: "okx",
   kucoin: "kucoin",
   bitget: "bitget",
+  coindcx: "coindcx", // handled by CoinDCXAdapter, not a real CCXT class
 };
 
 export class ExchangeService {
@@ -25,6 +27,13 @@ export class ExchangeService {
     const ccxtId = EXCHANGE_MAP[exchangeId];
     if (!ccxtId) {
       throw new AppError(400, `Unsupported exchange: ${exchangeId}`);
+    }
+
+    // CoinDCX is not in CCXT — use our custom adapter that mimics the Exchange interface.
+    if (exchangeId === "coindcx") {
+      const adapter = new CoinDCXAdapter(apiKey, apiSecret) as unknown as Exchange;
+      this.instances.set(brokerId, adapter);
+      return adapter;
     }
 
     const ccxtAny = ccxt as unknown as Record<string, new (config: Record<string, unknown>) => Exchange>;
