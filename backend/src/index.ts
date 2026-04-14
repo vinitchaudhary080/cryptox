@@ -10,6 +10,7 @@ import swaggerUi from "swagger-ui-express";
 import { createServer } from "http";
 import { env } from "./config/env.js";
 import { errorHandler } from "./middleware/error-handler.js";
+import { generalLimiter, authLimiter, deployLimiter } from "./middleware/rate-limit.js";
 import { swaggerSpec } from "./config/swagger.js";
 import { initSocket, emitMarketOverview } from "./websocket/socket.js";
 import ccxt, { type Exchange } from "ccxt";
@@ -46,6 +47,12 @@ app.use(compression());
 app.use(morgan("dev"));
 app.use(express.json());
 
+// Trust the reverse proxy / load balancer so rate limiter sees real client IPs
+app.set("trust proxy", 1);
+
+// Global API rate limit (per IP)
+app.use("/api", generalLimiter);
+
 // Swagger API Docs
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   customCss: ".swagger-ui .topbar { display: none }",
@@ -59,10 +66,10 @@ app.get("/api/health", (_req, res) => {
 });
 
 // Routes
-app.use("/api/auth", authRoutes);
+app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/brokers", brokerRoutes);
 app.use("/api/strategies", strategyRoutes);
-app.use("/api/deployed", deployedRoutes);
+app.use("/api/deployed", deployLimiter, deployedRoutes);
 app.use("/api/portfolio", portfolioRoutes);
 app.use("/api/market", marketRoutes);
 app.use("/api/user", userRoutes);
