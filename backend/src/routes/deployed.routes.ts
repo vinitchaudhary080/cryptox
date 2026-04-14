@@ -2,7 +2,7 @@ import { Router, type Response } from "express";
 import { z } from "zod";
 import { PrismaClient, type Prisma } from "@prisma/client";
 import { authenticate } from "../middleware/auth.js";
-import { strategyWorker } from "../workers/strategy-executor.js";
+import { workerClient } from "../services/worker-client.js";
 import type { AuthRequest } from "../types/index.js";
 import { createNotification } from "../services/notification.service.js";
 
@@ -166,7 +166,7 @@ router.post("/", authenticate, async (req: AuthRequest, res: Response) => {
       },
     });
 
-    await strategyWorker.startStrategy(deployed.id);
+    await workerClient.startStrategy(deployed.id);
 
     createNotification({
       userId: req.user!.userId,
@@ -204,10 +204,10 @@ router.patch("/:id/pause", authenticate, async (req: AuthRequest, res: Response)
     }
 
     // 1. Stop the worker
-    strategyWorker.stopStrategy(deployed.id);
+    await workerClient.stopStrategy(deployed.id);
 
     // 2. Close all open trades at current market price
-    const result = await strategyWorker.closeAllOpenTrades(deployed.id);
+    const result = await workerClient.closeAllOpenTrades(deployed.id);
 
     // 3. Update status
     const updated = await prisma.deployedStrategy.update({
@@ -247,7 +247,7 @@ router.patch("/:id/resume", authenticate, async (req: AuthRequest, res: Response
       data: { status: "ACTIVE" },
     });
 
-    await strategyWorker.startStrategy(deployed.id);
+    await workerClient.startStrategy(deployed.id);
 
     res.json({ success: true, data: updated, message: "Strategy resumed" });
   } catch (err: unknown) {
@@ -273,10 +273,10 @@ router.patch("/:id/stop", authenticate, async (req: AuthRequest, res: Response) 
     }
 
     // 1. Stop worker
-    strategyWorker.stopStrategy(deployed.id);
+    await workerClient.stopStrategy(deployed.id);
 
     // 2. Close all open trades
-    const result = await strategyWorker.closeAllOpenTrades(deployed.id);
+    const result = await workerClient.closeAllOpenTrades(deployed.id);
 
     // 3. Mark as stopped
     const updated = await prisma.deployedStrategy.update({
@@ -308,10 +308,10 @@ router.delete("/:id", authenticate, async (req: AuthRequest, res: Response) => {
     }
 
     // 1. Stop the worker if running
-    strategyWorker.stopStrategy(deployed.id);
+    await workerClient.stopStrategy(deployed.id);
 
     // 2. Close all open trades at market price
-    const result = await strategyWorker.closeAllOpenTrades(deployed.id);
+    const result = await workerClient.closeAllOpenTrades(deployed.id);
 
     // 3. Mark as DELETED (soft delete — keeps trades for reports)
     await prisma.deployedStrategy.update({

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { PrismaClient } from "@prisma/client";
 import { authenticate } from "../middleware/auth.js";
 import { exchangeService } from "../services/exchange.service.js";
-import { strategyWorker } from "../workers/strategy-executor.js";
+import { workerClient } from "../services/worker-client.js";
 import type { AuthRequest } from "../types/index.js";
 
 const router = Router();
@@ -302,8 +302,8 @@ router.delete("/:id", authenticate, async (req: AuthRequest, res: Response) => {
     });
 
     for (const d of deployments) {
-      strategyWorker.stopStrategy(d.id);
-      await strategyWorker.closeAllOpenTrades(d.id);
+      await workerClient.stopStrategy(d.id);
+      await workerClient.closeAllOpenTrades(d.id);
     }
     await prisma.deployedStrategy.updateMany({
       where: { brokerId: broker.id },

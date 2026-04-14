@@ -1,11 +1,25 @@
 import { Server as HttpServer } from "http";
 import { Server as SocketServer, type Socket } from "socket.io";
+import { createAdapter } from "@socket.io/redis-adapter";
+import { Emitter } from "@socket.io/redis-emitter";
+import { Redis } from "ioredis";
 import jwt from "jsonwebtoken";
 import { env } from "../config/env.js";
 import type { AuthPayload } from "../types/index.js";
 
-let io: SocketServer;
+let io: SocketServer | null = null;
+let emitter: Emitter | null = null;
 
+function buildRedisClients() {
+  const pubClient = new Redis(env.redis.url, { maxRetriesPerRequest: null });
+  const subClient = pubClient.duplicate();
+  return { pubClient, subClient };
+}
+
+/**
+ * Initialize socket.io server with Redis adapter (for the web process).
+ * Worker process should NOT call this — use initEmitter() instead.
+ */
 export function initSocket(server: HttpServer): SocketServer {
   io = new SocketServer(server, {
     cors: {
@@ -27,6 +41,11 @@ export function initSocket(server: HttpServer): SocketServer {
     },
   });
 
+  // Attach Redis adapter so events broadcast from the worker process
+  // also reach clients connected to this web process.
+  const { pubClient, subClient } = buildRedisClients();
+  io.adapter(createAdapter(pubClient, subClient));
+
   // Auth middleware for WebSocket
   io.use((socket: Socket, next) => {
     const token = socket.handshake.auth.token as string;
@@ -46,7 +65,6 @@ export function initSocket(server: HttpServer): SocketServer {
     const userId = socket.data.userId as string;
     console.log(`[WS] User connected: ${userId}`);
 
-    // Join user's personal room
     socket.join(`user:${userId}`);
 
     socket.on("subscribe:ticker", (symbol: string) => {
@@ -67,41 +85,46 @@ export function initSocket(server: HttpServer): SocketServer {
 }
 
 /**
- * Emit a trade event to a specific user
+ * Initialize a Redis-backed emitter for processes that don't run a socket.io
+ * server (e.g. the worker process). Events emitted via the helpers below will
+ * be published through Redis and forwarded to clients by the web process.
  */
+export function initEmitter(): void {
+  const client = new Redis(env.redis.url, { maxRetriesPerRequest: null });
+  emitter = new Emitter(client);
+}
+
+function emit(room: string | null, event: string, data: unknown): void {
+  // Prefer the in-process io when it exists (web process). Fall back to the
+  // cross-process Redis emitter (worker process).
+  if (io) {
+    if (room) io.to(room).emit(event, data);
+    else io.emit(event, data);
+    return;
+  }
+  if (emitter) {
+    if (room) emitter.to(room).emit(event, data);
+    else emitter.emit(event, data);
+  }
+}
+
 export function emitTradeUpdate(userId: string, data: unknown): void {
-  if (io) {
-    io.to(`user:${userId}`).emit("trade:update", data);
-  }
+  emit(`user:${userId}`, "trade:update", data);
 }
 
-/**
- * Emit portfolio value update
- */
 export function emitPortfolioUpdate(userId: string, data: unknown): void {
-  if (io) {
-    io.to(`user:${userId}`).emit("portfolio:update", data);
-  }
+  emit(`user:${userId}`, "portfolio:update", data);
 }
 
-/**
- * Emit ticker to subscribers
- */
 export function emitTicker(symbol: string, data: unknown): void {
-  if (io) {
-    io.to(`ticker:${symbol}`).emit("ticker:data", data);
-  }
+  emit(`ticker:${symbol}`, "ticker:data", data);
 }
 
-/**
- * Broadcast market overview to all connected clients
- */
 export function emitMarketOverview(data: unknown): void {
-  if (io) {
-    io.emit("market:overview", data);
-  }
+  emit(null, "market:overview", data);
 }
 
 export function getIO(): SocketServer {
+  if (!io) throw new Error("Socket.IO not initialized in this process");
   return io;
 }
