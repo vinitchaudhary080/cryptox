@@ -59,6 +59,9 @@ type DeployedWithRelations = DeployedStrategy & {
 class StrategyWorker {
   private intervals = new Map<string, ReturnType<typeof setInterval>>();
   private readonly TICK_INTERVAL = 60_000; // 1 minute
+  // Last-processed candle timestamp per deployed strategy — used by strategies
+  // that act only on candle close (Ravi) so intra-candle ticks get skipped.
+  private lastCandleTs = new Map<string, number>();
 
   /**
    * Get contract size for a pair on an exchange.
@@ -128,6 +131,7 @@ class StrategyWorker {
     if (interval) {
       clearInterval(interval);
       this.intervals.delete(deployedId);
+      this.lastCandleTs.delete(deployedId);
       console.log(`[Worker] Stopped worker: ${deployedId}`);
     }
   }
@@ -723,19 +727,34 @@ class StrategyWorker {
     if (!currentPrice) return;
 
     try {
+      const TIMEFRAME_MS = 5 * 60 * 1000;
       const ohlcv = await exchangeService.getCandles(exchange, deployed.pair, "5m", 50);
       if (!ohlcv || ohlcv.length < 20) return;
 
       const candles = ohlcvToCandles(ohlcv);
+
+      // Ravi acts on candle close only. The latest candle is usually the still-
+      // forming one — the one before it is the most recently CLOSED 5m candle.
+      // Skip this tick entirely if we've already processed that closed candle.
+      const latestTs = candles[candles.length - 1].timestamp;
+      const nowMs = Date.now();
+      const latestIsClosed = nowMs - latestTs >= TIMEFRAME_MS;
+      const closedIdx = latestIsClosed ? candles.length - 1 : candles.length - 2;
+      if (closedIdx < 0) return;
+      const closedTs = candles[closedIdx].timestamp;
+      const lastSeen = this.lastCandleTs.get(deployed.id) ?? 0;
+      if (closedTs <= lastSeen) return; // same 5m candle — nothing new to act on
+
       const indicators = computeIndicators(candles, [{ name: "EMA", period: 15 }]);
       const ema15 = indicators.ema?.[15];
       if (!ema15) return;
 
-      const len = ema15.length;
-      const currEma = ema15[len - 1];
-      const currClose = candles[len - 1].close;
+      const currEma = ema15[closedIdx];
+      const currClose = candles[closedIdx].close;
 
       if (isNaN(currEma)) return;
+
+      this.lastCandleTs.set(deployed.id, closedTs);
 
       const openTrades = deployed.trades.filter((t) => t.status === "OPEN");
       const hasLong = openTrades.some((t) => t.side === "BUY");
