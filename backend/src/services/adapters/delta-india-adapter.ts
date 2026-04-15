@@ -140,7 +140,15 @@ export class DeltaIndiaAdapter {
   private deltaSymbolToSymbol: Record<string, string> = {};
   private productCache: Record<string, DeltaProduct> = {};
 
-  constructor(private readonly apiKey: string, private readonly apiSecret: string) {}
+  private readonly apiKey: string;
+  private readonly apiSecret: string;
+
+  constructor(apiKey: string, apiSecret: string) {
+    // Defensive trim — pasted credentials often have stray whitespace/newlines
+    // which silently break HMAC even if the user's key is otherwise valid.
+    this.apiKey = (apiKey || "").trim();
+    this.apiSecret = (apiSecret || "").trim();
+  }
 
   // ─── HTTP helpers ──────────────────────────────────────────────────
 
@@ -202,6 +210,20 @@ export class DeltaIndiaAdapter {
             `global delta.exchange site — they are separate accounts). ` +
             `Also verify the key has "Trading" permission enabled and no IP ` +
             `whitelist that blocks the server.`,
+        );
+      }
+      if (text.includes("Signature Mismatch") || text.includes("signature_mismatch")) {
+        // Log diagnostic detail server-side so we can see secret length on prod.
+        console.error(
+          `[Delta] signature mismatch — keyLen=${this.apiKey.length} secretLen=${this.apiSecret.length} ` +
+            `keyPreview=${this.apiKey.slice(0, 2)}…${this.apiKey.slice(-2)} ` +
+            `signedMsg=${method}${timestamp}${path}${queryString}${bodyString}`,
+        );
+        throw new Error(
+          `Delta India: signature mismatch. This usually means the API Secret ` +
+            `was pasted with a typo or missing characters. Regenerate the key ` +
+            `on india.delta.exchange, copy the Secret in one clean paste, and ` +
+            `try again. (If you see this repeatedly check for trailing spaces.)`,
         );
       }
       if (text.includes("signature_expired") || text.includes("expired_signature")) {

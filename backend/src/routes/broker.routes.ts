@@ -13,9 +13,11 @@ const addBrokerSchema = z.object({
   uid: z.string().min(1, "Broker UID is required"),
   exchangeId: z.string(),
   name: z.string(),
-  apiKey: z.string().min(1),
-  apiSecret: z.string().min(1),
-  passphrase: z.string().optional(),
+  // Trim whitespace/newlines from pasted credentials — a common source of
+  // HMAC "Signature Mismatch" errors is a trailing newline in the secret.
+  apiKey: z.string().trim().min(1),
+  apiSecret: z.string().trim().min(1),
+  passphrase: z.string().trim().optional(),
   ipWhitelist: z.boolean().optional(),
 });
 
