@@ -73,16 +73,10 @@ interface CoinDCXCandleResponse {
   data: CoinDCXCandle[];
 }
 
-interface CoinDCXFuturesWalletEntry {
-  currency_short_name?: string;
-  asset?: string;
-  currency?: string;
-  balance?: string | number;
-  available_balance?: string | number;
-  locked_balance?: string | number;
-  margin_balance?: string | number;
-  position_margin?: string | number;
-  unrealized_pnl?: string | number;
+interface CoinDCXBalanceEntry {
+  currency: string;
+  balance: string;
+  locked_balance: string;
 }
 
 interface CoinDCXFuturesOrder {
@@ -385,35 +379,31 @@ export class CoinDCXAdapter {
   // ─── Private endpoints ─────────────────────────────────────────────
 
   async fetchBalance(): Promise<Balances> {
-    const raw = await this.privatePost<unknown>("/exchange/v1/derivatives/futures/wallets");
-
-    let entries: CoinDCXFuturesWalletEntry[] = [];
-    if (Array.isArray(raw)) {
-      entries = raw as CoinDCXFuturesWalletEntry[];
-    } else if (raw && typeof raw === "object") {
-      const obj = raw as { wallets?: CoinDCXFuturesWalletEntry[] };
-      if (Array.isArray(obj.wallets)) entries = obj.wallets;
-    }
+    // CoinDCX exposes one unified balance list for the account. There is no
+    // separate /derivatives/futures/wallets endpoint — positions/orders lock
+    // margin from this same USDT/INR balance.
+    const list = await this.privatePost<CoinDCXBalanceEntry[]>(
+      "/exchange/v1/users/balances",
+    );
 
     const free: Record<string, number> = {};
     const used: Record<string, number> = {};
     const total: Record<string, number> = {};
     const perCurrency: Record<string, { free: number; used: number; total: number }> = {};
 
-    for (const e of entries) {
-      const ccy = String(e.currency_short_name ?? e.asset ?? e.currency ?? "").toUpperCase();
+    for (const b of list ?? []) {
+      const ccy = (b.currency || "").toUpperCase();
       if (!ccy) continue;
-      const available = Number(e.available_balance ?? e.balance ?? 0);
-      const locked = Number(e.locked_balance ?? e.position_margin ?? 0);
-      const totalVal = Number(e.margin_balance ?? available + locked);
-      free[ccy] = available;
-      used[ccy] = locked;
-      total[ccy] = totalVal;
-      perCurrency[ccy] = { free: available, used: locked, total: totalVal };
+      const f = parseFloat(b.balance);
+      const u = parseFloat(b.locked_balance);
+      free[ccy] = f;
+      used[ccy] = u;
+      total[ccy] = f + u;
+      perCurrency[ccy] = { free: f, used: u, total: f + u };
     }
 
     return {
-      info: raw,
+      info: list,
       free,
       used,
       total,
