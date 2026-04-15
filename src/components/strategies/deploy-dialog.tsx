@@ -46,9 +46,11 @@ type DeployDialogProps = {
   defaultPairs?: string[]
 }
 
-// CryptoX is a futures-only platform. All brokers trade perpetual futures
-// quoted in USDT. The USDT:USDT suffix is CCXT's linear-perpetual format.
-const FUTURES_PAIRS = [
+// CryptoX is a futures-only platform. Brokers split into two camps:
+//   - USDT-linear perps (CoinDCX, Binance USDT-M, Bybit USDT-M, etc.)
+//   - USD-inverse perps (Delta Exchange India)
+// CCXT formats: linear = "BASE/USDT:USDT", inverse = "BASE/USD:USD"
+const LINEAR_FUTURES_PAIRS = [
   "BTC/USDT:USDT",
   "ETH/USDT:USDT",
   "SOL/USDT:USDT",
@@ -64,6 +66,31 @@ const FUTURES_PAIRS = [
   "ARB/USDT:USDT",
   "OP/USDT:USDT",
 ]
+
+const INVERSE_FUTURES_PAIRS = [
+  "BTC/USD:USD",
+  "ETH/USD:USD",
+  "SOL/USD:USD",
+  "XRP/USD:USD",
+  "DOGE/USD:USD",
+  "SUI/USD:USD",
+  "LINK/USD:USD",
+  "AVAX/USD:USD",
+  "ADA/USD:USD",
+  "DOT/USD:USD",
+  "NEAR/USD:USD",
+  "INJ/USD:USD",
+  "ARB/USD:USD",
+  "OP/USD:USD",
+]
+
+// Brokers that trade USD-inverse perps instead of USDT-linear.
+const INVERSE_BROKERS = new Set(["delta"])
+
+function pairsForBroker(exchangeId: string | undefined): string[] {
+  if (exchangeId && INVERSE_BROKERS.has(exchangeId)) return INVERSE_FUTURES_PAIRS
+  return LINEAR_FUTURES_PAIRS
+}
 
 type Step = "broker" | "config" | "confirm"
 
@@ -89,7 +116,17 @@ export function DeployDialog({
   const [leverage, setLeverage] = useState("10")
 
   const selectedBrokerMeta = brokers.find((b) => b.id === selectedBrokerId)
-  const availablePairs = FUTURES_PAIRS
+  const availablePairs = pairsForBroker(selectedBrokerMeta?.exchangeId)
+
+  // Auto-reset selected pair when the broker changes and the current pair
+  // isn't in the new broker's list (linear vs inverse mismatch).
+  useEffect(() => {
+    if (!selectedBrokerMeta) return
+    if (!availablePairs.includes(selectedPair)) {
+      setSelectedPair(availablePairs[0])
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBrokerId])
 
   // Fetch connected brokers
   useEffect(() => {
