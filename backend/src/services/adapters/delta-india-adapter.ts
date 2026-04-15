@@ -170,28 +170,46 @@ export class DeltaIndiaAdapter {
     opts: { query?: Record<string, string | number>; body?: Record<string, unknown> } = {},
   ): Promise<T> {
     const timestamp = String(Math.floor(Date.now() / 1000));
+    // Delta signs the query string WITH a leading '?' (matches their Python SDK).
     const queryString = opts.query
-      ? Object.entries(opts.query)
+      ? "?" +
+        Object.entries(opts.query)
           .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
           .join("&")
       : "";
     const bodyString = opts.body ? JSON.stringify(opts.body) : "";
     const signature = this.sign(method, path, queryString, bodyString, timestamp);
 
-    const url = `${BASE}${path}${queryString ? "?" + queryString : ""}`;
+    const url = `${BASE}${path}${queryString}`;
     const res = await fetch(url, {
       method,
       headers: {
+        "Content-Type": "application/json",
         "api-key": this.apiKey,
         signature,
         timestamp,
         "User-Agent": USER_AGENT,
-        ...(bodyString ? { "Content-Type": "application/json" } : {}),
       },
       body: bodyString || undefined,
     });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
+      // Translate Delta India's opaque error codes into user-facing hints.
+      if (text.includes("invalid_api_key")) {
+        throw new Error(
+          `Delta India rejected the API key (invalid_api_key). ` +
+            `Make sure the key was created on india.delta.exchange (NOT the ` +
+            `global delta.exchange site — they are separate accounts). ` +
+            `Also verify the key has "Trading" permission enabled and no IP ` +
+            `whitelist that blocks the server.`,
+        );
+      }
+      if (text.includes("signature_expired") || text.includes("expired_signature")) {
+        throw new Error(
+          `Delta India: signature expired (server clock drift). Retry or ` +
+            `sync the server clock.`,
+        );
+      }
       throw new Error(`Delta ${method} ${path} failed: ${res.status} ${text}`);
     }
     return (await res.json()) as T;
