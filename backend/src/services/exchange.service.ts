@@ -16,6 +16,36 @@ const EXCHANGE_MAP: Record<string, string> = {
   pi42: "pi42", // handled by Pi42Adapter
 };
 
+// Popularity ranking used by the deploy dialog so users always see BTC/ETH/
+// SOL first in the 9-pair grid, not whatever's alphabetically earliest. The
+// list is ordered by rough global perp volume / name recognition; pairs whose
+// base asset isn't in the list sort alphabetically after these.
+const POPULAR_BASES = [
+  "BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "ADA", "LINK", "AVAX",
+  "DOT", "SUI", "NEAR", "INJ", "TON", "OP", "ARB", "MATIC", "LTC",
+  "BCH", "TRX", "ATOM", "APT", "FIL", "UNI", "PEPE", "SHIB", "WLD",
+  "SEI", "TIA", "RNDR",
+];
+const POPULAR_RANK: Record<string, number> = Object.fromEntries(
+  POPULAR_BASES.map((b, i) => [b, i]),
+);
+
+function sortPairsByPopularity(pairs: string[]): string[] {
+  return [...pairs].sort((a, b) => {
+    const baseA = a.split("/")[0] ?? "";
+    const baseB = b.split("/")[0] ?? "";
+    const rA = POPULAR_RANK[baseA] ?? Number.MAX_SAFE_INTEGER;
+    const rB = POPULAR_RANK[baseB] ?? Number.MAX_SAFE_INTEGER;
+    if (rA !== rB) return rA - rB;
+    // Same base: prefer USDT quote, then alphabetical.
+    const quoteA = a.split("/")[1]?.split(":")[0] ?? "";
+    const quoteB = b.split("/")[1]?.split(":")[0] ?? "";
+    if (quoteA === "USDT" && quoteB !== "USDT") return -1;
+    if (quoteB === "USDT" && quoteA !== "USDT") return 1;
+    return a.localeCompare(b);
+  });
+}
+
 export class ExchangeService {
   private instances = new Map<string, Exchange>();
 
@@ -167,7 +197,7 @@ export class ExchangeService {
         if (m?.inverse === true) continue;
         out.push(symbol);
       }
-      return out.sort();
+      return sortPairsByPopularity(out);
     } catch (err) {
       throw new AppError(502, `Failed to load pairs: ${(err as Error).message}`);
     }
