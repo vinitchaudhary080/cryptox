@@ -318,8 +318,11 @@ class StrategyWorker {
           { leverage },
         );
 
-        const fillPrice = Number(order.average ?? order.price ?? price);
-        const fee = Number(order.fee?.cost ?? 0);
+        // Use || (not ??) because adapters may return 0/NaN for unknown
+        // fields and we want to fall back to the signal price/qty in that case.
+        const fillPrice = Number(order.average) || Number(order.price) || price;
+        const fillQty = Number(order.filled) || Number(order.amount) || quantity;
+        const fee = Number(order.fee?.cost) || 0;
 
         const trade = await prisma.trade.create({
           data: {
@@ -327,7 +330,7 @@ class StrategyWorker {
             pair: deployed.pair,
             side,
             entryPrice: fillPrice,
-            quantity: Number(order.filled ?? quantity),
+            quantity: fillQty,
             fee,
             status: "OPEN",
             exchangeOrderId: order.id,
@@ -428,8 +431,8 @@ class StrategyWorker {
           { leverage },
         );
 
-        actualExitPrice = Number(order.average ?? order.price ?? exitPrice);
-        fee = Number(order.fee?.cost ?? 0);
+        actualExitPrice = Number(order.average) || Number(order.price) || exitPrice;
+        fee = Number(order.fee?.cost) || 0;
         closeOrderId = String(order.id);
       } catch (err) {
         // Don't close in DB if exchange order failed — retry next tick

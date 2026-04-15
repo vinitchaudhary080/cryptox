@@ -462,10 +462,11 @@ export class CoinDCXAdapter {
       "/exchange/v1/derivatives/futures/orders/create",
       { order: orderBody },
     );
+    // Log the raw shape once so we can map field names accurately.
+    console.log("[CoinDCX] create-order raw response:", JSON.stringify(res).slice(0, 800));
 
     // CoinDCX's futures create-order response shape is undocumented; tolerate
-    // every variant we've seen in the wild: { orders: [...] }, { order: {...} },
-    // a bare object, or a bare array.
+    // every variant: { orders: [...] }, { order: {...} }, a bare object, array.
     let o: CoinDCXFuturesOrder | undefined;
     if (Array.isArray(res)) {
       o = res[0] as CoinDCXFuturesOrder;
@@ -484,12 +485,79 @@ export class CoinDCXAdapter {
     }
 
     if (!o) {
-      console.error("[CoinDCX] Unexpected create-order response shape:", JSON.stringify(res));
       throw new Error(
         `CoinDCX futures: create order returned unknown shape: ${JSON.stringify(res).slice(0, 300)}`,
       );
     }
-    return this.normalizeOrder(symbol, o);
+
+    // Market orders on CoinDCX return only the acknowledgement — the actual
+    // fill price / fee aren't in the immediate response. Fetch the position
+    // we just opened to get the true fill values.
+    const filled = await this.enrichOrderWithPosition(symbol, o, qty, side);
+    return filled;
+  }
+
+  /**
+   * After a market order acks, query /positions to pull the real avg_price
+   * and active_pos for the pair. Falls back to the mark price if the
+   * position lookup fails.
+   */
+  private async enrichOrderWithPosition(
+    symbol: string,
+    raw: CoinDCXFuturesOrder,
+    intendedQty: number,
+    side: "buy" | "sell",
+  ): Promise<Order> {
+    const pair = this.symbolToPair[symbol];
+    let avgPrice = 0;
+    let activeQty = 0;
+
+    try {
+      const positions = await this.privatePost<unknown>(
+        "/exchange/v1/derivatives/futures/positions",
+        { page: "1", size: "50", margin_currency_short_name: ["USDT", "INR"] },
+      );
+      const list: Array<Record<string, unknown>> = Array.isArray(positions)
+        ? (positions as Array<Record<string, unknown>>)
+        : [];
+      const pos = list.find((p) => p.pair === pair);
+      if (pos) {
+        avgPrice = Number(pos.avg_price ?? 0);
+        activeQty = Math.abs(Number(pos.active_pos ?? 0));
+      }
+    } catch (err) {
+      console.warn(`[CoinDCX] position lookup after order failed:`, (err as Error).message);
+    }
+
+    // Fallback: if positions endpoint didn't help, use current mark price.
+    if (!avgPrice) avgPrice = await this.getMarkPrice(pair);
+    if (!activeQty) activeQty = intendedQty;
+
+    const tsRaw = raw.updated_at ?? raw.created_at;
+    const ts =
+      typeof tsRaw === "number"
+        ? tsRaw
+        : typeof tsRaw === "string"
+          ? Date.parse(tsRaw)
+          : Date.now();
+
+    return {
+      id: String(raw.id ?? ""),
+      symbol,
+      type: "market",
+      side,
+      price: avgPrice,
+      average: avgPrice,
+      amount: activeQty,
+      filled: activeQty,
+      remaining: 0,
+      cost: avgPrice * activeQty,
+      status: "closed",
+      fee: { cost: 0, currency: "USDT" },
+      timestamp: ts,
+      datetime: new Date(ts).toISOString(),
+      info: raw,
+    } as unknown as Order;
   }
 
   async cancelOrder(orderId: string, _symbol?: string): Promise<unknown> {
