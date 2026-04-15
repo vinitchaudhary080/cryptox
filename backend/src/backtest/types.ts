@@ -191,4 +191,12 @@ export const BACKTEST_COINS: CoinConfig[] = [
   { symbol: "SUI/USD:USD", short: "SUI", name: "Sui" },
   { symbol: "LINK/USD:USD", short: "LINK", name: "Chainlink" },
   { symbol: "AVAX/USD:USD", short: "AVAX", name: "Avalanche" },
+  { symbol: "BNB/USD:USD", short: "BNB", name: "BNB" },
+  { symbol: "PAXG/USD:USD", short: "PAXG", name: "PAX Gold" },
+  { symbol: "LTC/USD:USD", short: "LTC", name: "Litecoin" },
+  { symbol: "UNI/USD:USD", short: "UNI", name: "Uniswap" },
+  { symbol: "NEAR/USD:USD", short: "NEAR", name: "NEAR Protocol" },
+  { symbol: "INJ/USD:USD", short: "INJ", name: "Injective" },
+  { symbol: "WIF/USD:USD", short: "WIF", name: "dogwifhat" },
+  { symbol: "AAVE/USD:USD", short: "AAVE", name: "Aave" },
 ];

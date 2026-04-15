@@ -18,6 +18,14 @@ const BINANCE_SYMBOLS: Record<string, string> = {
   SUI: "SUI/USDT",
   LINK: "LINK/USDT",
   AVAX: "AVAX/USDT",
+  BNB: "BNB/USDT",
+  PAXG: "PAXG/USDT",
+  LTC: "LTC/USDT",
+  UNI: "UNI/USDT",
+  NEAR: "NEAR/USDT",
+  INJ: "INJ/USDT",
+  WIF: "WIF/USDT",
+  AAVE: "AAVE/USDT",
 };
 
 // Earliest available data on Binance per coin (tested)
@@ -33,6 +41,14 @@ const COIN_START_DATES: Record<string, string> = {
   SUI: "2023-05-03",  // SUI listed May 2023
   LINK: "2023-01-01",
   AVAX: "2023-01-01",
+  BNB: "2023-01-01",
+  PAXG: "2023-01-01",
+  LTC: "2023-01-01",
+  UNI: "2023-01-01",
+  NEAR: "2023-01-01",
+  INJ: "2023-01-01",
+  WIF: "2024-03-05",  // WIF listed on Binance March 2024
+  AAVE: "2023-01-01",
 };
 
 const CANDLES_PER_REQUEST = 1000; // Binance limit
