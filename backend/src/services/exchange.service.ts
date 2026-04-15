@@ -153,9 +153,19 @@ export class ExchangeService {
       await exchange.loadMarkets();
       const out: string[] = [];
       for (const [symbol, market] of Object.entries(exchange.markets ?? {})) {
-        const m = market as { swap?: boolean; contract?: boolean; active?: boolean };
+        const m = market as {
+          swap?: boolean;
+          contract?: boolean;
+          active?: boolean;
+          linear?: boolean;
+          inverse?: boolean;
+        };
         if (m?.active === false) continue;
-        if (m?.swap || m?.contract) out.push(symbol);
+        if (!(m?.swap || m?.contract)) continue;
+        // Skip inverse (coin-margined) perps — the executor only supports
+        // linear USDT/USDC-margined contracts where amount is in base currency.
+        if (m?.inverse === true) continue;
+        out.push(symbol);
       }
       return out.sort();
     } catch (err) {
