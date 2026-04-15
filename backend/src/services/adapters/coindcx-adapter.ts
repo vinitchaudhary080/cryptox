@@ -16,8 +16,9 @@ import type { Balances, Market, OHLCV, Order, Ticker } from "ccxt";
 const PUBLIC_BASE = "https://public.coindcx.com";
 const PRIVATE_BASE = "https://api.coindcx.com";
 
-// CoinDCX futures pair format: "B-BTC_USDT" ↔ CCXT: "BTC/USDT:USDT"
-const PAIR_RE = /^B-([A-Z0-9]+)_([A-Z]+)$/;
+// CoinDCX futures pair format: "<prefix>-<base>_<quote>" e.g. "B-BTC_USDT",
+// "I-BTC_INR" (INR-margined). Prefix denotes the venue/source CoinDCX proxies.
+const PAIR_RE = /^([A-Z]+)-([A-Z0-9]+)_([A-Z]+)$/;
 
 interface CoinDCXInstrumentDetail {
   pair: string;
@@ -173,9 +174,8 @@ export class CoinDCXAdapter {
   private pairToCcxtSymbol(pair: string): string | null {
     const m = PAIR_RE.exec(pair);
     if (!m) return null;
-    const base = m[1];
-    const quote = m[2];
-    if (quote !== "USDT") return null;
+    const base = m[2];
+    const quote = m[3];
     return `${base}/${quote}:${quote}`;
   }
 
@@ -215,8 +215,8 @@ export class CoinDCXAdapter {
       const symbol = this.pairToCcxtSymbol(pair);
       if (!symbol) continue;
       const m = PAIR_RE.exec(pair)!;
-      const base = m[1];
-      const quote = m[2];
+      const base = m[2];
+      const quote = m[3];
 
       this.symbolToPair[symbol] = pair;
       this.pairToSymbol[pair] = symbol;
@@ -355,6 +355,33 @@ export class CoinDCXAdapter {
     return 3600;
   }
 
+  /**
+   * Public method used by ExchangeService.getInstrumentInfo() to power the
+   * deploy dialog's live "min required" calculator. Returns normalized rules
+   * for a single pair without leaking CoinDCX-specific field names.
+   */
+  async getInstrumentInfo(symbol: string): Promise<{
+    minQty: number;
+    minNotional: number;
+    qtyIncrement: number;
+    priceIncrement: number;
+    maxLeverage: number;
+  }> {
+    if (Object.keys(this.markets).length === 0) await this.loadMarkets();
+    const pair = this.requirePair(symbol);
+    const inst = await this.loadInstrumentDetail(pair);
+    return {
+      minQty: Number(inst.min_quantity) || 0,
+      minNotional: Number(inst.min_notional) || 0,
+      qtyIncrement: Number(inst.quantity_increment) || 0,
+      priceIncrement: Number(inst.price_increment) || 0,
+      maxLeverage: Math.max(
+        Number(inst.max_leverage_long) || 0,
+        Number(inst.max_leverage_short) || 0,
+      ),
+    };
+  }
+
   // ─── Private endpoints ─────────────────────────────────────────────
 
   async fetchBalance(): Promise<Balances> {
@@ -410,34 +437,16 @@ export class CoinDCXAdapter {
     const maxLev = Math.max(instrument.max_leverage_long, instrument.max_leverage_short);
     const leverage = Math.min(Math.max(1, leverageRaw), maxLev || 20);
 
-    // CoinDCX rejects quantities that aren't a multiple of quantity_increment.
-    // Floor to the nearest step so we never over-order, and enforce min_quantity.
+    // Round quantity to the exchange's step size so the API doesn't reject
+    // with "Quantity should be divisible by X". This is a format requirement,
+    // not a min/max gate — the deploy dialog enforces min_notional/min_qty
+    // upfront so we don't need to block here.
     const step = Number(instrument.quantity_increment) || 0;
-    const minQty = Number(instrument.min_quantity) || 0;
     let qty = amount;
     if (step > 0) {
       const decimals = Math.max(0, -Math.floor(Math.log10(step)));
       qty = Math.floor(qty / step) * step;
       qty = Number(qty.toFixed(decimals));
-    }
-    if (qty < minQty) {
-      throw new Error(
-        `CoinDCX futures: quantity ${amount} rounds to ${qty}, below min ${minQty} for ${symbol}. ` +
-          `Increase investment amount or leverage.`,
-      );
-    }
-
-    // Min notional check — CoinDCX rejects orders where qty * price < min_notional.
-    // For market orders we use the last-known mark price from ticker as an estimate.
-    const minNotional = Number(instrument.min_notional) || 0;
-    if (minNotional > 0) {
-      const refPrice = price ?? await this.getMarkPrice(pair);
-      if (refPrice > 0 && qty * refPrice < minNotional) {
-        throw new Error(
-          `CoinDCX futures: order notional ${(qty * refPrice).toFixed(2)} USDT below min ${minNotional} USDT for ${symbol}. ` +
-            `Increase investment amount (at least ${(minNotional / refPrice).toFixed(4)} ${symbol.split("/")[0]}).`,
-        );
-      }
     }
 
     const orderBody: Record<string, unknown> = {

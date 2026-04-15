@@ -350,14 +350,12 @@ export const brokers: Broker[] = [
   },
 ]
 
+// CryptoX is futures-only and supports exactly 4 brokers.
 export const availableBrokers = [
-  { id: "delta", name: "Delta Exchange", shortName: "DE", description: "India's leading crypto derivatives exchange. Supports futures and options trading.", features: ["Futures", "Options", "Perpetuals"], region: "India / Global" },
-  { id: "coindcx", name: "CoinDCX", shortName: "CD", description: "India's largest crypto exchange with spot trading and wide altcoin coverage.", features: ["Spot", "Margin", "Staking"], region: "India" },
-  { id: "binance", name: "Binance", shortName: "BN", description: "World's largest crypto exchange by volume. Extensive spot and derivatives markets.", features: ["Spot", "Futures", "Margin"], region: "Global" },
-  { id: "bybit", name: "Bybit", shortName: "BB", description: "Top derivatives exchange with deep liquidity and advanced trading tools.", features: ["Spot", "Futures", "Copy Trading"], region: "Global" },
-  { id: "okx", name: "OKX", shortName: "OK", description: "Full-service crypto exchange with DeFi wallet and advanced trading features.", features: ["Spot", "Futures", "DeFi"], region: "Global" },
-  { id: "kucoin", name: "KuCoin", shortName: "KC", description: "Popular exchange known for listing new altcoins early. Great for diversified trading.", features: ["Spot", "Futures", "Lending"], region: "Global" },
-  { id: "bitget", name: "Bitget", shortName: "BG", description: "Fast-growing derivatives exchange with strong copy trading ecosystem.", features: ["Spot", "Futures", "Copy Trading"], region: "Global" },
+  { id: "coindcx", name: "CoinDCX", shortName: "CD", description: "India's largest crypto exchange. USDT-margined perpetual futures.", features: ["USDT Perps", "Up to 20x"], region: "India" },
+  { id: "delta", name: "Delta Exchange India", shortName: "DE", description: "India's leading crypto derivatives venue. USD-settled perpetual futures.", features: ["USD Perps", "Up to 200x"], region: "India" },
+  { id: "pi42", name: "Pi42", shortName: "P4", description: "Futures-only Indian exchange with both USDT and INR-margined perpetuals.", features: ["USDT + INR Perps", "Up to 150x"], region: "India" },
+  { id: "bybit", name: "Bybit", shortName: "BB", description: "Global derivatives venue with deep USDT perp liquidity.", features: ["USDT Perps", "Up to 100x"], region: "Global" },
 ]
 
 export type DeployedStrategy = {

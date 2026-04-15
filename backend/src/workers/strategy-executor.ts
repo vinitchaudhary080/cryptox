@@ -95,18 +95,17 @@ class StrategyWorker {
       const market = exchange.markets[pair];
 
       if (market && market.contractSize) {
-        // Contract-based exchange (Delta, Bybit futures, etc.)
-        // 1 contract = contractSize units of base currency
-        // contractValue = contractSize × currentPrice
-        const contractValue = Number(market.contractSize) * currentPrice;
-        const qty = Math.floor(effectiveAmount / contractValue);
-        return Math.max(1, qty);
+        // Contract-based exchange (Delta India). The adapter expects
+        // base-currency amount and converts internally to contracts.
+        // Return the raw base-currency amount; the adapter handles rounding.
+        return effectiveAmount / currentPrice;
       }
     } catch { /* fallback below */ }
 
-    // Spot exchange or fallback — quantity in base currency
-    const qty = effectiveAmount / currentPrice;
-    return Math.max(0.001, Number(qty.toFixed(6)));
+    // Linear perp (CoinDCX, Pi42, Bybit) — qty in base currency.
+    // Return EXACT computed amount; adapters round to instrument step and
+    // the deploy dialog already validated min_notional/min_qty upfront.
+    return effectiveAmount / currentPrice;
   }
 
   async startStrategy(deployedId: string): Promise<void> {

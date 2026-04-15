@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import {
@@ -11,6 +11,7 @@ import {
   Shield,
   DollarSign,
   Loader2,
+  Search,
 } from "lucide-react"
 import {
   Dialog,
@@ -37,6 +38,15 @@ type Broker = {
   activeStrategies: number
 }
 
+type InstrumentInfo = {
+  symbol: string
+  minQty: number
+  minNotional: number
+  qtyIncrement: number
+  priceIncrement: number
+  maxLeverage: number
+}
+
 type DeployDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -46,53 +56,27 @@ type DeployDialogProps = {
   defaultPairs?: string[]
 }
 
-// CryptoX is a futures-only platform. Brokers split into two camps:
-//   - USDT-linear perps (CoinDCX, Binance USDT-M, Bybit USDT-M, etc.)
-//   - USD-inverse perps (Delta Exchange India)
-// CCXT formats: linear = "BASE/USDT:USDT", inverse = "BASE/USD:USD"
-const LINEAR_FUTURES_PAIRS = [
-  "BTC/USDT:USDT",
-  "ETH/USDT:USDT",
-  "SOL/USDT:USDT",
-  "XRP/USDT:USDT",
-  "DOGE/USDT:USDT",
-  "SUI/USDT:USDT",
-  "LINK/USDT:USDT",
-  "AVAX/USDT:USDT",
-  "ADA/USDT:USDT",
-  "DOT/USDT:USDT",
-  "NEAR/USDT:USDT",
-  "INJ/USDT:USDT",
-  "ARB/USDT:USDT",
-  "OP/USDT:USDT",
-]
+type Step = "broker" | "config" | "confirm"
 
-const INVERSE_FUTURES_PAIRS = [
-  "BTC/USD:USD",
-  "ETH/USD:USD",
-  "SOL/USD:USD",
-  "XRP/USD:USD",
-  "DOGE/USD:USD",
-  "SUI/USD:USD",
-  "LINK/USD:USD",
-  "AVAX/USD:USD",
-  "ADA/USD:USD",
-  "DOT/USD:USD",
-  "NEAR/USD:USD",
-  "INJ/USD:USD",
-  "ARB/USD:USD",
-  "OP/USD:USD",
-]
+const PAIR_GRID_SIZE = 9
 
-// Brokers that trade USD-inverse perps instead of USDT-linear.
-const INVERSE_BROKERS = new Set(["delta"])
-
-function pairsForBroker(exchangeId: string | undefined): string[] {
-  if (exchangeId && INVERSE_BROKERS.has(exchangeId)) return INVERSE_FUTURES_PAIRS
-  return LINEAR_FUTURES_PAIRS
+function formatPair(pair: string): string {
+  // "BTC/USDT:USDT" → "BTC/USDT Perp"
+  const [main] = pair.split(":")
+  return `${main} Perp`
 }
 
-type Step = "broker" | "config" | "confirm"
+function formatPairShort(pair: string): string {
+  // "BTC/USDT:USDT" → "BTC"
+  return pair.split("/")[0]
+}
+
+function formatQuoteSuffix(pair: string): string {
+  // "BTC/USDT:USDT" → "USDT"
+  const [, qs] = pair.split("/")
+  if (!qs) return ""
+  return qs.split(":")[0]
+}
 
 export function DeployDialog({
   open,
@@ -111,30 +95,32 @@ export function DeployDialog({
 
   // Form state
   const [selectedBrokerId, setSelectedBrokerId] = useState("")
-  const [selectedPair, setSelectedPair] = useState("BTC/USDT:USDT")
-  const [amount, setAmount] = useState("500")
+  const [selectedPair, setSelectedPair] = useState("")
+  const [amount, setAmount] = useState("5")
   const [leverage, setLeverage] = useState("10")
 
+  // Pair list + instrument info state (broker-aware)
+  const [availablePairs, setAvailablePairs] = useState<string[]>([])
+  const [pairsLoading, setPairsLoading] = useState(false)
+  const [pairSearch, setPairSearch] = useState("")
+  const [showAllPairs, setShowAllPairs] = useState(false)
+  const [instrument, setInstrument] = useState<InstrumentInfo | null>(null)
+  const [instrumentLoading, setInstrumentLoading] = useState(false)
+
   const selectedBrokerMeta = brokers.find((b) => b.id === selectedBrokerId)
-  const availablePairs = pairsForBroker(selectedBrokerMeta?.exchangeId)
 
-  // Auto-reset selected pair when the broker changes and the current pair
-  // isn't in the new broker's list (linear vs inverse mismatch).
-  useEffect(() => {
-    if (!selectedBrokerMeta) return
-    if (!availablePairs.includes(selectedPair)) {
-      setSelectedPair(availablePairs[0])
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedBrokerId])
-
-  // Fetch connected brokers
+  // Reset everything when dialog opens
   useEffect(() => {
     if (!open) return
     setStep("broker")
     setError("")
     setSuccess(false)
     setSelectedBrokerId("")
+    setSelectedPair("")
+    setAvailablePairs([])
+    setInstrument(null)
+    setPairSearch("")
+    setShowAllPairs(false)
     setLoading(true)
 
     brokerApi.list().then((res) => {
@@ -149,10 +135,73 @@ export function DeployDialog({
     })
   }, [open])
 
-  const selectedBroker = selectedBrokerMeta
+  // Fetch broker's pair list whenever broker changes
+  useEffect(() => {
+    if (!selectedBrokerId) {
+      setAvailablePairs([])
+      setSelectedPair("")
+      return
+    }
+    setPairsLoading(true)
+    setSelectedPair("")
+    setInstrument(null)
+    brokerApi.getPairs(selectedBrokerId).then((res) => {
+      if (res.success && Array.isArray(res.data)) {
+        const pairs = res.data as string[]
+        setAvailablePairs(pairs)
+        // Default to BTC/USDT:USDT if present, else first pair
+        const defaultPair =
+          pairs.find((p) => p.startsWith("BTC/USDT")) ??
+          pairs.find((p) => p.startsWith("BTC/")) ??
+          pairs[0] ??
+          ""
+        setSelectedPair(defaultPair)
+      } else {
+        setAvailablePairs([])
+        setError(res.error || "Failed to load pairs for this broker")
+      }
+      setPairsLoading(false)
+    })
+  }, [selectedBrokerId])
+
+  // Fetch instrument-info whenever pair changes
+  useEffect(() => {
+    if (!selectedBrokerId || !selectedPair) {
+      setInstrument(null)
+      return
+    }
+    setInstrumentLoading(true)
+    brokerApi.getInstrumentInfo(selectedBrokerId, selectedPair).then((res) => {
+      if (res.success && res.data) {
+        setInstrument(res.data as InstrumentInfo)
+      } else {
+        setInstrument(null)
+      }
+      setInstrumentLoading(false)
+    })
+  }, [selectedBrokerId, selectedPair])
+
+  // Live min-validation math
+  const amountNum = parseFloat(amount) || 0
+  const leverageNum = parseInt(leverage) || 1
+  const effectiveNotional = amountNum * leverageNum
+  const minNotional = instrument?.minNotional ?? 0
+  const meetsMin = !instrument || minNotional === 0 || effectiveNotional >= minNotional
+  const maxLeverage = instrument?.maxLeverage ?? 100
+  const leverageOverMax = leverageNum > maxLeverage
+
+  // Filtered pair list for the search dropdown
+  const filteredPairs = useMemo(() => {
+    const q = pairSearch.trim().toUpperCase()
+    if (!q) return availablePairs
+    return availablePairs.filter((p) => p.toUpperCase().includes(q))
+  }, [availablePairs, pairSearch])
+
+  const visiblePairsGrid = availablePairs.slice(0, PAIR_GRID_SIZE)
 
   const handleDeploy = async () => {
     if (!selectedBrokerId || !selectedPair || !amount) return
+    if (!meetsMin || leverageOverMax) return
 
     setDeploying(true)
     setError("")
@@ -180,6 +229,8 @@ export function DeployDialog({
     }
   }
 
+  const selectedBroker = selectedBrokerMeta
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
@@ -190,7 +241,6 @@ export function DeployDialog({
           </DialogTitle>
         </DialogHeader>
 
-        {/* Success state */}
         {success ? (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -307,7 +357,12 @@ export function DeployDialog({
                               {broker.name.slice(0, 2).toUpperCase()}
                             </div>
                             <div>
-                              <p className="text-sm font-semibold">{broker.name} <span className="text-xs font-normal text-muted-foreground">({broker.uid})</span></p>
+                              <p className="text-sm font-semibold">
+                                {broker.name}{" "}
+                                <span className="text-xs font-normal text-muted-foreground">
+                                  ({broker.uid})
+                                </span>
+                              </p>
                               <p className="text-[11px] text-muted-foreground">
                                 {broker.balance != null ? `Balance: $${broker.balance.toLocaleString()}` : "Connected"} &middot; {broker.activeStrategies} active
                               </p>
@@ -345,11 +400,63 @@ export function DeployDialog({
                 >
                   {/* Trading pair */}
                   <div>
-                    <Label className="text-xs text-muted-foreground">Trading Pair</Label>
-                    <div className="mt-1.5 grid grid-cols-3 gap-1.5">
-                      {availablePairs.slice(0, 9).map((pair) => {
-                        const display = pair.split("/")[0]
-                        return (
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs text-muted-foreground">Trading Pair</Label>
+                      {availablePairs.length > PAIR_GRID_SIZE && (
+                        <button
+                          onClick={() => setShowAllPairs((v) => !v)}
+                          className="text-[11px] font-medium text-primary hover:underline"
+                        >
+                          {showAllPairs ? "Show top 9" : `Search all ${availablePairs.length} pairs`}
+                        </button>
+                      )}
+                    </div>
+
+                    {pairsLoading ? (
+                      <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Loading pairs from broker...
+                      </div>
+                    ) : showAllPairs ? (
+                      <div className="mt-1.5 space-y-2">
+                        <div className="relative">
+                          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                          <Input
+                            placeholder="Search pair (BTC, ETH, DOGE...)"
+                            value={pairSearch}
+                            onChange={(e) => setPairSearch(e.target.value)}
+                            className="h-8 bg-muted/30 pl-8 text-xs"
+                          />
+                        </div>
+                        <div className="max-h-44 overflow-y-auto rounded-lg border border-border/50 bg-muted/10">
+                          {filteredPairs.length === 0 ? (
+                            <p className="p-3 text-center text-[11px] text-muted-foreground">
+                              No matching pairs
+                            </p>
+                          ) : (
+                            filteredPairs.slice(0, 100).map((pair) => (
+                              <button
+                                key={pair}
+                                onClick={() => { setSelectedPair(pair); setShowAllPairs(false); }}
+                                className={cn(
+                                  "flex w-full items-center justify-between border-b border-border/30 px-3 py-1.5 text-left text-xs transition-colors last:border-b-0",
+                                  selectedPair === pair
+                                    ? "bg-primary/10 text-primary"
+                                    : "hover:bg-accent/50"
+                                )}
+                              >
+                                <span className="font-medium">{pair.split(":")[0]}</span>
+                                <span className="text-[10px] text-muted-foreground">
+                                  {formatQuoteSuffix(pair)}
+                                </span>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-1.5 grid grid-cols-3 gap-1.5">
+                        {visiblePairsGrid.map((pair) => (
                           <button
                             key={pair}
                             onClick={() => setSelectedPair(pair)}
@@ -360,16 +467,16 @@ export function DeployDialog({
                                 : "border-border/50 text-muted-foreground hover:border-primary/30"
                             )}
                           >
-                            {display}
+                            {formatPairShort(pair)}
                           </button>
-                        )
-                      })}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* Investment amount */}
                   <div>
-                    <Label className="text-xs text-muted-foreground">Investment Amount (USD)</Label>
+                    <Label className="text-xs text-muted-foreground">Investment Amount</Label>
                     <div className="relative mt-1.5">
                       <DollarSign className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
@@ -377,11 +484,13 @@ export function DeployDialog({
                         value={amount}
                         onChange={(e) => setAmount(e.target.value)}
                         className="bg-muted/30 pl-9"
-                        placeholder="500"
+                        placeholder="5"
+                        min="0"
+                        step="any"
                       />
                     </div>
                     <div className="mt-1.5 flex gap-1.5">
-                      {["100", "500", "1000", "5000"].map((v) => (
+                      {["1", "5", "10", "50", "100"].map((v) => (
                         <button
                           key={v}
                           onClick={() => setAmount(v)}
@@ -402,24 +511,77 @@ export function DeployDialog({
 
                   {/* Leverage */}
                   <div>
-                    <Label className="text-xs text-muted-foreground">Leverage</Label>
-                    <div className="mt-2 flex gap-2">
-                      {["5", "10", "15", "20", "25"].map((v) => (
-                        <button
-                          key={v}
-                          onClick={() => setLeverage(v)}
-                          className={cn(
-                            "flex-1 rounded-xl border py-2.5 text-sm font-semibold transition-all",
-                            leverage === v
-                              ? "border-primary bg-primary/10 text-primary"
-                              : "border-border/50 text-muted-foreground hover:border-primary/30 hover:text-foreground"
-                          )}
-                        >
-                          {v}X
-                        </button>
-                      ))}
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs text-muted-foreground">Leverage</Label>
+                      {instrument && (
+                        <span className="text-[10px] text-muted-foreground">
+                          Max: {maxLeverage}x
+                        </span>
+                      )}
                     </div>
+                    <div className="mt-2 flex gap-2">
+                      {["1", "5", "10", "25", "50"].map((v) => {
+                        const n = parseInt(v)
+                        const disabled = n > maxLeverage
+                        return (
+                          <button
+                            key={v}
+                            disabled={disabled}
+                            onClick={() => setLeverage(v)}
+                            className={cn(
+                              "flex-1 rounded-xl border py-2.5 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-30",
+                              leverage === v && !disabled
+                                ? "border-primary bg-primary/10 text-primary"
+                                : "border-border/50 text-muted-foreground hover:border-primary/30 hover:text-foreground"
+                            )}
+                          >
+                            {v}X
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <Input
+                      type="number"
+                      value={leverage}
+                      onChange={(e) => setLeverage(e.target.value)}
+                      className="mt-2 h-8 bg-muted/30 text-xs"
+                      placeholder="Custom leverage"
+                      min="1"
+                      max={maxLeverage}
+                    />
                   </div>
+
+                  {/* Live min-notional readout */}
+                  {instrumentLoading ? (
+                    <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-muted/20 p-2.5 text-[11px] text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Loading instrument rules...
+                    </div>
+                  ) : instrument ? (
+                    <div
+                      className={cn(
+                        "rounded-lg border p-2.5 text-[11px]",
+                        meetsMin && !leverageOverMax
+                          ? "border-profit/20 bg-profit/5 text-profit"
+                          : "border-loss/20 bg-loss/5 text-loss"
+                      )}
+                    >
+                      {leverageOverMax ? (
+                        <span>
+                          ⚠ Leverage {leverageNum}x exceeds {selectedBroker?.name}'s max of {maxLeverage}x for this pair.
+                        </span>
+                      ) : meetsMin ? (
+                        <span>
+                          ✓ Position notional <strong>${effectiveNotional.toFixed(2)}</strong> meets minimum (${minNotional.toFixed(2)}).
+                        </span>
+                      ) : (
+                        <span>
+                          ⚠ Position notional <strong>${effectiveNotional.toFixed(2)}</strong> below minimum <strong>${minNotional.toFixed(2)}</strong>.
+                          {" "}Increase amount or leverage. (e.g. ${(minNotional / leverageNum).toFixed(2)} at {leverageNum}x, or ${amount} at {Math.ceil(minNotional / amountNum)}x)
+                        </span>
+                      )}
+                    </div>
+                  ) : null}
 
                   <div className="flex gap-3 pt-2">
                     <Button variant="outline" className="flex-1" onClick={() => setStep("broker")}>
@@ -428,7 +590,9 @@ export function DeployDialog({
                     <Button
                       className="flex-1"
                       onClick={() => setStep("confirm")}
-                      disabled={!amount || parseFloat(amount) <= 0}
+                      disabled={
+                        !selectedPair || !amount || amountNum <= 0 || !meetsMin || leverageOverMax
+                      }
                     >
                       Next <ChevronRight className="ml-1.5 h-4 w-4" />
                     </Button>
@@ -449,9 +613,10 @@ export function DeployDialog({
                     {[
                       { label: "Strategy", value: strategyName },
                       { label: "Broker", value: selectedBroker ? `${selectedBroker.name} (${selectedBroker.uid})` : "" },
-                      { label: "Pair", value: selectedPair.replace(/:USDT$/, "") + " Perp" },
-                      { label: "Amount", value: `$${parseFloat(amount).toLocaleString()}` },
+                      { label: "Pair", value: formatPair(selectedPair) },
+                      { label: "Amount", value: `$${amountNum.toLocaleString()}` },
                       { label: "Leverage", value: `${leverage}X` },
+                      { label: "Notional", value: `$${effectiveNotional.toFixed(2)}` },
                     ].map((row) => (
                       <div key={row.label} className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">{row.label}</span>

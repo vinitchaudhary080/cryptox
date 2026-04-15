@@ -180,6 +180,56 @@ router.get("/:id/balance", authenticate, async (req: AuthRequest, res: Response)
   }
 });
 
+// List tradeable perp pairs for this broker (used by deploy dialog)
+router.get("/:id/pairs", authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const broker = await prisma.broker.findFirst({
+      where: { id, userId: req.user!.userId },
+    });
+    if (!broker) {
+      res.status(404).json({ success: false, error: "Broker not found" });
+      return;
+    }
+    const exchange = exchangeService.getExchange(
+      broker.id, broker.exchangeId, broker.apiKey, broker.apiSecret, broker.passphrase || undefined,
+    );
+    const pairs = await exchangeService.getPairs(exchange);
+    res.json({ success: true, data: pairs });
+  } catch (err: unknown) {
+    const e = err as { statusCode?: number; message: string };
+    res.status(e.statusCode || 500).json({ success: false, error: e.message });
+  }
+});
+
+// Per-pair trading rules (min notional, qty step, max leverage) — powers
+// the live "Min required" calculator in the deploy dialog.
+router.get("/:id/instrument-info", authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const pair = (req.query.pair as string | undefined) ?? "";
+    if (!pair) {
+      res.status(400).json({ success: false, error: "pair query param required" });
+      return;
+    }
+    const broker = await prisma.broker.findFirst({
+      where: { id, userId: req.user!.userId },
+    });
+    if (!broker) {
+      res.status(404).json({ success: false, error: "Broker not found" });
+      return;
+    }
+    const exchange = exchangeService.getExchange(
+      broker.id, broker.exchangeId, broker.apiKey, broker.apiSecret, broker.passphrase || undefined,
+    );
+    const info = await exchangeService.getInstrumentInfo(exchange, pair);
+    res.json({ success: true, data: info });
+  } catch (err: unknown) {
+    const e = err as { statusCode?: number; message: string };
+    res.status(e.statusCode || 500).json({ success: false, error: e.message });
+  }
+});
+
 // Get ticker
 router.get("/:id/ticker/:symbol", authenticate, async (req: AuthRequest, res: Response) => {
   try {

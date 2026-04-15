@@ -144,6 +144,11 @@ export const brokerApi = {
   getTicker: (id: string, symbol: string) =>
     apiFetch(`/brokers/${id}/ticker/${symbol.replace("/", "-")}`),
 
+  getPairs: (id: string) => apiFetch(`/brokers/${id}/pairs`),
+
+  getInstrumentInfo: (id: string, pair: string) =>
+    apiFetch(`/brokers/${id}/instrument-info?pair=${encodeURIComponent(pair)}`),
+
   remove: (id: string) => apiFetch(`/brokers/${id}`, { method: "DELETE" }),
 };
 

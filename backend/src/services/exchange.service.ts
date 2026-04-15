@@ -1,16 +1,19 @@
 import ccxt, { type Exchange, type Order, type Balances, type Ticker, type OHLCV } from "ccxt";
 import { AppError } from "../middleware/error-handler.js";
 import { CoinDCXAdapter } from "./adapters/coindcx-adapter.js";
+import { DeltaIndiaAdapter } from "./adapters/delta-india-adapter.js";
+import { Pi42Adapter } from "./adapters/pi42-adapter.js";
 
-// Map our broker exchangeId to ccxt exchange class names
+// CryptoX supports exactly 4 brokers, all futures-only.
+//   coindcx  — custom adapter (CoinDCX futures REST)
+//   delta    — custom adapter (Delta India v2 REST)
+//   pi42     — custom adapter (Pi42 fapi REST)
+//   bybit    — CCXT, category=linear (USDT perps)
 const EXCHANGE_MAP: Record<string, string> = {
-  delta: "delta",
-  binance: "binance",
   bybit: "bybit",
-  okx: "okx",
-  kucoin: "kucoin",
-  bitget: "bitget",
-  coindcx: "coindcx", // handled by CoinDCXAdapter, not a real CCXT class
+  coindcx: "coindcx", // handled by CoinDCXAdapter
+  delta: "delta-india", // handled by DeltaIndiaAdapter
+  pi42: "pi42", // handled by Pi42Adapter
 };
 
 export class ExchangeService {
@@ -29,39 +32,41 @@ export class ExchangeService {
       throw new AppError(400, `Unsupported exchange: ${exchangeId}`);
     }
 
-    // CoinDCX is not in CCXT — use our custom adapter that mimics the Exchange interface.
+    // Custom adapters for venues CCXT doesn't cover (or covers poorly).
     if (exchangeId === "coindcx") {
       const adapter = new CoinDCXAdapter(apiKey, apiSecret) as unknown as Exchange;
       this.instances.set(brokerId, adapter);
       return adapter;
     }
-
-    const ccxtAny = ccxt as unknown as Record<string, new (config: Record<string, unknown>) => Exchange>;
-    const ExchangeClass = ccxtAny[ccxtId];
-    if (!ExchangeClass) {
-      throw new AppError(400, `Exchange class not found for: ${ccxtId}`);
+    if (exchangeId === "delta") {
+      const adapter = new DeltaIndiaAdapter(apiKey, apiSecret) as unknown as Exchange;
+      this.instances.set(brokerId, adapter);
+      return adapter;
+    }
+    if (exchangeId === "pi42") {
+      const adapter = new Pi42Adapter(apiKey, apiSecret) as unknown as Exchange;
+      this.instances.set(brokerId, adapter);
+      return adapter;
     }
 
-    const config: Record<string, unknown> = {
+    // Bybit goes through CCXT with category=linear for USDT perps.
+    if (exchangeId !== "bybit") {
+      throw new AppError(400, `Unsupported exchange: ${exchangeId}`);
+    }
+    const ccxtAny = ccxt as unknown as Record<string, new (config: Record<string, unknown>) => Exchange>;
+    const ExchangeClass = ccxtAny.bybit;
+    if (!ExchangeClass) {
+      throw new AppError(500, "ccxt.bybit not available");
+    }
+    const exchange = new ExchangeClass({
       apiKey,
       secret: apiSecret,
       enableRateLimit: true,
-      options: {},
-    };
-
-    if (passphrase) {
-      config.password = passphrase;
-    }
-
-    const exchange = new ExchangeClass(config);
-
-    // Delta Exchange India — override URLs after construction
-    if (exchangeId === "delta") {
-      (exchange.urls as Record<string, unknown>)["api"] = {
-        public: "https://api.india.delta.exchange",
-        private: "https://api.india.delta.exchange",
-      };
-    }
+      options: {
+        defaultType: "swap", // perpetual futures
+        defaultSubType: "linear", // USDT-margined
+      },
+    });
     this.instances.set(brokerId, exchange);
     return exchange;
   }
@@ -136,6 +141,81 @@ export class ExchangeService {
       return exchange.markets;
     } catch (err) {
       throw new AppError(502, `Failed to load markets: ${(err as Error).message}`);
+    }
+  }
+
+  /**
+   * Return a flat list of CCXT-style perp symbols this broker supports,
+   * suitable for the deploy dialog pair picker.
+   */
+  async getPairs(exchange: Exchange): Promise<string[]> {
+    try {
+      await exchange.loadMarkets();
+      const out: string[] = [];
+      for (const [symbol, market] of Object.entries(exchange.markets ?? {})) {
+        const m = market as { swap?: boolean; contract?: boolean; active?: boolean };
+        if (m?.active === false) continue;
+        if (m?.swap || m?.contract) out.push(symbol);
+      }
+      return out.sort();
+    } catch (err) {
+      throw new AppError(502, `Failed to load pairs: ${(err as Error).message}`);
+    }
+  }
+
+  /**
+   * Fetch per-instrument trading rules used by the deploy dialog to validate
+   * user input live (min notional, qty step, max leverage etc.).
+   */
+  async getInstrumentInfo(
+    exchange: Exchange,
+    symbol: string,
+  ): Promise<{
+    symbol: string;
+    minQty: number;
+    minNotional: number;
+    qtyIncrement: number;
+    priceIncrement: number;
+    maxLeverage: number;
+  }> {
+    try {
+      await exchange.loadMarkets();
+      const market = exchange.markets?.[symbol] as
+        | {
+            limits?: { amount?: { min?: number }; cost?: { min?: number } };
+            precision?: { amount?: number; price?: number };
+            info?: Record<string, unknown>;
+          }
+        | undefined;
+
+      // Custom adapters (CoinDCXAdapter, future Delta/Pi42) expose
+      // getInstrumentInfo() directly because they have richer data.
+      const ad = exchange as unknown as {
+        getInstrumentInfo?: (s: string) => Promise<{
+          minQty: number;
+          minNotional: number;
+          qtyIncrement: number;
+          priceIncrement: number;
+          maxLeverage: number;
+        }>;
+      };
+      if (typeof ad.getInstrumentInfo === "function") {
+        const info = await ad.getInstrumentInfo(symbol);
+        return { symbol, ...info };
+      }
+
+      // CCXT fallback — use limits + precision from loadMarkets()
+      const minQty = Number(market?.limits?.amount?.min ?? 0);
+      const minNotional = Number(market?.limits?.cost?.min ?? 0);
+      const qtyIncrement = Number(market?.precision?.amount ?? 0);
+      const priceIncrement = Number(market?.precision?.price ?? 0);
+      const info = (market?.info ?? {}) as Record<string, unknown>;
+      const maxLeverage = Number(
+        info.maxLeverage ?? info.max_leverage ?? info.leverageMax ?? 100,
+      );
+      return { symbol, minQty, minNotional, qtyIncrement, priceIncrement, maxLeverage };
+    } catch (err) {
+      throw new AppError(502, `Failed to fetch instrument info: ${(err as Error).message}`);
     }
   }
 
