@@ -459,12 +459,37 @@ export class CoinDCXAdapter {
       orderBody.price = px;
     }
 
-    const res = await this.privatePost<CoinDCXFuturesOrderResponse>(
+    const res = await this.privatePost<unknown>(
       "/exchange/v1/derivatives/futures/orders/create",
       { order: orderBody },
     );
-    const o = res.orders?.[0] ?? res.order;
-    if (!o) throw new Error("CoinDCX futures: create order returned no order");
+
+    // CoinDCX's futures create-order response shape is undocumented; tolerate
+    // every variant we've seen in the wild: { orders: [...] }, { order: {...} },
+    // a bare object, or a bare array.
+    let o: CoinDCXFuturesOrder | undefined;
+    if (Array.isArray(res)) {
+      o = res[0] as CoinDCXFuturesOrder;
+    } else if (res && typeof res === "object") {
+      const obj = res as {
+        orders?: CoinDCXFuturesOrder[];
+        order?: CoinDCXFuturesOrder;
+        data?: CoinDCXFuturesOrder | CoinDCXFuturesOrder[];
+        id?: string;
+      };
+      if (Array.isArray(obj.orders) && obj.orders[0]) o = obj.orders[0];
+      else if (obj.order) o = obj.order;
+      else if (Array.isArray(obj.data) && obj.data[0]) o = obj.data[0];
+      else if (obj.data && typeof obj.data === "object") o = obj.data as CoinDCXFuturesOrder;
+      else if (obj.id) o = obj as unknown as CoinDCXFuturesOrder;
+    }
+
+    if (!o) {
+      console.error("[CoinDCX] Unexpected create-order response shape:", JSON.stringify(res));
+      throw new Error(
+        `CoinDCX futures: create order returned unknown shape: ${JSON.stringify(res).slice(0, 300)}`,
+      );
+    }
     return this.normalizeOrder(symbol, o);
   }
 
