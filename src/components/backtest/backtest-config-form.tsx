@@ -77,9 +77,9 @@ export function BacktestConfigForm({
   const [endDate, setEndDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [strategyType, setStrategyType] = useState<"code" | "ui">("code")
   const [strategyName, setStrategyName] = useState("")
-  const [initialCapital, setInitialCapital] = useState(10000)
+  const [initialCapital, setInitialCapital] = useState(50)
   const [commission, setCommission] = useState(0.05)   // 0.05% per trade
-  const [slippageVal, setSlippageVal] = useState(0.01)  // 0.01% per trade
+  const [slippageVal, setSlippageVal] = useState(0.1)   // 0.1% per trade
   const [isRunning, setIsRunning] = useState(false)
 
   // Built-in strategy state
