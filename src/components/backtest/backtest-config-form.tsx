@@ -37,6 +37,14 @@ const COINS = [
   { short: "SUI", name: "Sui" },
   { short: "LINK", name: "Chainlink" },
   { short: "AVAX", name: "Avalanche" },
+  { short: "BNB", name: "BNB" },
+  { short: "PAXG", name: "PAX Gold" },
+  { short: "LTC", name: "Litecoin" },
+  { short: "UNI", name: "Uniswap" },
+  { short: "NEAR", name: "NEAR Protocol" },
+  { short: "INJ", name: "Injective" },
+  { short: "WIF", name: "dogwifhat" },
+  { short: "AAVE", name: "Aave" },
 ]
 
 interface BuiltinStrategy {

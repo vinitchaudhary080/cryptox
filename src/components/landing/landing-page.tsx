@@ -400,7 +400,7 @@ function StatsBar() {
           {[
             { value: 10, suffix: "+", label: "Trading Strategies" },
             { value: 6, suffix: "", label: "Exchanges Supported" },
-            { value: 10, suffix: "", label: "Coins with Backtest Data" },
+            { value: 18, suffix: "", label: "Coins with Backtest Data" },
             { value: 3, suffix: " Years", label: "of 1-Min Historical Data" },
           ].map((stat) => (
             <motion.div key={stat.label} variants={fadeUp} className="text-center">

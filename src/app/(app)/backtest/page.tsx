@@ -125,6 +125,7 @@ export default function BacktestPage() {
 
   const totalDataRows = dataStatus.reduce((s, d) => s + d.estimatedRows, 0)
   const coinsWithData = dataStatus.filter((d) => d.exists && d.estimatedRows > 0).length
+  const totalCoins = dataStatus.length || 18
 
   return (
     <motion.div
@@ -144,7 +145,7 @@ export default function BacktestPage() {
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="text-xs">
             <Database className="mr-1 h-3 w-3" />
-            {coinsWithData}/10 coins
+            {coinsWithData}/{totalCoins} coins
           </Badge>
           <Button
             variant="outline"
@@ -163,7 +164,7 @@ export default function BacktestPage() {
       </motion.div>
 
       {/* Data Status Banner */}
-      {coinsWithData < 10 && (
+      {coinsWithData < totalCoins && (
         <motion.div variants={fadeUp}>
           <Card className="border-warning/30 bg-warning/5">
             <CardContent className="flex items-center gap-3 p-4">
@@ -173,7 +174,7 @@ export default function BacktestPage() {
                 <p className="text-xs text-muted-foreground">
                   {coinsWithData === 0
                     ? "No historical data found. Click 'Sync Data' to download candle data from Delta Exchange."
-                    : `${coinsWithData} of 10 coins have data. Sync to download the rest.`}
+                    : `${coinsWithData} of ${totalCoins} coins have data. Sync to download the rest.`}
                 </p>
               </div>
               <Button
