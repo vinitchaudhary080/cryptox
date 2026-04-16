@@ -1,4 +1,6 @@
 import dns from "dns";
+import { PrismaClient } from "@prisma/client";
+const prisma = new PrismaClient();
 dns.setDefaultResultOrder("ipv4first"); // Force IPv4 — fixes Delta IP whitelist issue
 
 import express from "express";
@@ -101,6 +103,12 @@ app.use(errorHandler);
 // Initialize WebSocket
 initSocket(server);
 
+// Mark orphaned RUNNING backtests as FAILED (from prior crashes / tsx restarts)
+prisma.backtestRun
+  .updateMany({ where: { status: "RUNNING" }, data: { status: "FAILED" } })
+  .then((r) => { if (r.count > 0) console.log(`[Startup] Marked ${r.count} orphaned backtests as FAILED`); })
+  .catch(() => {});
+
 // Start server
 server.listen(env.port, "0.0.0.0", () => {
   console.log(`
@@ -114,5 +122,21 @@ server.listen(env.port, "0.0.0.0", () => {
 ╚═══════════════════════════════════════════╝
   `);
 });
+
+// ── Graceful shutdown ─────────────────────────────────────────
+// tsx watch sends SIGTERM before respawning. Close the HTTP server so the
+// port is released BEFORE the new process tries to bind — prevents the
+// recurring EADDRINUSE crash that was killing the dev backend.
+function shutdown(signal: string) {
+  console.log(`[Server] ${signal} received — closing HTTP server...`);
+  server.close(() => {
+    console.log("[Server] HTTP server closed. Exiting.");
+    process.exit(0);
+  });
+  // Force exit after 3s if close hangs (stuck connections, etc.)
+  setTimeout(() => process.exit(1), 3000).unref();
+}
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
 
 export default app;

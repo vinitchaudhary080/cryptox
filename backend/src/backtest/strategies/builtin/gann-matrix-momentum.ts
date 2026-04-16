@@ -247,8 +247,8 @@ export const gannMatrixMomentum: BacktestStrategy = {
         action: "BUY",
         qty,
         leverage,
-        sl: 0, // no fixed SL — exit on opposite cross
-        tp: 0,
+        sl: undefined, // no fixed SL — exit on opposite EMA cross only
+        tp: undefined,
         reason: `EMA20 ↑ EMA50 + price $${price.toFixed(2)} in Gann [0°=$${pivot.toFixed(2)}, 180°=$${r180.toFixed(2)}]`,
       });
     }
@@ -259,8 +259,8 @@ export const gannMatrixMomentum: BacktestStrategy = {
         action: "SELL",
         qty,
         leverage,
-        sl: 0,
-        tp: 0,
+        sl: undefined,
+        tp: undefined,
         reason: `EMA20 ↓ EMA50 + price $${price.toFixed(2)} in Gann [-180°=$${s180.toFixed(2)}, 0°=$${pivot.toFixed(2)}]`,
       });
     }
