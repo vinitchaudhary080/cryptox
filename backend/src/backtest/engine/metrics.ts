@@ -1,57 +1,130 @@
-import type { BacktestTrade, BacktestMetrics, EquityPoint } from "../types.js";
+import type {
+  BacktestTrade,
+  BacktestMetrics,
+  EquityPoint,
+  DrawdownPoint,
+  CumulativePnlPoint,
+  TopTrade,
+} from "../types.js";
 
-export function computeMetrics(trades: BacktestTrade[], equityCurve: EquityPoint[], initialCapital: number): BacktestMetrics {
+const ONE_MINUTE_MS = 60_000;
+
+function toTopTrade(t: BacktestTrade): TopTrade {
+  return {
+    entry_time: t.entry_time,
+    exit_time: t.exit_time,
+    side: t.side,
+    entry_price: t.entry_price,
+    exit_price: t.exit_price,
+    pnl: t.pnl,
+    exit_reason: t.exit_reason,
+  };
+}
+
+export function computeMetrics(
+  trades: BacktestTrade[],
+  equityCurve: EquityPoint[],
+  initialCapital: number,
+  candleIntervalMs: number = ONE_MINUTE_MS,
+): BacktestMetrics {
   const closedTrades = trades.filter((t) => t.status === "CLOSED");
 
-  if (closedTrades.length === 0) {
-    return {
-      totalTrades: 0,
-      winTrades: 0,
-      lossTrades: 0,
-      winRate: 0,
-      totalPnl: 0,
-      grossPnl: 0,
-      totalFees: 0,
-      maxDrawdown: 0,
-      maxDrawdownPercent: 0,
-      sharpeRatio: 0,
-      profitFactor: 0,
-      avgWin: 0,
-      avgLoss: 0,
-      bestTrade: 0,
-      worstTrade: 0,
-      maxConsecutiveWins: 0,
-      maxConsecutiveLosses: 0,
-      avgTradeDuration: 0,
-    };
-  }
+  const empty: BacktestMetrics = {
+    totalTrades: 0,
+    winTrades: 0,
+    lossTrades: 0,
+    winRate: 0,
+    totalPnl: 0,
+    grossPnl: 0,
+    totalFees: 0,
+    maxDrawdown: 0,
+    maxDrawdownPercent: 0,
+    sharpeRatio: 0,
+    profitFactor: 0,
+    avgWin: 0,
+    avgLoss: 0,
+    bestTrade: 0,
+    worstTrade: 0,
+    maxConsecutiveWins: 0,
+    maxConsecutiveLosses: 0,
+    avgTradeDuration: 0,
+    largestWinTrades: [],
+    largestLossTrades: [],
+    avgBarsWinning: 0,
+    avgBarsLosing: 0,
+    drawdownCurve: [],
+    cumulativePnlCurve: [],
+    mddRecoveryDays: 0,
+  };
+
+  if (closedTrades.length === 0) return empty;
 
   const wins = closedTrades.filter((t) => t.pnl > 0);
   const losses = closedTrades.filter((t) => t.pnl <= 0);
 
   const totalPnl = closedTrades.reduce((s, t) => s + t.pnl, 0);
   const totalFees = closedTrades.reduce((s, t) => s + t.fee, 0);
-  const grossPnl = totalPnl + totalFees; // PnL before fees
+  const grossPnl = totalPnl + totalFees;
   const totalWinPnl = wins.reduce((s, t) => s + t.pnl, 0);
   const totalLossPnl = Math.abs(losses.reduce((s, t) => s + t.pnl, 0));
 
-  // Max drawdown from equity curve
+  // ── Drawdown curve + max drawdown + MDD recovery days ──────────
+
   let peak = initialCapital;
   let maxDrawdown = 0;
   let maxDrawdownPercent = 0;
 
+  // Track the longest recovery period (peak → trough → back-to-peak)
+  let recoveryStart = 0; // time when we last set a new peak
+  let longestRecoveryMs = 0;
+  let mddTroughTime = 0; // time of the deepest trough in current drawdown
+  let currentMddRecoveredAt = 0;
+
+  const drawdownCurve: DrawdownPoint[] = [];
+
   for (const point of equityCurve) {
-    if (point.equity > peak) peak = point.equity;
-    const drawdown = peak - point.equity;
-    const drawdownPct = peak > 0 ? (drawdown / peak) * 100 : 0;
-    if (drawdown > maxDrawdown) maxDrawdown = drawdown;
-    if (drawdownPct > maxDrawdownPercent) maxDrawdownPercent = drawdownPct;
+    if (point.equity >= peak) {
+      // New peak — recovery complete
+      if (recoveryStart > 0 && point.time - recoveryStart > longestRecoveryMs) {
+        longestRecoveryMs = point.time - recoveryStart;
+      }
+      peak = point.equity;
+      recoveryStart = point.time;
+    }
+    const dd = peak - point.equity;
+    const ddPct = peak > 0 ? (dd / peak) * 100 : 0;
+    if (dd > maxDrawdown) {
+      maxDrawdown = dd;
+      mddTroughTime = point.time;
+    }
+    if (ddPct > maxDrawdownPercent) maxDrawdownPercent = ddPct;
+
+    drawdownCurve.push({ time: point.time, drawdownPct: ddPct });
+  }
+  // If still in drawdown at end, count to last equity point
+  if (equityCurve.length > 0) {
+    const lastTime = equityCurve[equityCurve.length - 1].time;
+    if (recoveryStart > 0 && lastTime - recoveryStart > longestRecoveryMs) {
+      longestRecoveryMs = lastTime - recoveryStart;
+    }
+  }
+  const mddRecoveryDays = Math.round(longestRecoveryMs / (24 * 60 * 60 * 1000));
+
+  // ── Cumulative PnL curve ───────────────────────────────────────
+
+  const cumulativePnlCurve: CumulativePnlPoint[] = [];
+  let runningPnl = 0;
+  for (const t of closedTrades) {
+    runningPnl += t.pnl;
+    cumulativePnlCurve.push({ time: t.exit_time, pnl: runningPnl });
   }
 
-  // Sharpe ratio (annualized, using daily returns from equity curve)
+  // ── Sharpe ratio ───────────────────────────────────────────────
+
   const sharpeRatio = computeSharpeRatio(equityCurve);
 
-  // Consecutive wins/losses
+  // ── Consecutive wins/losses ────────────────────────────────────
+
   let currentWins = 0;
   let currentLosses = 0;
   let maxConsecutiveWins = 0;
@@ -69,12 +142,41 @@ export function computeMetrics(trades: BacktestTrade[], equityCurve: EquityPoint
     }
   }
 
-  // Average trade duration in minutes
+  // ── Average trade duration (minutes) ───────────────────────────
+
   const totalDuration = closedTrades.reduce(
     (s, t) => s + (t.exit_time - t.entry_time),
     0,
   );
   const avgTradeDuration = totalDuration / closedTrades.length / 60000;
+
+  // ── Largest winning/losing trades (top 5 each) ─────────────────
+
+  const sortedByPnl = [...closedTrades].sort((a, b) => b.pnl - a.pnl);
+  const largestWinTrades = sortedByPnl
+    .filter((t) => t.pnl > 0)
+    .slice(0, 5)
+    .map(toTopTrade);
+  const largestLossTrades = sortedByPnl
+    .filter((t) => t.pnl < 0)
+    .reverse()
+    .slice(0, 5)
+    .map(toTopTrade);
+
+  // ── Avg bars in winning vs losing trades ───────────────────────
+  // "bars" = trade duration in candle-count, using the backtest timeframe.
+
+  const barsForTrade = (t: BacktestTrade) =>
+    Math.max(1, Math.round((t.exit_time - t.entry_time) / candleIntervalMs));
+
+  const avgBarsWinning =
+    wins.length > 0
+      ? wins.reduce((s, t) => s + barsForTrade(t), 0) / wins.length
+      : 0;
+  const avgBarsLosing =
+    losses.length > 0
+      ? losses.reduce((s, t) => s + barsForTrade(t), 0) / losses.length
+      : 0;
 
   return {
     totalTrades: closedTrades.length,
@@ -95,35 +197,46 @@ export function computeMetrics(trades: BacktestTrade[], equityCurve: EquityPoint
     maxConsecutiveWins,
     maxConsecutiveLosses,
     avgTradeDuration,
+    largestWinTrades,
+    largestLossTrades,
+    avgBarsWinning: Math.round(avgBarsWinning * 10) / 10,
+    avgBarsLosing: Math.round(avgBarsLosing * 10) / 10,
+    drawdownCurve,
+    cumulativePnlCurve,
+    mddRecoveryDays,
   };
 }
 
 function computeSharpeRatio(equityCurve: EquityPoint[]): number {
   if (equityCurve.length < 2) return 0;
 
-  // Compute daily returns by sampling equity curve at daily boundaries
-  const dailyReturns: number[] = [];
-  let lastEquity = equityCurve[0].equity;
-  let lastDate = new Date(equityCurve[0].time).toISOString().slice(0, 10);
-
+  // Group equity points by date to get daily returns
+  const dailyEquity = new Map<string, number>();
   for (const point of equityCurve) {
     const date = new Date(point.time).toISOString().slice(0, 10);
-    if (date !== lastDate) {
-      const ret = lastEquity > 0 ? (point.equity - lastEquity) / lastEquity : 0;
-      dailyReturns.push(ret);
-      lastEquity = point.equity;
-      lastDate = date;
+    dailyEquity.set(date, point.equity);
+  }
+
+  const dates = [...dailyEquity.keys()].sort();
+  if (dates.length < 2) return 0;
+
+  const dailyReturns: number[] = [];
+  for (let i = 1; i < dates.length; i++) {
+    const prev = dailyEquity.get(dates[i - 1])!;
+    const curr = dailyEquity.get(dates[i])!;
+    if (prev > 0) {
+      dailyReturns.push((curr - prev) / prev);
     }
   }
 
   if (dailyReturns.length < 2) return 0;
 
-  const mean = dailyReturns.reduce((s, r) => s + r, 0) / dailyReturns.length;
-  const variance = dailyReturns.reduce((s, r) => s + (r - mean) ** 2, 0) / (dailyReturns.length - 1);
+  const avgReturn = dailyReturns.reduce((a, b) => a + b, 0) / dailyReturns.length;
+  const variance =
+    dailyReturns.reduce((sum, r) => sum + (r - avgReturn) ** 2, 0) /
+    (dailyReturns.length - 1);
   const stdDev = Math.sqrt(variance);
 
   if (stdDev === 0) return 0;
-
-  // Annualize: multiply by sqrt(365) for crypto (24/7 markets)
-  return (mean / stdDev) * Math.sqrt(365);
+  return (avgReturn / stdDev) * Math.sqrt(365); // annualized
 }

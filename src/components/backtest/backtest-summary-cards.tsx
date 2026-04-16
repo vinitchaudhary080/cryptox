@@ -11,6 +11,8 @@ import {
   Zap,
   ArrowUpRight,
   ArrowDownRight,
+  Clock,
+  CalendarDays,
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 
@@ -40,7 +42,21 @@ interface BacktestRun {
   finalEquity: number
 }
 
-export function BacktestSummaryCards({ run }: { run: BacktestRun }) {
+type ExtendedMetrics = {
+  avgBarsWinning?: number
+  avgBarsLosing?: number
+  mddRecoveryDays?: number
+  [key: string]: unknown
+}
+
+export function BacktestSummaryCards({
+  run,
+  extendedMetrics,
+}: {
+  run: BacktestRun
+  extendedMetrics?: ExtendedMetrics
+}) {
+  const ext = extendedMetrics ?? {}
   const roi = run.initialCapital > 0
     ? ((run.finalEquity - run.initialCapital) / run.initialCapital * 100)
     : 0
@@ -114,6 +130,30 @@ export function BacktestSummaryCards({ run }: { run: BacktestRun }) {
       icon: Zap,
       color: run.sharpeRatio >= 1 ? "text-profit" : "text-warning",
       bg: run.sharpeRatio >= 1 ? "bg-profit/10" : "bg-warning/10",
+    },
+    {
+      label: "Avg Bars (Win)",
+      value: ext.avgBarsWinning != null ? `${ext.avgBarsWinning}` : "—",
+      sub: "Candles per winning trade",
+      icon: Clock,
+      color: "text-profit",
+      bg: "bg-profit/10",
+    },
+    {
+      label: "Avg Bars (Loss)",
+      value: ext.avgBarsLosing != null ? `${ext.avgBarsLosing}` : "—",
+      sub: "Candles per losing trade",
+      icon: Clock,
+      color: "text-loss",
+      bg: "bg-loss/10",
+    },
+    {
+      label: "MDD Recovery",
+      value: ext.mddRecoveryDays != null ? `${ext.mddRecoveryDays}d` : "—",
+      sub: "Days to recover from max drawdown",
+      icon: CalendarDays,
+      color: "text-warning",
+      bg: "bg-warning/10",
     },
   ]
 

@@ -14,6 +14,9 @@ import { EquityCurveChart } from "@/components/backtest/equity-curve-chart"
 import { MonthlyHeatmap } from "@/components/backtest/monthly-heatmap"
 import { PnlChart } from "@/components/backtest/pnl-chart"
 import { TradeLogTable } from "@/components/backtest/trade-log-table"
+import { CumulativePnlChart } from "@/components/backtest/cumulative-pnl-chart"
+import { DrawdownChart } from "@/components/backtest/drawdown-chart"
+import { TopTradesTable } from "@/components/backtest/top-trades-table"
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -22,6 +25,26 @@ const fadeUp = {
 
 const stagger = {
   visible: { transition: { staggerChildren: 0.06 } },
+}
+
+type TopTrade = {
+  entry_time: number
+  exit_time: number
+  side: string
+  entry_price: number
+  exit_price: number
+  pnl: number
+  exit_reason: string
+}
+
+type ExtendedMetrics = {
+  largestWinTrades?: TopTrade[]
+  largestLossTrades?: TopTrade[]
+  avgBarsWinning?: number
+  avgBarsLosing?: number
+  drawdownCurve?: { time: number; drawdownPct: number }[]
+  cumulativePnlCurve?: { time: number; pnl: number }[]
+  mddRecoveryDays?: number
 }
 
 interface BacktestRun {
@@ -47,6 +70,7 @@ interface BacktestRun {
   bestTrade: number
   worstTrade: number
   equityCurve: { time: number; equity: number }[]
+  extendedMetrics?: ExtendedMetrics | null
   status: string
   duration: number | null
   createdAt: string
@@ -99,7 +123,6 @@ export default function BacktestDetailPage() {
   }, [id])
 
   const fetchAllTrades = useCallback(async () => {
-    // Fetch all trades (up to 10000) for heatmap
     const res = await backtestApi.getTrades(id, 1, 10000)
     if (res.success && res.data) {
       setAllTrades((res.data as { trades: Trade[] }).trades)
@@ -132,6 +155,8 @@ export default function BacktestDetailPage() {
       </div>
     )
   }
+
+  const ext = run.extendedMetrics ?? {}
 
   return (
     <motion.div
@@ -182,20 +207,38 @@ export default function BacktestDetailPage() {
         </div>
       </motion.div>
 
-      {/* Summary Cards */}
+      {/* Summary Cards (existing 8 + new 3) */}
       <motion.div variants={fadeUp}>
-        <BacktestSummaryCards run={run} />
+        <BacktestSummaryCards run={run} extendedMetrics={ext} />
       </motion.div>
 
-      {/* Charts */}
+      {/* Charts Row 1: Equity + Cumulative PnL */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <motion.div variants={fadeUp}>
           <EquityCurveChart data={run.equityCurve} initialCapital={run.initialCapital} />
         </motion.div>
         <motion.div variants={fadeUp}>
-          <PnlChart trades={trades} />
+          <CumulativePnlChart data={ext.cumulativePnlCurve ?? []} />
         </motion.div>
       </div>
+
+      {/* Charts Row 2: Trade PnL Bars + Drawdown */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <motion.div variants={fadeUp}>
+          <PnlChart trades={trades} />
+        </motion.div>
+        <motion.div variants={fadeUp}>
+          <DrawdownChart data={ext.drawdownCurve ?? []} />
+        </motion.div>
+      </div>
+
+      {/* Largest Winning / Losing Trades */}
+      <motion.div variants={fadeUp}>
+        <TopTradesTable
+          wins={ext.largestWinTrades ?? []}
+          losses={ext.largestLossTrades ?? []}
+        />
+      </motion.div>
 
       {/* Monthly Heatmap */}
       <motion.div variants={fadeUp}>

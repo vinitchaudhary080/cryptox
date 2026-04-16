@@ -142,6 +142,26 @@ export interface EquityPoint {
   equity: number;
 }
 
+export interface DrawdownPoint {
+  time: number;
+  drawdownPct: number;
+}
+
+export interface CumulativePnlPoint {
+  time: number;
+  pnl: number;
+}
+
+export interface TopTrade {
+  entry_time: number;
+  exit_time: number;
+  side: "BUY" | "SELL";
+  entry_price: number;
+  exit_price: number;
+  pnl: number;
+  exit_reason: string;
+}
+
 export interface BacktestMetrics {
   totalTrades: number;
   winTrades: number;
@@ -161,6 +181,14 @@ export interface BacktestMetrics {
   maxConsecutiveWins: number;
   maxConsecutiveLosses: number;
   avgTradeDuration: number;  // in minutes
+  // ── New metrics ───────────────────────────────────────────────
+  largestWinTrades: TopTrade[];         // top 5 winning trades by PnL
+  largestLossTrades: TopTrade[];        // top 5 losing trades by PnL (most negative)
+  avgBarsWinning: number;               // avg candle count of winning trades
+  avgBarsLosing: number;                // avg candle count of losing trades
+  drawdownCurve: DrawdownPoint[];       // full drawdown % timeseries
+  cumulativePnlCurve: CumulativePnlPoint[];  // running total PnL timeseries
+  mddRecoveryDays: number;             // max drawdown recovery period in days
 }
 
 export interface BacktestResult {

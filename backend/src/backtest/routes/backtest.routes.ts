@@ -130,6 +130,15 @@ router.post("/run", async (req: Request, res: Response) => {
             bestTrade: result.metrics.bestTrade,
             worstTrade: result.metrics.worstTrade,
             equityCurve: result.equityCurve as unknown as object[],
+            extendedMetrics: {
+              largestWinTrades: result.metrics.largestWinTrades,
+              largestLossTrades: result.metrics.largestLossTrades,
+              avgBarsWinning: result.metrics.avgBarsWinning,
+              avgBarsLosing: result.metrics.avgBarsLosing,
+              drawdownCurve: result.metrics.drawdownCurve,
+              cumulativePnlCurve: result.metrics.cumulativePnlCurve,
+              mddRecoveryDays: result.metrics.mddRecoveryDays,
+            } as unknown as object,
             duration: result.duration,
           },
         });

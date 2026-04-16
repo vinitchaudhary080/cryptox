@@ -1,0 +1,84 @@
+"use client"
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts"
+
+type CumulativePnlPoint = { time: number; pnl: number }
+
+export function CumulativePnlChart({ data }: { data: CumulativePnlPoint[] }) {
+  if (!data || data.length === 0) return null
+
+  const formatted = data.map((d) => ({
+    time: new Date(d.time).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    pnl: Number(d.pnl.toFixed(2)),
+  }))
+
+  const maxPnl = Math.max(...formatted.map((d) => d.pnl))
+  const minPnl = Math.min(...formatted.map((d) => d.pnl))
+  const isPositive = formatted[formatted.length - 1]?.pnl >= 0
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-semibold">Cumulative PnL</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="h-[260px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={formatted} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="cumPnlGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop
+                    offset="5%"
+                    stopColor={isPositive ? "hsl(var(--profit))" : "hsl(var(--loss))"}
+                    stopOpacity={0.3}
+                  />
+                  <stop
+                    offset="95%"
+                    stopColor={isPositive ? "hsl(var(--profit))" : "hsl(var(--loss))"}
+                    stopOpacity={0}
+                  />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+              <XAxis
+                dataKey="time"
+                tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                interval="preserveStartEnd"
+              />
+              <YAxis
+                tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                tickFormatter={(v: number) => `$${v.toLocaleString()}`}
+                domain={[minPnl * 1.1, maxPnl * 1.1]}
+              />
+              <Tooltip
+                contentStyle={{
+                  background: "hsl(var(--card))",
+                  border: "1px solid hsl(var(--border))",
+                  borderRadius: "8px",
+                  fontSize: "12px",
+                }}
+                formatter={(value: number) => [`$${value.toFixed(2)}`, "Cumulative PnL"]}
+              />
+              <Area
+                type="monotone"
+                dataKey="pnl"
+                stroke={isPositive ? "hsl(var(--profit))" : "hsl(var(--loss))"}
+                fill="url(#cumPnlGrad)"
+                strokeWidth={2}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}

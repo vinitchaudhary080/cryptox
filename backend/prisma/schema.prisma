@@ -234,6 +234,7 @@ model BacktestRun {
   bestTrade       Float     @default(0)
   worstTrade      Float     @default(0)
   equityCurve     Json      @default("[]")
+  extendedMetrics Json?     // drawdownCurve, cumulativePnlCurve, largestWin/LossTrades, avgBars, mddRecoveryDays
   status          String    @default("RUNNING") // RUNNING, COMPLETED, FAILED
   duration        Int?      // ms to complete
   createdAt       DateTime  @default(now())
