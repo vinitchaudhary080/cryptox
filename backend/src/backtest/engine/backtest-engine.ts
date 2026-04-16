@@ -76,6 +76,10 @@ export async function runBacktest(config: BacktestConfig): Promise<BacktestResul
   const equityCurve: EquityPoint[] = [{ time: candles[0].timestamp, equity }];
 
   for (let i = 0; i < candles.length; i++) {
+    // Yield to the event loop every 5000 candles so the HTTP server stays
+    // responsive during long backtests (1.7M candles = 340 yields, ~0ms overhead).
+    if (i % 5000 === 0 && i > 0) await new Promise((r) => setImmediate(r));
+
     const candle = candles[i];
 
     // 1. Check SL/TP on existing positions
