@@ -14,10 +14,28 @@ import {
 type CumulativePnlPoint = { time: number; pnl: number }
 
 export function CumulativePnlChart({ data }: { data: CumulativePnlPoint[] }) {
-  if (!data || data.length === 0) return null
+  if (!data || data.length === 0) {
+    return (
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold">Cumulative PnL</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex h-[260px] items-center justify-center text-xs text-muted-foreground">
+            Run a new backtest to see cumulative PnL data
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
 
-  const formatted = data.map((d) => ({
-    time: new Date(d.time).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+  // Downsample if too many points (trades can be 1000+)
+  const step = Math.max(1, Math.floor(data.length / 300))
+  const sampled = data.filter((_, i) => i % step === 0 || i === data.length - 1)
+
+  const formatted = sampled.map((d, i) => ({
+    time: new Date(d.time).toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
+    idx: i,
     pnl: Number(d.pnl.toFixed(2)),
   }))
 
@@ -52,7 +70,8 @@ export function CumulativePnlChart({ data }: { data: CumulativePnlPoint[] }) {
               <XAxis
                 dataKey="time"
                 tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                interval="preserveStartEnd"
+                interval={Math.max(1, Math.floor(formatted.length / 6))}
+                tickLine={false}
               />
               <YAxis
                 tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
