@@ -21,7 +21,7 @@ export function DrawdownChart({ data }: { data: DrawdownPoint[] }) {
           <CardTitle className="text-sm font-semibold">Drawdown</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex h-[260px] items-center justify-center text-xs text-muted-foreground">
+          <div className="flex h-[250px] items-center justify-center text-xs text-muted-foreground">
             Run a new backtest to see drawdown data
           </div>
         </CardContent>
@@ -40,7 +40,8 @@ export function DrawdownChart({ data }: { data: DrawdownPoint[] }) {
   }))
 
   const minDd = Math.min(...formatted.map((d) => d.dd))
-  const ddColor = "hsl(0, 84%, 60%)"
+  // Bright red visible on both light + dark backgrounds
+  const ddColor = "#ef4444"
 
   return (
     <Card>
@@ -48,13 +49,13 @@ export function DrawdownChart({ data }: { data: DrawdownPoint[] }) {
         <CardTitle className="text-sm font-semibold">Drawdown</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="h-[260px]">
+        <div className="h-[250px]">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={formatted} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="ddGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={ddColor} stopOpacity={0.4} />
-                  <stop offset="95%" stopColor={ddColor} stopOpacity={0.05} />
+                  <stop offset="5%" stopColor={ddColor} stopOpacity={0.5} />
+                  <stop offset="95%" stopColor={ddColor} stopOpacity={0.08} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
