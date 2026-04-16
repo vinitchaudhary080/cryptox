@@ -38,13 +38,13 @@ export function PnlChart({ trades }: { trades: Trade[] }) {
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
               <XAxis
                 dataKey="index"
-                tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                tick={{ fontSize: 10, fill: "#a1a1aa" }}
                 tickLine={false}
                 axisLine={false}
-                label={{ value: "Trade #", position: "insideBottom", offset: -5, fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                label={{ value: "Trade #", position: "insideBottom", offset: -5, fontSize: 11, fill: "#a1a1aa" }}
               />
               <YAxis
-                tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                tick={{ fontSize: 11, fill: "#a1a1aa" }}
                 tickFormatter={(v) => `$${v}`}
                 tickLine={false}
                 axisLine={false}

@@ -51,13 +51,13 @@ export function EquityCurveChart({ data, initialCapital }: { data: EquityPoint[]
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
               <XAxis
                 dataKey="time"
-                tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                tick={{ fontSize: 11, fill: "#a1a1aa" }}
                 interval="preserveStartEnd"
                 tickLine={false}
                 axisLine={false}
               />
               <YAxis
-                tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                tick={{ fontSize: 11, fill: "#a1a1aa" }}
                 tickFormatter={(v) => `$${v.toLocaleString()}`}
                 tickLine={false}
                 axisLine={false}
