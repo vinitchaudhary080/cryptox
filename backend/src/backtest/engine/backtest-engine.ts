@@ -16,6 +16,7 @@ import { getStrategyByName } from "../strategies/strategy-runner.js";
 import { resetMeriStrategyCache, precomputeMeriStrategy } from "../strategies/builtin/meri-strategy.js";
 import { resetSupertrendStrategyCache, precomputeSupertrendStrategy } from "../strategies/builtin/supertrend-strategy.js";
 import { resetCPRCache, precomputeCPRLevels } from "../strategies/builtin/cpr-pivot-strategy.js";
+import { resetGannStrategyCache, precomputeGannStrategy } from "../strategies/builtin/gann-matrix-momentum.js";
 import { evaluateUIRules } from "../strategies/strategy-runner.js";
 
 const EQUITY_SAMPLE_INTERVAL = 60; // sample equity every 60 candles (1 hour)
@@ -69,6 +70,8 @@ export async function runBacktest(config: BacktestConfig): Promise<BacktestResul
     precomputeSupertrendStrategy(candles);
   } else if (config.strategyName === "cpr-pivot-strategy") {
     precomputeCPRLevels(candles);
+  } else if (config.strategyName === "gann-matrix-momentum") {
+    precomputeGannStrategy(candles);
   }
 
   // Run simulation
