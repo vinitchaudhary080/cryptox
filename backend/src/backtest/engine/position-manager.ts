@@ -11,9 +11,15 @@ export class PositionManager {
   private positions: Position[] = [];
   private closedTrades: BacktestTrade[] = [];
   private config: PositionManagerConfig;
+  private _realizedPnl = 0; // running total — O(1) per candle instead of O(trades)
 
   constructor(config: PositionManagerConfig) {
     this.config = config;
+  }
+
+  /** O(1) — returns cached running total instead of summing all trades. */
+  getRealizedPnl(): number {
+    return this._realizedPnl;
   }
 
   getPositions(): Position[] {
@@ -92,6 +98,7 @@ export class PositionManager {
     };
 
     this.closedTrades.push(trade);
+    this._realizedPnl += trade.pnl;
     this.positions = this.positions.filter((p) => p.id !== position.id);
     return trade;
   }

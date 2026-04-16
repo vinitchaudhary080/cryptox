@@ -108,10 +108,8 @@ export async function runBacktest(config: BacktestConfig): Promise<BacktestResul
       executeSignal(signal, candle, pm, equity, config);
     }
 
-    // 4. Update equity (realized + unrealized)
-    const realizedPnl = pm.getClosedTrades().reduce((s, t) => s + t.pnl, 0);
-    const unrealizedPnl = pm.getUnrealizedPnl(candle.close);
-    equity = config.initialCapital + realizedPnl + unrealizedPnl;
+    // 4. Update equity — O(1) via cached running total, not O(trades) reduce
+    equity = config.initialCapital + pm.getRealizedPnl() + pm.getUnrealizedPnl(candle.close);
 
     // 5. Sample equity curve
     if (i % EQUITY_SAMPLE_INTERVAL === 0 || i === candles.length - 1) {
@@ -125,8 +123,7 @@ export async function runBacktest(config: BacktestConfig): Promise<BacktestResul
   }
 
   // Final equity after closing all
-  const realizedPnl = pm.getClosedTrades().reduce((s, t) => s + t.pnl, 0);
-  const finalEquity = config.initialCapital + realizedPnl;
+  const finalEquity = config.initialCapital + pm.getRealizedPnl();
 
   // Add final equity point
   if (candles.length > 0) {
