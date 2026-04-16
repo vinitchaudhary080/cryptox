@@ -19,6 +19,7 @@ import { supertrendStrategy } from "./builtin/supertrend-strategy.js";
 import { cprPivotStrategy } from "./builtin/cpr-pivot-strategy.js";
 import { quickTestStrategy } from "./builtin/quick-test-strategy.js";
 import { raviStrategy } from "./builtin/ravi-strategy.js";
+import { gannMatrixMomentum } from "./builtin/gann-matrix-momentum.js";
 
 const BUILTIN_STRATEGIES: Record<string, BacktestStrategy> = {
   "rsi-mean-reversion": rsiMeanReversion,
@@ -30,6 +31,7 @@ const BUILTIN_STRATEGIES: Record<string, BacktestStrategy> = {
   "ravi-strategy": raviStrategy,
   "macd-trend": macdTrend,
   "bollinger-bounce": bollingerBounce,
+  "gann-matrix-momentum": gannMatrixMomentum,
 };
 
 export function getStrategyByName(name: string): BacktestStrategy | null {
