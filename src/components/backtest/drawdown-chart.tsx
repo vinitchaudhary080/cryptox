@@ -40,6 +40,7 @@ export function DrawdownChart({ data }: { data: DrawdownPoint[] }) {
   }))
 
   const minDd = Math.min(...formatted.map((d) => d.dd))
+  const ddColor = "hsl(0, 84%, 60%)"
 
   return (
     <Card>
@@ -52,8 +53,8 @@ export function DrawdownChart({ data }: { data: DrawdownPoint[] }) {
             <AreaChart data={formatted} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="ddGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(var(--loss))" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="hsl(var(--loss))" stopOpacity={0} />
+                  <stop offset="5%" stopColor={ddColor} stopOpacity={0.4} />
+                  <stop offset="95%" stopColor={ddColor} stopOpacity={0.05} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
@@ -66,7 +67,7 @@ export function DrawdownChart({ data }: { data: DrawdownPoint[] }) {
               <YAxis
                 tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
                 tickFormatter={(v: number) => `${v.toFixed(1)}%`}
-                domain={[minDd * 1.1, 0]}
+                domain={[minDd * 1.1, 0.5]}
               />
               <Tooltip
                 contentStyle={{
@@ -80,9 +81,9 @@ export function DrawdownChart({ data }: { data: DrawdownPoint[] }) {
               <Area
                 type="monotone"
                 dataKey="dd"
-                stroke="hsl(var(--loss))"
+                stroke={ddColor}
                 fill="url(#ddGrad)"
-                strokeWidth={1.5}
+                strokeWidth={2}
               />
             </AreaChart>
           </ResponsiveContainer>

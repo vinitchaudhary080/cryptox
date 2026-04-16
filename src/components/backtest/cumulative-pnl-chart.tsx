@@ -43,6 +43,8 @@ export function CumulativePnlChart({ data }: { data: CumulativePnlPoint[] }) {
   const minPnl = Math.min(...formatted.map((d) => d.pnl))
   const isPositive = formatted[formatted.length - 1]?.pnl >= 0
 
+  const color = isPositive ? "hsl(142, 76%, 36%)" : "hsl(0, 84%, 60%)"
+
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -54,16 +56,8 @@ export function CumulativePnlChart({ data }: { data: CumulativePnlPoint[] }) {
             <AreaChart data={formatted} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="cumPnlGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop
-                    offset="5%"
-                    stopColor={isPositive ? "hsl(var(--profit))" : "hsl(var(--loss))"}
-                    stopOpacity={0.3}
-                  />
-                  <stop
-                    offset="95%"
-                    stopColor={isPositive ? "hsl(var(--profit))" : "hsl(var(--loss))"}
-                    stopOpacity={0}
-                  />
+                  <stop offset="5%" stopColor={color} stopOpacity={0.4} />
+                  <stop offset="95%" stopColor={color} stopOpacity={0.05} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
@@ -76,7 +70,7 @@ export function CumulativePnlChart({ data }: { data: CumulativePnlPoint[] }) {
               <YAxis
                 tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
                 tickFormatter={(v: number) => `$${v.toLocaleString()}`}
-                domain={[minPnl * 1.1, maxPnl * 1.1]}
+                domain={[Math.min(minPnl * 1.1, 0), maxPnl * 1.1]}
               />
               <Tooltip
                 contentStyle={{
@@ -90,7 +84,7 @@ export function CumulativePnlChart({ data }: { data: CumulativePnlPoint[] }) {
               <Area
                 type="monotone"
                 dataKey="pnl"
-                stroke={isPositive ? "hsl(var(--profit))" : "hsl(var(--loss))"}
+                stroke={color}
                 fill="url(#cumPnlGrad)"
                 strokeWidth={2}
               />
