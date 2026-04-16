@@ -61,12 +61,12 @@ export function DrawdownChart({ data }: { data: DrawdownPoint[] }) {
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
               <XAxis
                 dataKey="time"
-                tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                tick={{ fontSize: 10, fill: "#a1a1aa" }}
                 interval={Math.max(1, Math.floor(formatted.length / 6))}
                 tickLine={false}
               />
               <YAxis
-                tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                tick={{ fontSize: 10, fill: "#a1a1aa" }}
                 tickFormatter={(v: number) => `${v.toFixed(1)}%`}
                 domain={[minDd * 1.1, 0.5]}
               />
