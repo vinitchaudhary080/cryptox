@@ -135,6 +135,8 @@ router.post("/run", async (req: Request, res: Response) => {
               largestLossTrades: result.metrics.largestLossTrades,
               avgBarsWinning: result.metrics.avgBarsWinning,
               avgBarsLosing: result.metrics.avgBarsLosing,
+              avgDaysWinning: result.metrics.avgDaysWinning,
+              avgDaysLosing: result.metrics.avgDaysLosing,
               drawdownCurve: result.metrics.drawdownCurve,
               cumulativePnlCurve: result.metrics.cumulativePnlCurve,
               mddRecoveryDays: result.metrics.mddRecoveryDays,

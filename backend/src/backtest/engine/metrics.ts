@@ -52,6 +52,8 @@ export function computeMetrics(
     largestLossTrades: [],
     avgBarsWinning: 0,
     avgBarsLosing: 0,
+    avgDaysWinning: 0,
+    avgDaysLosing: 0,
     drawdownCurve: [],
     cumulativePnlCurve: [],
     mddRecoveryDays: 0,
@@ -184,6 +186,19 @@ export function computeMetrics(
       ? losses.reduce((s, t) => s + barsForTrade(t), 0) / losses.length
       : 0;
 
+  // ── Avg duration in days ───────────────────────────────────
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const daysForTrade = (t: BacktestTrade) =>
+    Math.max(0, (t.exit_time - t.entry_time) / DAY_MS);
+  const avgDaysWinning =
+    wins.length > 0
+      ? wins.reduce((s, t) => s + daysForTrade(t), 0) / wins.length
+      : 0;
+  const avgDaysLosing =
+    losses.length > 0
+      ? losses.reduce((s, t) => s + daysForTrade(t), 0) / losses.length
+      : 0;
+
   // ── Blowout / double counters ────────────────────────────────
   // Per-trade: "capital deployed" = entry_price * qty (margin, NOT notional * leverage).
   // A trade that loses ≥100% of its deployed capital → blowout.
@@ -252,6 +267,8 @@ export function computeMetrics(
     largestLossTrades,
     avgBarsWinning: Math.round(avgBarsWinning * 10) / 10,
     avgBarsLosing: Math.round(avgBarsLosing * 10) / 10,
+    avgDaysWinning: Math.round(avgDaysWinning * 100) / 100,
+    avgDaysLosing: Math.round(avgDaysLosing * 100) / 100,
     drawdownCurve,
     cumulativePnlCurve,
     mddRecoveryDays,

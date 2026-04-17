@@ -184,8 +184,10 @@ export interface BacktestMetrics {
   // ── New metrics ───────────────────────────────────────────────
   largestWinTrades: TopTrade[];         // top 5 winning trades by PnL
   largestLossTrades: TopTrade[];        // top 5 losing trades by PnL (most negative)
-  avgBarsWinning: number;               // avg candle count of winning trades
-  avgBarsLosing: number;                // avg candle count of losing trades
+  avgBarsWinning: number;               // avg candle count of winning trades (legacy)
+  avgBarsLosing: number;                // avg candle count of losing trades (legacy)
+  avgDaysWinning: number;               // avg duration (in days) of winning trades
+  avgDaysLosing: number;                // avg duration (in days) of losing trades
   drawdownCurve: DrawdownPoint[];       // full drawdown % timeseries
   cumulativePnlCurve: CumulativePnlPoint[];  // running total PnL timeseries
   mddRecoveryDays: number;             // max drawdown recovery period in days

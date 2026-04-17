@@ -49,6 +49,8 @@ interface BacktestRun {
 type ExtendedMetrics = {
   avgBarsWinning?: number
   avgBarsLosing?: number
+  avgDaysWinning?: number
+  avgDaysLosing?: number
   mddRecoveryDays?: number
   tradeBlowoutCount?: number
   tradeDoubleCount?: number
@@ -147,17 +149,27 @@ export function BacktestSummaryCards({
       bg: run.sharpeRatio >= 1 ? "bg-profit/10" : "bg-warning/10",
     },
     {
-      label: "Avg Bars (Win)",
-      value: ext.avgBarsWinning != null ? `${ext.avgBarsWinning}` : "—",
-      sub: "Candles per winning trade",
+      label: "Avg Days (Win)",
+      value:
+        ext.avgDaysWinning != null
+          ? `${ext.avgDaysWinning.toFixed(2)}d`
+          : ext.avgBarsWinning != null
+            ? `${(ext.avgBarsWinning / 1440).toFixed(2)}d`
+            : "—",
+      sub: "Days per winning trade",
       icon: Clock,
       color: "text-profit",
       bg: "bg-profit/10",
     },
     {
-      label: "Avg Bars (Loss)",
-      value: ext.avgBarsLosing != null ? `${ext.avgBarsLosing}` : "—",
-      sub: "Candles per losing trade",
+      label: "Avg Days (Loss)",
+      value:
+        ext.avgDaysLosing != null
+          ? `${ext.avgDaysLosing.toFixed(2)}d`
+          : ext.avgBarsLosing != null
+            ? `${(ext.avgBarsLosing / 1440).toFixed(2)}d`
+            : "—",
+      sub: "Days per losing trade",
       icon: Clock,
       color: "text-loss",
       bg: "bg-loss/10",
