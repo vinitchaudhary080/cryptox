@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   Bell,
@@ -13,14 +13,50 @@ import {
   Square,
   Play,
   AlertTriangle,
+  Megaphone,
   X,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
 import { useNotificationStore } from "@/stores/notification-store"
 import { useAuthStore } from "@/stores/auth-store"
 import { cn } from "@/lib/utils"
+
+type NotificationLike = {
+  id: string
+  type: string
+  title: string
+  message: string
+  data: Record<string, unknown> | null
+  read: boolean
+  createdAt: string
+}
+
+const STRATEGY_TYPES = new Set([
+  "trade_open",
+  "trade_close",
+  "trade_error",
+  "strategy_deploy",
+  "strategy_pause",
+  "strategy_stop",
+  "strategy_resume",
+])
+
+export function deepLinkForNotification(n: NotificationLike): string | null {
+  if (!STRATEGY_TYPES.has(n.type)) return null
+  const deployedId =
+    (typeof n.data?.deployedId === "string" && n.data.deployedId) ||
+    (typeof n.data?.deployedStrategyId === "string" && n.data.deployedStrategyId)
+  return deployedId ? `/deployed/${deployedId}` : "/deployed"
+}
 
 const TYPE_CONFIG: Record<string, { icon: typeof Bell; color: string; bg: string }> = {
   trade_open: { icon: TrendingUp, color: "text-profit", bg: "bg-profit/10" },
@@ -30,6 +66,7 @@ const TYPE_CONFIG: Record<string, { icon: typeof Bell; color: string; bg: string
   strategy_pause: { icon: Pause, color: "text-warning", bg: "bg-warning/10" },
   strategy_stop: { icon: Square, color: "text-loss", bg: "bg-loss/10" },
   strategy_resume: { icon: Play, color: "text-profit", bg: "bg-profit/10" },
+  admin_broadcast: { icon: Megaphone, color: "text-primary", bg: "bg-primary/10" },
 }
 
 function timeAgo(date: string): string {
@@ -48,15 +85,7 @@ function NotificationItem({
   onRead,
   onClick,
 }: {
-  notification: {
-    id: string
-    type: string
-    title: string
-    message: string
-    data: Record<string, unknown> | null
-    read: boolean
-    createdAt: string
-  }
+  notification: NotificationLike
   onRead: (id: string) => void
   onClick: () => void
 }) {
@@ -114,6 +143,7 @@ function NotificationItem({
 
 export function NotificationPanel() {
   const { notifications, unreadCount, isOpen, setOpen, fetchNotifications, markAsRead, markAllAsRead } = useNotificationStore()
+  const [viewing, setViewing] = useState<NotificationLike | null>(null)
   const { isAuthenticated, accessToken } = useAuthStore()
   const panelRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
@@ -262,8 +292,13 @@ export function NotificationPanel() {
                       notification={n}
                       onRead={markAsRead}
                       onClick={() => {
-                        setOpen(false)
-                        router.push("/deployed")
+                        const link = deepLinkForNotification(n)
+                        if (link) {
+                          setOpen(false)
+                          router.push(link)
+                        } else {
+                          setViewing(n)
+                        }
                       }}
                     />
                   ))}
@@ -273,6 +308,61 @@ export function NotificationPanel() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Modal view for informational / admin notifications */}
+      <Dialog open={!!viewing} onOpenChange={(o) => !o && setViewing(null)}>
+        <DialogContent className="sm:max-w-[480px]">
+          {viewing && (
+            <>
+              <DialogHeader>
+                <div className="flex items-center gap-3">
+                  {(() => {
+                    const cfg = TYPE_CONFIG[viewing.type] ?? { icon: Bell, color: "text-muted-foreground", bg: "bg-muted" }
+                    const Icon = cfg.icon
+                    return (
+                      <div className={cn("flex h-10 w-10 items-center justify-center rounded-lg", cfg.bg)}>
+                        <Icon className={cn("h-5 w-5", cfg.color)} />
+                      </div>
+                    )
+                  })()}
+                  <div className="min-w-0 flex-1">
+                    <DialogTitle className="text-base">{viewing.title}</DialogTitle>
+                    <DialogDescription className="text-xs">
+                      {new Date(viewing.createdAt).toLocaleString()}
+                    </DialogDescription>
+                  </div>
+                </div>
+              </DialogHeader>
+
+              <div className="mt-2 space-y-3">
+                <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+                  {viewing.message}
+                </p>
+
+                {typeof viewing.data?.url === "string" && viewing.data.url.length > 0 ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => {
+                      const url = viewing.data!.url as string
+                      setViewing(null)
+                      setOpen(false)
+                      if (url.startsWith("http")) {
+                        window.open(url, "_blank", "noopener,noreferrer")
+                      } else {
+                        router.push(url)
+                      }
+                    }}
+                  >
+                    Open link
+                  </Button>
+                ) : null}
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
