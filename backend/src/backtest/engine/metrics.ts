@@ -55,6 +55,10 @@ export function computeMetrics(
     drawdownCurve: [],
     cumulativePnlCurve: [],
     mddRecoveryDays: 0,
+    tradeBlowoutCount: 0,
+    tradeDoubleCount: 0,
+    equityBlowoutCount: 0,
+    equityDoubleCount: 0,
   };
 
   if (closedTrades.length === 0) return empty;
@@ -178,6 +182,47 @@ export function computeMetrics(
       ? losses.reduce((s, t) => s + barsForTrade(t), 0) / losses.length
       : 0;
 
+  // ── Blowout / double counters ────────────────────────────────
+  // Per-trade: "capital deployed" = entry_price * qty (margin, NOT notional * leverage).
+  // A trade that loses ≥100% of its deployed capital → blowout.
+  // A trade that gains ≥100% of its deployed capital → double.
+  let tradeBlowoutCount = 0;
+  let tradeDoubleCount = 0;
+  for (const t of closedTrades) {
+    const deployed = t.entry_price * t.qty;
+    if (deployed <= 0) continue;
+    if (t.pnl <= -deployed) tradeBlowoutCount++;
+    if (t.pnl >= deployed) tradeDoubleCount++;
+  }
+
+  // Equity-level: count threshold crossings (hysteresis, so bouncing around the
+  // line doesn't inflate the count — only re-counts after equity has moved
+  // meaningfully away from the threshold).
+  const blowoutThreshold = initialCapital * 0.01; // ≤1% of initial = wiped
+  const doubleThreshold = initialCapital * 2;
+  let equityBlowoutCount = 0;
+  let equityDoubleCount = 0;
+  let blowoutArmed = true; // true when we're eligible to count next blowout
+  let doubleArmed = true;
+  for (const point of equityCurve) {
+    // Blowout: we're armed and equity drops to/below threshold.
+    if (blowoutArmed && point.equity <= blowoutThreshold) {
+      equityBlowoutCount++;
+      blowoutArmed = false;
+    } else if (!blowoutArmed && point.equity > blowoutThreshold * 5) {
+      // Equity recovered well above threshold — re-arm so a future blowout counts again.
+      blowoutArmed = true;
+    }
+    // Double: crossed upward through 2× initial.
+    if (doubleArmed && point.equity >= doubleThreshold) {
+      equityDoubleCount++;
+      doubleArmed = false;
+    } else if (!doubleArmed && point.equity < doubleThreshold * 0.9) {
+      // Equity pulled back well below 2× — re-arm.
+      doubleArmed = true;
+    }
+  }
+
   return {
     totalTrades: closedTrades.length,
     winTrades: wins.length,
@@ -204,6 +249,10 @@ export function computeMetrics(
     drawdownCurve,
     cumulativePnlCurve,
     mddRecoveryDays,
+    tradeBlowoutCount,
+    tradeDoubleCount,
+    equityBlowoutCount,
+    equityDoubleCount,
   };
 }
 

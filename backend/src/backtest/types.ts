@@ -189,6 +189,11 @@ export interface BacktestMetrics {
   drawdownCurve: DrawdownPoint[];       // full drawdown % timeseries
   cumulativePnlCurve: CumulativePnlPoint[];  // running total PnL timeseries
   mddRecoveryDays: number;             // max drawdown recovery period in days
+  // ── Blowout / double counters ────────────────────────────────
+  tradeBlowoutCount: number;           // trades that lost ≥100% of deployed capital
+  tradeDoubleCount: number;            // trades that gained ≥100% of deployed capital
+  equityBlowoutCount: number;          // times total equity crossed below 1% of initial
+  equityDoubleCount: number;           // times total equity crossed above 2× initial
 }
 
 export interface BacktestResult {

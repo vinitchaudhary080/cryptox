@@ -13,6 +13,10 @@ import {
   ArrowDownRight,
   Clock,
   CalendarDays,
+  Skull,
+  Award,
+  AlertTriangle,
+  Rocket,
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 
@@ -46,6 +50,10 @@ type ExtendedMetrics = {
   avgBarsWinning?: number
   avgBarsLosing?: number
   mddRecoveryDays?: number
+  tradeBlowoutCount?: number
+  tradeDoubleCount?: number
+  equityBlowoutCount?: number
+  equityDoubleCount?: number
   [key: string]: unknown
 }
 
@@ -154,6 +162,38 @@ export function BacktestSummaryCards({
       icon: CalendarDays,
       color: "text-warning",
       bg: "bg-warning/10",
+    },
+    {
+      label: "Account Blowouts",
+      value: ext.equityBlowoutCount != null ? `${ext.equityBlowoutCount}` : "—",
+      sub: "Times equity hit ≤1% of initial",
+      icon: Skull,
+      color: "text-loss",
+      bg: "bg-loss/10",
+    },
+    {
+      label: "Account Doubled",
+      value: ext.equityDoubleCount != null ? `${ext.equityDoubleCount}` : "—",
+      sub: "Times equity crossed 2× initial",
+      icon: Award,
+      color: "text-profit",
+      bg: "bg-profit/10",
+    },
+    {
+      label: "Trade 100% Loss",
+      value: ext.tradeBlowoutCount != null ? `${ext.tradeBlowoutCount}` : "—",
+      sub: "Trades that lost deployed capital fully",
+      icon: AlertTriangle,
+      color: "text-loss",
+      bg: "bg-loss/10",
+    },
+    {
+      label: "Trade 100% Gain",
+      value: ext.tradeDoubleCount != null ? `${ext.tradeDoubleCount}` : "—",
+      sub: "Trades that doubled deployed capital",
+      icon: Rocket,
+      color: "text-profit",
+      bg: "bg-profit/10",
     },
   ]
 
