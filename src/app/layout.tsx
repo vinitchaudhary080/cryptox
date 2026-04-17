@@ -16,9 +16,16 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "CryptoX — Algorithmic Crypto Trading Platform",
+  title: "AlgoPulse — Algorithmic Crypto Trading Platform",
   description:
     "Deploy AI-powered trading strategies, model portfolios, and copy top traders. No code required.",
+  manifest: "/manifest.json",
+  themeColor: "#0a0a0a",
+  appleWebApp: {
+    capable: true,
+    title: "AlgoPulse",
+    statusBarStyle: "black-translucent",
+  },
 }
 
 export default function RootLayout({

@@ -20,6 +20,27 @@ export function isPushSupported(): boolean {
   );
 }
 
+/** iOS Safari — push works only when site is installed as PWA (standalone mode). */
+export function isIOS(): boolean {
+  if (typeof window === "undefined") return false;
+  const ua = window.navigator.userAgent;
+  return /iPad|iPhone|iPod/.test(ua) && !/MSStream/.test(ua);
+}
+
+export function isStandalonePWA(): boolean {
+  if (typeof window === "undefined") return false;
+  const nav = window.navigator as Navigator & { standalone?: boolean };
+  return (
+    window.matchMedia?.("(display-mode: standalone)").matches === true ||
+    nav.standalone === true
+  );
+}
+
+/** iOS Safari, not yet installed as PWA — push cannot work until user adds to Home Screen. */
+export function isIOSNeedsPWA(): boolean {
+  return isIOS() && !isStandalonePWA() && !isPushSupported();
+}
+
 export function getPermissionState(): NotificationPermission | "unsupported" {
   if (!isPushSupported()) return "unsupported";
   return Notification.permission;

@@ -42,6 +42,9 @@ import {
   isSubscribed,
   subscribeToPush,
   unsubscribeFromPush,
+  isIOS,
+  isStandalonePWA,
+  isIOSNeedsPWA,
 } from "@/lib/push-notifications"
 
 const fadeUp = {
@@ -93,8 +96,15 @@ export default function SettingsPage() {
   const [pushPermission, setPushPermission] = useState<NotificationPermission | "unsupported">("default")
   const [pushBusy, setPushBusy] = useState(false)
   const [pushError, setPushError] = useState<string | null>(null)
+  const [needsPWA, setNeedsPWA] = useState(false)
+  const [iosDevice, setIosDevice] = useState(false)
+  const [standalone, setStandalone] = useState(false)
 
   useEffect(() => {
+    setIosDevice(isIOS())
+    setStandalone(isStandalonePWA())
+    setNeedsPWA(isIOSNeedsPWA())
+
     const supported = isPushSupported()
     setPushSupported(supported)
     if (!supported) {
@@ -435,7 +445,7 @@ export default function SettingsPage() {
               <CardHeader>
                 <CardTitle className="text-base">Browser Notifications</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
                 <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/20 p-4">
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
@@ -444,13 +454,17 @@ export default function SettingsPage() {
                     <div>
                       <p className="font-medium">Push notifications</p>
                       <p className="text-xs text-muted-foreground">
-                        {!pushSupported
-                          ? "This browser does not support web push"
-                          : pushPermission === "denied"
-                            ? "Blocked in browser settings — unblock notifications for this site"
-                            : pushEnabled
-                              ? "Enabled on this device — trades & strategy events will push live"
-                              : "Get live alerts on trades, strategy state and admin messages"}
+                        {needsPWA
+                          ? "On iOS — add AlgoPulse to your Home Screen first (see steps below)"
+                          : iosDevice && standalone && !pushSupported
+                            ? "Update iOS to 16.4 or later to enable push"
+                            : !pushSupported
+                              ? "This browser does not support web push"
+                              : pushPermission === "denied"
+                                ? "Blocked in browser settings — unblock notifications for this site"
+                                : pushEnabled
+                                  ? "Enabled on this device — trades & strategy events will push live"
+                                  : "Get live alerts on trades, strategy state and admin messages"}
                       </p>
                       {pushError && <p className="mt-1 text-xs text-red-500">{pushError}</p>}
                     </div>
@@ -461,6 +475,39 @@ export default function SettingsPage() {
                     onCheckedChange={togglePush}
                   />
                 </div>
+
+                {needsPWA && (
+                  <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 text-sm">
+                    <p className="mb-2 font-medium text-primary">
+                      📱 Enable on iPhone / iPad
+                    </p>
+                    <ol className="ml-4 list-decimal space-y-1.5 text-xs text-muted-foreground">
+                      <li>
+                        In Safari, tap the <strong>Share</strong> button{" "}
+                        <span className="inline-flex items-center gap-0.5">
+                          (
+                          <svg viewBox="0 0 24 24" className="inline h-3 w-3 fill-current">
+                            <path d="M12 2l-4 4h3v10h2V6h3l-4-4zm-7 18v-8h2v6h10v-6h2v8H5z" />
+                          </svg>
+                          )
+                        </span>{" "}
+                        at the bottom of the browser
+                      </li>
+                      <li>
+                        Scroll and tap <strong>&quot;Add to Home Screen&quot;</strong>
+                      </li>
+                      <li>Tap <strong>Add</strong> — AlgoPulse icon will appear on your Home Screen</li>
+                      <li>
+                        Open AlgoPulse <strong>from the Home Screen icon</strong> (not Safari) and return to this page
+                      </li>
+                      <li>The toggle will activate — tap it to enable push</li>
+                    </ol>
+                    <p className="mt-3 text-[11px] text-muted-foreground/80">
+                      iOS requires apps be added to Home Screen for push notifications to work.
+                      Requires iOS 16.4 or later.
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
