@@ -6,40 +6,35 @@ import {
 } from "./gann-helpers.js";
 
 /**
- * Gann Matrix Momentum V1 — Multi-timeframe trend following with Gann Square of 9
+ * Gann Matrix Momentum V3 — Fixed SL / TP
  *
- * COMPONENTS:
- *   1. Gann Square of 9 (anchored on Weekly "kryptec" source)
- *      kryptec = (H + L + 4*C) / 6
- *      Levels: 0° (pivot), ±180° = (√pivot ± 1.0)²
+ * Same entry as V1 (EMA20/50 cross on 15m inside the 0°–180° Gann zone).
  *
- *   2. EMA 20 / EMA 50 crossover on 15-minute resampled candles
+ * EXIT (fixed only — no EMA-cross exit):
+ *   • Stop-loss: 2% adverse move from entry
+ *   • Take-profit: 4% favorable move from entry
  *
- * RULES:
- *   LONG:  EMA20 > EMA50 cross + price in [0°, 180°] sweet zone
- *   SHORT: EMA20 < EMA50 cross + price in [-180°, 0°] sweet zone
- *   EXIT:  Opposite EMA cross (no fixed SL/TP)
- *
- * POSITION SIZING (leverage-based inverse):
- *   5x → 100% capital | 10x → 40% | 20x → 20%
+ * Risk:Reward = 1 : 2. Positions close only when SL or TP is hit by the engine.
  */
+
+const SL_PCT = 0.02; // 2%
+const TP_PCT = 0.04; // 4%
 
 let precomputed: PrecomputedGann | null = null;
 
-export function precomputeGannStrategy(allCandles: Candle[]): void {
+export function precomputeGannV3Strategy(allCandles: Candle[]): void {
   precomputed = computeGannPrecompute(allCandles);
 }
 
-export function resetGannStrategyCache(): void {
+export function resetGannV3StrategyCache(): void {
   precomputed = null;
 }
 
-export const gannMatrixMomentum: BacktestStrategy = {
-  name: "Gann Matrix Momentum",
+export const gannMatrixMomentumV3: BacktestStrategy = {
+  name: "Gann Matrix Momentum V3",
   description:
-    "Multi-timeframe trend following: Gann Square of 9 (Weekly kryptec pivot) " +
-    "for trend zones, EMA 20/50 crossover on 15m for entries. Trades only in " +
-    "the 0°–180° (longs) or -180°–0° (shorts) sweet zone. Exit on opposite EMA cross.",
+    "V3: Same Gann + EMA20/50 entry as V1. Fixed exits only — SL 2% / TP 4% " +
+    "from entry price (R:R = 1:2). No EMA-cross exit.",
   defaultConfig: {
     leverage: 5,
     positionSizePercent: 100,
@@ -84,38 +79,29 @@ export const gannMatrixMomentum: BacktestStrategy = {
     const hasLong = positions.some((p) => p.side === "BUY");
     const hasShort = positions.some((p) => p.side === "SELL");
 
-    if (hasLong && bearishCross) {
-      signals.push({
-        action: "CLOSE_LONG",
-        reason: `EMA20 (${currEma20.toFixed(2)}) ↓ EMA50 (${currEma50.toFixed(2)}) — exit long`,
-      });
-    }
-    if (hasShort && bullishCross) {
-      signals.push({
-        action: "CLOSE_SHORT",
-        reason: `EMA20 (${currEma20.toFixed(2)}) ↑ EMA50 (${currEma50.toFixed(2)}) — exit short`,
-      });
-    }
-
     if (bullishCross && inLongZone && !hasLong) {
+      const sl = price * (1 - SL_PCT);
+      const tp = price * (1 + TP_PCT);
       signals.push({
         action: "BUY",
         qty,
         leverage,
-        sl: undefined,
-        tp: undefined,
-        reason: `EMA20 ↑ EMA50 + price $${price.toFixed(2)} in Gann [0°=$${gann.pivot.toFixed(2)}, 180°=$${gann.r180.toFixed(2)}]`,
+        sl,
+        tp,
+        reason: `EMA20 ↑ EMA50 + price $${price.toFixed(2)} in Gann zone | SL $${sl.toFixed(2)} (-2%) TP $${tp.toFixed(2)} (+4%)`,
       });
     }
 
     if (bearishCross && inShortZone && !hasShort) {
+      const sl = price * (1 + SL_PCT);
+      const tp = price * (1 - TP_PCT);
       signals.push({
         action: "SELL",
         qty,
         leverage,
-        sl: undefined,
-        tp: undefined,
-        reason: `EMA20 ↓ EMA50 + price $${price.toFixed(2)} in Gann [-180°=$${gann.s180.toFixed(2)}, 0°=$${gann.pivot.toFixed(2)}]`,
+        sl,
+        tp,
+        reason: `EMA20 ↓ EMA50 + price $${price.toFixed(2)} in Gann zone | SL $${sl.toFixed(2)} (+2%) TP $${tp.toFixed(2)} (-4%)`,
       });
     }
 

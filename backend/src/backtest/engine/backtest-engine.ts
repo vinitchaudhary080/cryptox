@@ -17,6 +17,8 @@ import { resetMeriStrategyCache, precomputeMeriStrategy } from "../strategies/bu
 import { resetSupertrendStrategyCache, precomputeSupertrendStrategy } from "../strategies/builtin/supertrend-strategy.js";
 import { resetCPRCache, precomputeCPRLevels } from "../strategies/builtin/cpr-pivot-strategy.js";
 import { resetGannStrategyCache, precomputeGannStrategy } from "../strategies/builtin/gann-matrix-momentum.js";
+import { resetGannV2StrategyCache, precomputeGannV2Strategy } from "../strategies/builtin/gann-matrix-momentum-v2.js";
+import { resetGannV3StrategyCache, precomputeGannV3Strategy } from "../strategies/builtin/gann-matrix-momentum-v3.js";
 import { evaluateUIRules } from "../strategies/strategy-runner.js";
 
 const EQUITY_SAMPLE_INTERVAL = 60; // sample equity every 60 candles (1 hour)
@@ -26,6 +28,9 @@ export async function runBacktest(config: BacktestConfig): Promise<BacktestResul
   resetMeriStrategyCache();
   resetSupertrendStrategyCache();
   resetCPRCache();
+  resetGannStrategyCache();
+  resetGannV2StrategyCache();
+  resetGannV3StrategyCache();
 
   const startMs = Date.now();
 
@@ -72,6 +77,10 @@ export async function runBacktest(config: BacktestConfig): Promise<BacktestResul
     precomputeCPRLevels(candles);
   } else if (config.strategyName === "gann-matrix-momentum") {
     precomputeGannStrategy(candles);
+  } else if (config.strategyName === "gann-matrix-momentum-v2") {
+    precomputeGannV2Strategy(candles);
+  } else if (config.strategyName === "gann-matrix-momentum-v3") {
+    precomputeGannV3Strategy(candles);
   }
 
   // Run simulation
