@@ -5,7 +5,6 @@ import { usePathname, useRouter } from "next/navigation"
 import { useTheme } from "next-themes"
 import { motion, AnimatePresence } from "framer-motion"
 import {
-  Activity,
   Bell,
   Search,
   Sun,
@@ -107,13 +106,13 @@ export function AppHeader() {
         <div className="flex h-14 items-center justify-between gap-4 px-4 md:px-6">
           {/* Left: Logo + Nav */}
           <div className="flex items-center gap-6">
-            <Link href="/dashboard" className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-                <Activity className="h-4.5 w-4.5 text-primary" />
-              </div>
-              <span className="text-lg font-bold tracking-tight">
-                Crypto<span className="text-primary">X</span>
-              </span>
+            <Link href="/dashboard" className="flex items-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/logo.svg"
+                alt="AlgoPulse"
+                className="h-7 w-auto md:h-8"
+              />
             </Link>
 
             {/* Desktop nav */}
