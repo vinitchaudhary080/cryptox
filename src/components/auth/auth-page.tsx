@@ -442,7 +442,7 @@ export function AuthPage({ defaultTab = "login" }: { defaultTab?: "login" | "sig
                   <div className="relative mt-1.5">
                     <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                      placeholder="John Doe"
+                      placeholder="Aayush Chaudhary"
                       className="h-11 rounded-xl bg-muted/30 pl-10 text-sm"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
@@ -461,7 +461,7 @@ export function AuthPage({ defaultTab = "login" }: { defaultTab?: "login" | "sig
                     placeholder={
                       tab === "login"
                         ? "Enter your user ID or email"
-                        : "john@example.com"
+                        : "aayush@gmail.com"
                     }
                     className="h-11 rounded-xl bg-muted/30 pl-10 text-sm"
                     value={email}
