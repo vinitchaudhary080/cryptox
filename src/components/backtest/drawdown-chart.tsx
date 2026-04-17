@@ -16,11 +16,15 @@ import { cn } from "@/lib/utils"
 
 type DrawdownPoint = { time: number; drawdownPct: number }
 
-type RangeKey = "1M" | "3M" | "6M" | "YTD" | "1Y" | "3Y" | "5Y" | "ALL"
+type RangeKey = "1M" | "3M" | "6M" | "YTD" | "1Y" | "3Y" | "5Y" | "ALL" | "CUSTOM"
 
-const RANGE_OPTIONS: RangeKey[] = ["1M", "3M", "6M", "YTD", "1Y", "3Y", "5Y", "ALL"]
+const PRESET_RANGES: Exclude<RangeKey, "CUSTOM">[] = ["1M", "3M", "6M", "YTD", "1Y", "3Y", "5Y", "ALL"]
 
-function rangeStartMs(range: RangeKey, latest: number): number {
+function toDateInput(ms: number): string {
+  return new Date(ms).toISOString().slice(0, 10) // YYYY-MM-DD
+}
+
+function rangeStartMs(range: Exclude<RangeKey, "CUSTOM" | "ALL">, latest: number): number {
   const now = new Date(latest)
   const d = new Date(now)
   switch (range) {
@@ -44,28 +48,33 @@ function rangeStartMs(range: RangeKey, latest: number): number {
     case "5Y":
       d.setFullYear(d.getFullYear() - 5)
       return d.getTime()
-    case "ALL":
-    default:
-      return 0
   }
 }
 
 export function DrawdownChart({ data }: { data: DrawdownPoint[] }) {
   const [range, setRange] = useState<RangeKey>("ALL")
+  const [fromDate, setFromDate] = useState<string>("")
+  const [toDate, setToDate] = useState<string>("")
 
   const hasData = data && data.length > 0
+  const earliest = hasData ? data[0].time : 0
+  const latest = hasData ? data[data.length - 1].time : 0
 
-  // Filter raw data based on selected range, then downsample.
+  // Compute the [from, to] ms window based on current selection.
+  const { fromMs, toMs } = useMemo(() => {
+    if (!hasData) return { fromMs: 0, toMs: 0 }
+    if (range === "CUSTOM") {
+      const fMs = fromDate ? new Date(fromDate).getTime() : earliest
+      const tMs = toDate ? new Date(toDate).getTime() + 86_399_999 : latest
+      return { fromMs: Math.max(fMs, earliest), toMs: Math.min(tMs, latest) }
+    }
+    if (range === "ALL") return { fromMs: earliest, toMs: latest }
+    return { fromMs: rangeStartMs(range, latest), toMs: latest }
+  }, [range, fromDate, toDate, earliest, latest, hasData])
+
   const { formatted, minDd } = useMemo(() => {
     if (!hasData) return { formatted: [], minDd: 0 }
-
-    const latest = data[data.length - 1].time
-    const earliest = data[0].time
-    const threshold = range === "ALL" ? earliest : rangeStartMs(range, latest)
-    const filtered = data.filter((d) => d.time >= threshold)
-
-    // If the range is so narrow that nothing matches, fall back to the last
-    // visible slice so the chart still renders something useful.
+    const filtered = data.filter((d) => d.time >= fromMs && d.time <= toMs)
     const effective = filtered.length > 0 ? filtered : data.slice(-Math.min(data.length, 30))
 
     const step = Math.max(1, Math.floor(effective.length / 500))
@@ -78,12 +87,12 @@ export function DrawdownChart({ data }: { data: DrawdownPoint[] }) {
         year: "2-digit",
       }),
       idx: i,
+      raw: d.time,
       dd: Number((-d.drawdownPct).toFixed(2)),
     }))
-
     const mn = rows.length > 0 ? Math.min(...rows.map((r) => r.dd)) : 0
     return { formatted: rows, minDd: mn }
-  }, [data, range, hasData])
+  }, [data, fromMs, toMs, hasData])
 
   if (!hasData) {
     return (
@@ -102,30 +111,75 @@ export function DrawdownChart({ data }: { data: DrawdownPoint[] }) {
 
   const ddColor = "#ef4444"
 
+  const applyCustomRange = (nextFrom: string, nextTo: string) => {
+    setFromDate(nextFrom)
+    setToDate(nextTo)
+    if (nextFrom || nextTo) setRange("CUSTOM")
+  }
+
+  const selectPreset = (r: Exclude<RangeKey, "CUSTOM">) => {
+    setRange(r)
+    if (r === "ALL") {
+      setFromDate("")
+      setToDate("")
+    } else {
+      setFromDate(toDateInput(rangeStartMs(r, latest)))
+      setToDate(toDateInput(latest))
+    }
+  }
+
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-        <CardTitle className="text-sm font-semibold">Drawdown</CardTitle>
-        <div className="flex flex-wrap gap-1">
-          {RANGE_OPTIONS.map((r) => (
-            <button
-              key={r}
-              type="button"
-              onClick={() => setRange(r)}
-              className={cn(
-                "rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors",
-                range === r
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground",
-              )}
-            >
-              {r}
-            </button>
-          ))}
+      <CardHeader className="flex flex-col gap-3 pb-2">
+        <div className="flex flex-row items-center justify-between gap-2">
+          <CardTitle className="text-sm font-semibold">Drawdown</CardTitle>
+          <div className="flex flex-wrap gap-1">
+            {PRESET_RANGES.map((r) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => selectPreset(r)}
+                className={cn(
+                  "rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors",
+                  range === r
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground",
+                )}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="text-muted-foreground">From</span>
+          <input
+            type="date"
+            min={toDateInput(earliest)}
+            max={toDateInput(latest)}
+            value={fromDate || toDateInput(earliest)}
+            onChange={(e) => applyCustomRange(e.target.value, toDate || toDateInput(latest))}
+            className="rounded-md border border-border/60 bg-background px-2 py-1 text-xs focus:border-primary focus:outline-none"
+          />
+          <span className="text-muted-foreground">To</span>
+          <input
+            type="date"
+            min={toDateInput(earliest)}
+            max={toDateInput(latest)}
+            value={toDate || toDateInput(latest)}
+            onChange={(e) => applyCustomRange(fromDate || toDateInput(earliest), e.target.value)}
+            className="rounded-md border border-border/60 bg-background px-2 py-1 text-xs focus:border-primary focus:outline-none"
+          />
+          {range === "CUSTOM" && (
+            <span className="rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+              Custom range active
+            </span>
+          )}
         </div>
       </CardHeader>
       <CardContent>
-        <div className="h-[280px]">
+        <div className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
               data={formatted}
@@ -167,11 +221,11 @@ export function DrawdownChart({ data }: { data: DrawdownPoint[] }) {
               />
               <Brush
                 dataKey="time"
-                height={22}
+                height={24}
                 stroke="#ef4444"
                 fill="rgba(239,68,68,0.08)"
-                travellerWidth={10}
-                tickFormatter={() => ""}
+                travellerWidth={12}
+                tickFormatter={(v) => String(v)}
               />
             </AreaChart>
           </ResponsiveContainer>
