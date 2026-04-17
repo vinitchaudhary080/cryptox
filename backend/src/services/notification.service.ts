@@ -53,7 +53,7 @@ export async function createNotification(params: CreateNotificationParams) {
   return notification;
 }
 
-function urlFromType(type: NotificationType, data?: Record<string, unknown>): string {
+function urlFromType(type: NotificationType, _data?: Record<string, unknown>): string {
   switch (type) {
     case "trade_open":
     case "trade_close":
@@ -61,10 +61,8 @@ function urlFromType(type: NotificationType, data?: Record<string, unknown>): st
     case "strategy_deploy":
     case "strategy_pause":
     case "strategy_stop":
-    case "strategy_resume": {
-      const id = data?.deployedId ?? data?.deployedStrategyId;
-      return typeof id === "string" ? `/deployed/${id}` : "/deployed";
-    }
+    case "strategy_resume":
+      return "/deployed";
     case "admin_broadcast":
       return "/dashboard";
     default:

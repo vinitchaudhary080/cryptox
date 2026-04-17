@@ -122,8 +122,7 @@ export const useNotificationStore = create<NotificationState>()((set, get) => ({
     }))
 
     // Live on-screen toast.
-    // For strategy/trade types: click the toast navigates to the deployed strategy.
-    // For info types (admin_broadcast, etc.): click opens the bell panel so user can tap the item to see full content.
+    // Strategy/trade types: click → /deployed. Info types: click → open bell panel for modal.
     const STRATEGY_TYPES = new Set([
       "trade_open",
       "trade_close",
@@ -133,19 +132,12 @@ export const useNotificationStore = create<NotificationState>()((set, get) => ({
       "strategy_stop",
       "strategy_resume",
     ])
-    const deployedId =
-      (typeof n.data?.deployedId === "string" && n.data.deployedId) ||
-      (typeof n.data?.deployedStrategyId === "string" && n.data.deployedStrategyId)
 
-    let onClick: (() => void) | undefined
-    if (STRATEGY_TYPES.has(n.type)) {
-      const link = deployedId ? `/deployed/${deployedId}` : "/deployed"
-      onClick = () => {
-        if (typeof window !== "undefined") window.location.href = link
-      }
-    } else {
-      onClick = () => get().setOpen(true)
-    }
+    const onClick = STRATEGY_TYPES.has(n.type)
+      ? () => {
+          if (typeof window !== "undefined") window.location.href = "/deployed"
+        }
+      : () => get().setOpen(true)
 
     toastForType(n.type, n.title, n.message, onClick)
   },

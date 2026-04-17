@@ -52,10 +52,7 @@ const STRATEGY_TYPES = new Set([
 
 export function deepLinkForNotification(n: NotificationLike): string | null {
   if (!STRATEGY_TYPES.has(n.type)) return null
-  const deployedId =
-    (typeof n.data?.deployedId === "string" && n.data.deployedId) ||
-    (typeof n.data?.deployedStrategyId === "string" && n.data.deployedStrategyId)
-  return deployedId ? `/deployed/${deployedId}` : "/deployed"
+  return "/deployed"
 }
 
 const TYPE_CONFIG: Record<string, { icon: typeof Bell; color: string; bg: string }> = {
