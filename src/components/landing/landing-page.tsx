@@ -271,7 +271,7 @@ function HeroSection() {
               className="mb-6 gap-1.5 border-primary/20 bg-primary/5 px-4 py-1.5 text-primary"
             >
               <span className="h-1.5 w-1.5 rounded-full bg-profit animate-pulse" />
-              Live on Delta Exchange
+              Live on Indian Exchanges
             </Badge>
           </motion.div>
 
@@ -287,7 +287,7 @@ function HeroSection() {
             variants={fadeUp}
             className="mx-auto mt-6 max-w-2xl text-base text-muted-foreground sm:text-lg md:text-xl"
           >
-            Deploy pre-built strategies, backtest with 3 years of real market data,
+            Deploy pre-built strategies with transparent 3-year backtests,
             and monitor everything in real-time — no code required.
           </motion.p>
 
@@ -310,8 +310,8 @@ function HeroSection() {
           >
             {[
               { icon: Shield, label: "Trade-Only API Keys" },
-              { icon: Wallet, label: "6 Exchanges Supported" },
-              { icon: LineChart, label: "3 Years Backtest Data" },
+              { icon: Wallet, label: "4 Exchanges Supported" },
+              { icon: LineChart, label: "3-Year Backtest Reports" },
             ].map((item) => (
               <div key={item.label} className="flex items-center gap-2 text-sm text-muted-foreground">
                 <item.icon className="h-4 w-4" />
@@ -394,9 +394,9 @@ function StatsBar() {
           className="grid grid-cols-2 gap-8 lg:grid-cols-4"
         >
           {[
-            { value: 10, suffix: "+", label: "Trading Strategies" },
-            { value: 6, suffix: "", label: "Exchanges Supported" },
-            { value: 18, suffix: "", label: "Coins with Backtest Data" },
+            { value: 10, suffix: "+", label: "Pre-Built Strategies" },
+            { value: 4, suffix: "", label: "Exchanges Supported" },
+            { value: 18, suffix: "", label: "Coins with Backtest Reports" },
             { value: 3, suffix: " Years", label: "of 1-Min Historical Data" },
           ].map((stat) => (
             <motion.div key={stat.label} variants={fadeUp} className="text-center">
@@ -423,15 +423,15 @@ function FeaturesSection() {
     },
     {
       icon: LineChart,
-      title: "Strategy Backtesting",
-      description: "Test against 3 years of 1-minute candle data across 10 major coins. Know your edge before risking capital.",
-      tag: "1-min resolution",
+      title: "Pre-Built Strategy Backtests",
+      description: "Every strategy ships with a 3-year backtest on 1-minute candles across 18 major coins. See real performance before you deploy.",
+      tag: "Pre-run on 18 coins",
     },
     {
       icon: Wallet,
       title: "Multi-Broker Support",
-      description: "Connect Delta Exchange, Binance, Bybit, OKX, KuCoin, and Bitget. Trade-only API keys, zero withdrawal risk.",
-      tag: "6 exchanges",
+      description: "Connect CoinDCX, Delta Exchange India, Pi42, and Bybit. Trade-only API keys — zero withdrawal access.",
+      tag: "4 exchanges",
     },
     {
       icon: Activity,
@@ -518,13 +518,13 @@ function HowItWorks() {
     {
       step: "01",
       title: "Connect Your Exchange",
-      description: "Link your Delta, Binance, or any supported exchange with a trade-only API key. Your funds stay on the exchange — we never have withdrawal access.",
+      description: "Link CoinDCX, Delta Exchange India, Pi42, or Bybit with a trade-only API key. Your funds stay on the exchange — we never have withdrawal access.",
       icon: Wallet,
     },
     {
       step: "02",
-      title: "Pick & Backtest a Strategy",
-      description: "Choose from 10+ pre-built strategies. Backtest against 3 years of real market data to validate performance before going live.",
+      title: "Review Strategy Backtests",
+      description: "Each pre-built strategy ships with a transparent 3-year backtest — see win rate, drawdown, and returns on real historical data before you commit.",
       icon: LineChart,
     },
     {
@@ -603,28 +603,28 @@ function BacktestShowcase() {
             variants={stagger}
           >
             <motion.p variants={fadeUp} className="text-sm font-semibold uppercase tracking-widest text-primary">
-              Backtesting Engine
+              Transparent Backtests
             </motion.p>
             <motion.h2
               variants={fadeUp}
               className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl"
             >
-              Test before you trade
+              See the numbers before you trade
             </motion.h2>
             <motion.p
               variants={fadeUp}
               className="mt-4 max-w-md text-muted-foreground"
             >
-              Run your strategies against real historical data. 3 years of 1-minute candles
-              across 10 major cryptocurrencies.
+              Every pre-built strategy comes with a 3-year backtest report — run on 1-minute
+              candles across 18 major cryptocurrencies. No assumptions, no cherry-picked dates.
             </motion.p>
 
             <motion.div variants={fadeUp} className="mt-8 space-y-4">
               {[
                 { icon: Clock, text: "3 years of 1-minute resolution data" },
-                { icon: Target, text: "Sharpe ratio, drawdown, profit factor metrics" },
-                { icon: GitBranch, text: "Compare multiple strategy variations" },
-                { icon: Zap, text: "BTC, ETH, SOL, XRP, DOGE + 5 more coins" },
+                { icon: Target, text: "Sharpe ratio, drawdown, profit factor, win rate" },
+                { icon: GitBranch, text: "Trade-by-trade PnL and equity curves" },
+                { icon: Zap, text: "BTC, ETH, SOL, XRP, DOGE + 13 more coins" },
               ].map((item) => (
                 <div key={item.text} className="flex items-center gap-3">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
@@ -637,7 +637,7 @@ function BacktestShowcase() {
 
             <motion.div variants={fadeUp} className="mt-8">
               <Link href="/signup" className={buttonVariants({ variant: "outline" })}>
-                Try Backtesting Free <ArrowUpRight className="ml-1.5 h-4 w-4" />
+                View Strategy Reports <ArrowUpRight className="ml-1.5 h-4 w-4" />
               </Link>
             </motion.div>
           </motion.div>
@@ -804,12 +804,10 @@ function StrategiesPreview() {
 /* ─── Exchanges Section ─── */
 function ExchangesSection() {
   const exchanges = [
-    { name: "Delta Exchange", tag: "Primary" },
-    { name: "Binance", tag: "" },
-    { name: "Bybit", tag: "" },
-    { name: "OKX", tag: "" },
-    { name: "KuCoin", tag: "" },
-    { name: "Bitget", tag: "" },
+    { name: "CoinDCX", tag: "India" },
+    { name: "Delta Exchange India", tag: "India" },
+    { name: "Pi42", tag: "India" },
+    { name: "Bybit", tag: "Global" },
   ]
 
   return (
@@ -841,7 +839,7 @@ function ExchangesSection() {
           whileInView="visible"
           viewport={{ once: true, margin: "-50px" }}
           variants={stagger}
-          className="mx-auto mt-12 grid max-w-3xl grid-cols-2 gap-3 sm:grid-cols-3"
+          className="mx-auto mt-12 grid max-w-4xl grid-cols-2 gap-3 sm:grid-cols-4"
         >
           {exchanges.map((ex) => (
             <motion.div
@@ -873,8 +871,7 @@ function PricingSection() {
       features: [
         "2 deployed strategies",
         "1 broker connection",
-        "5 backtests per day",
-        "1 year backtest data",
+        "Full 3-year strategy backtest reports",
         "Community support",
       ],
       cta: "Get Started",
@@ -888,8 +885,7 @@ function PricingSection() {
       features: [
         "20 deployed strategies",
         "5 broker connections",
-        "100 backtests per day",
-        "3 years backtest data",
+        "Full 3-year strategy backtest reports",
         "Priority execution",
         "Advanced analytics",
         "Email support",
@@ -901,13 +897,12 @@ function PricingSection() {
       name: "Max",
       price: "$99",
       period: "/month",
-      description: "Unlimited everything",
+      description: "Everything, unlimited",
       features: [
         "Unlimited strategies",
         "Unlimited brokers",
-        "Unlimited backtests",
-        "5 years backtest data",
-        "Custom strategy builder",
+        "Full 3-year strategy backtest reports",
+        "Custom strategy builder (coming soon)",
         "API access",
         "Dedicated support",
       ],
@@ -1043,7 +1038,7 @@ function Footer() {
               <Logo className="h-7 w-auto md:h-8" />
             </Link>
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted-foreground">
-              Algorithmic crypto trading for everyone. Deploy strategies, backtest with real data, and trade 24/7.
+              Algorithmic crypto trading for everyone. Deploy pre-built strategies with 3-year backtest reports, and trade 24/7.
             </p>
           </div>
           {[
@@ -1051,7 +1046,6 @@ function Footer() {
               title: "Product",
               links: [
                 { label: "Strategies", href: "/strategies" },
-                { label: "Backtesting", href: "/backtest" },
                 { label: "Dashboard", href: "/dashboard" },
                 { label: "Pricing", href: "#pricing" },
               ],
