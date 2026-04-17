@@ -284,6 +284,7 @@ export const notificationApi = {
   markAllRead: () =>
     apiFetch("/notifications/read-all", { method: "PATCH" }),
   vapidPublicKey: () => apiFetch("/notifications/vapid-public-key"),
+  adminCheck: () => apiFetch("/notifications/admin-check"),
   subscribe: (payload: {
     endpoint: string;
     keys: { p256dh: string; auth: string };

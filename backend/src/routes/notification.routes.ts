@@ -19,7 +19,13 @@ const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "vinitchaudhary080@gmail.com")
   .map((e) => e.trim().toLowerCase())
   .filter(Boolean);
 
+const ADMIN_USER_IDS = (process.env.ADMIN_USER_IDS ?? "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
 async function isAdmin(userId: string): Promise<boolean> {
+  if (ADMIN_USER_IDS.includes(userId)) return true;
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
   return !!user && ADMIN_EMAILS.includes(user.email.toLowerCase());
 }
@@ -70,6 +76,12 @@ router.patch("/read-all", authenticate, async (req: AuthRequest, res: Response) 
 // Get VAPID public key (frontend uses it to subscribe)
 router.get("/vapid-public-key", (_req, res) => {
   res.json({ success: true, data: { publicKey: env.vapid.publicKey } });
+});
+
+// Is current user an admin? (used to show/hide admin UI)
+router.get("/admin-check", authenticate, async (req: AuthRequest, res: Response) => {
+  const admin = await isAdmin(req.user!.userId);
+  res.json({ success: true, data: { isAdmin: admin } });
 });
 
 // Subscribe this browser to web push

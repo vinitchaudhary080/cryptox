@@ -37,6 +37,9 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
 import { NotificationPanel } from "./notification-panel"
+import { SendNotificationDialog } from "@/components/admin/send-notification-dialog"
+import { notificationApi } from "@/lib/api"
+import { Megaphone } from "lucide-react"
 
 const showBacktest = process.env.NEXT_PUBLIC_SHOW_BACKTEST !== "false"
 
@@ -56,6 +59,21 @@ export function AppHeader() {
   const { theme, setTheme } = useTheme()
   const { user, logout } = useAuthStore()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
+
+  useEffect(() => {
+    if (!user) {
+      setIsAdmin(false)
+      return
+    }
+    notificationApi
+      .adminCheck()
+      .then((r) => {
+        const res = r as { success?: boolean; data?: { isAdmin?: boolean } }
+        setIsAdmin(!!res?.data?.isAdmin)
+      })
+      .catch(() => setIsAdmin(false))
+  }, [user])
 
   const handleLogout = async () => {
     await logout()
@@ -141,6 +159,21 @@ export function AppHeader() {
               <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
               <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
             </Button>
+
+            {isAdmin && (
+              <SendNotificationDialog
+                trigger={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    title="Send notification (admin)"
+                  >
+                    <Megaphone className="h-4 w-4" />
+                  </Button>
+                }
+              />
+            )}
 
             <NotificationPanel />
 
