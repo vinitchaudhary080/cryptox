@@ -1,5 +1,27 @@
 import { create } from "zustand"
+import { toast } from "sonner"
 import { notificationApi } from "@/lib/api"
+
+function toastForType(type: string, title: string, message: string, onClick?: () => void) {
+  const opts = { description: message, duration: 6000, onClick } as const
+  switch (type) {
+    case "trade_open":
+    case "strategy_deploy":
+    case "strategy_resume":
+      return toast.success(title, opts)
+    case "trade_close":
+      return toast.success(title, opts)
+    case "trade_error":
+    case "strategy_stop":
+      return toast.error(title, opts)
+    case "strategy_pause":
+      return toast.warning(title, opts)
+    case "admin_broadcast":
+      return toast.info(title, opts)
+    default:
+      return toast(title, opts)
+  }
+}
 
 type Notification = {
   id: string
@@ -98,5 +120,16 @@ export const useNotificationStore = create<NotificationState>()((set, get) => ({
       notifications: [n, ...state.notifications].slice(0, 50),
       unreadCount: state.unreadCount + 1,
     }))
+
+    // Live on-screen toast
+    const deepLink =
+      typeof n.data?.url === "string"
+        ? (n.data.url as string)
+        : typeof n.data?.deployedId === "string"
+          ? `/deployed/${n.data.deployedId}`
+          : undefined
+    toastForType(n.type, n.title, n.message, deepLink ? () => {
+      if (typeof window !== "undefined") window.location.href = deepLink
+    } : undefined)
   },
 }))

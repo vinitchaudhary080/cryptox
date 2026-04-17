@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { Toaster } from "sonner"
 import "./globals.css"
 
 const geistSans = Geist({
@@ -34,6 +35,7 @@ export default function RootLayout({
       <body className="min-h-screen bg-background antialiased">
         <ThemeProvider>
           <TooltipProvider>{children}</TooltipProvider>
+          <Toaster position="top-right" richColors closeButton expand theme="system" />
         </ThemeProvider>
       </body>
     </html>
