@@ -4,7 +4,7 @@ import { PrismaClient } from "@prisma/client";
 import { OAuth2Client } from "google-auth-library";
 import * as authService from "../services/auth.service.js";
 import { env } from "../config/env.js";
-import { isDisposableEmail, generateOTP, sendOTPEmail } from "../services/email.service.js";
+import { isDisposableEmail, generateOTP, sendOTPEmail, sendWelcomeEmail } from "../services/email.service.js";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -82,7 +82,7 @@ router.post("/verify-otp", async (req: Request, res: Response) => {
 
     const user = await prisma.user.findUnique({
       where: { email },
-      select: { id: true, verifyCode: true, verifyExpiry: true, emailVerified: true },
+      select: { id: true, email: true, name: true, verifyCode: true, verifyExpiry: true, emailVerified: true },
     });
 
     if (!user) {
@@ -115,6 +115,11 @@ router.post("/verify-otp", async (req: Request, res: Response) => {
       where: { id: user.id },
       data: { emailVerified: true, verifyCode: null, verifyExpiry: null },
     });
+
+    // Fire-and-forget welcome email — new user just got verified
+    sendWelcomeEmail(user.email, user.name).catch((e) =>
+      console.error("[Auth] Welcome email failed:", (e as Error).message),
+    );
 
     res.json({ success: true, message: "Email verified successfully!" });
   } catch (err) {
@@ -303,6 +308,14 @@ router.post("/google", async (req: Request, res: Response) => {
       where: { email },
       data: { emailVerified: true },
     });
+
+    // First-time Google signup → welcome email. Detect "new" by createdAt within the last 10 s.
+    const createdAt = (result.user as { createdAt?: Date }).createdAt;
+    if (createdAt && Date.now() - new Date(createdAt).getTime() < 10_000) {
+      sendWelcomeEmail(email, name ?? null).catch((e) =>
+        console.error("[Auth] Welcome email failed:", (e as Error).message),
+      );
+    }
 
     res.json({ success: true, data: result });
   } catch (err: unknown) {

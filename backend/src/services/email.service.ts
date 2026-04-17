@@ -170,6 +170,133 @@ export async function sendPasswordResetConfirmationEmail(to: string): Promise<bo
   }
 }
 
+/** Welcome email — fired after a new user is verified (OTP or Google OAuth) */
+export async function sendWelcomeEmail(to: string, name?: string | null): Promise<boolean> {
+  const firstName = (name || "").trim().split(" ")[0] || "trader";
+  const dashboardUrl = `${env.frontendUrl}/dashboard`;
+
+  try {
+    await transporter.sendMail({
+      from: env.smtp.from,
+      to,
+      subject: `You're in, ${firstName} — welcome to AlgoPulse 🎉`,
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 520px; margin: 0 auto; padding: 40px 20px; color: #0f172a;">
+          <div style="text-align: center; margin-bottom: 32px;">
+            <h1 style="font-size: 28px; font-weight: 700; color: #0f172a; margin: 0; letter-spacing: -0.5px;">AlgoPulse</h1>
+          </div>
+
+          <div style="background: linear-gradient(135deg, #0089FF 0%, #0066cc 100%); border-radius: 14px; padding: 32px 24px; color: #ffffff; text-align: center;">
+            <p style="font-size: 14px; font-weight: 500; margin: 0 0 8px; opacity: 0.9;">Welcome aboard 🎉</p>
+            <p style="font-size: 22px; font-weight: 700; margin: 0; line-height: 1.35;">Hey ${firstName}! 👋</p>
+          </div>
+
+          <div style="padding: 28px 4px 0;">
+            <p style="font-size: 15px; line-height: 1.65; color: #1e293b; margin: 0 0 14px;">
+              Welcome aboard. Seriously.
+            </p>
+            <p style="font-size: 15px; line-height: 1.65; color: #475569; margin: 0;">
+              We built AlgoPulse for traders who'd rather let the market do the grunt work while they sleep, travel, or actually enjoy their weekends. You just joined that club.
+            </p>
+          </div>
+
+          <div style="margin: 32px 0 8px;">
+            <p style="font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; color: #0089FF; margin: 0 0 16px; text-align: center;">Get rolling in the next 5 minutes</p>
+          </div>
+
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="width: 100%; border-collapse: collapse;">
+            <tr>
+              <td style="padding: 14px 0; border-bottom: 1px solid #f1f5f9;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="width: 100%;">
+                  <tr>
+                    <td style="width: 44px; vertical-align: top;">
+                      <div style="width: 36px; height: 36px; border-radius: 10px; background: #e0f2fe; text-align: center; line-height: 36px; font-size: 18px;">🔗</div>
+                    </td>
+                    <td style="vertical-align: top; padding-left: 4px;">
+                      <p style="font-size: 14px; font-weight: 600; color: #0f172a; margin: 0 0 3px;">1. Connect your broker</p>
+                      <p style="font-size: 13px; color: #64748b; margin: 0; line-height: 1.5;">
+                        Link CoinDCX, Delta India, Pi42, or Bybit with a trade-only API key. We never touch your funds.
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 14px 0; border-bottom: 1px solid #f1f5f9;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="width: 100%;">
+                  <tr>
+                    <td style="width: 44px; vertical-align: top;">
+                      <div style="width: 36px; height: 36px; border-radius: 10px; background: #dcfce7; text-align: center; line-height: 36px; font-size: 18px;">📊</div>
+                    </td>
+                    <td style="vertical-align: top; padding-left: 4px;">
+                      <p style="font-size: 14px; font-weight: 600; color: #0f172a; margin: 0 0 3px;">2. Pick a strategy that suits you</p>
+                      <p style="font-size: 13px; color: #64748b; margin: 0; line-height: 1.5;">
+                        10+ pre-built strategies, each with a transparent 3-year backtest report. See win rate, drawdown, equity curves — before you risk a single rupee.
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 14px 0;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="width: 100%;">
+                  <tr>
+                    <td style="width: 44px; vertical-align: top;">
+                      <div style="width: 36px; height: 36px; border-radius: 10px; background: #fef3c7; text-align: center; line-height: 36px; font-size: 18px;">🚀</div>
+                    </td>
+                    <td style="vertical-align: top; padding-left: 4px;">
+                      <p style="font-size: 14px; font-weight: 600; color: #0f172a; margin: 0 0 3px;">3. Deploy and chill</p>
+                      <p style="font-size: 13px; color: #64748b; margin: 0; line-height: 1.5;">
+                        One click to go live. Monitor PnL real-time, pause anytime, stop whenever. Markets don't sleep, but you can.
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+
+          <div style="text-align: center; margin: 36px 0;">
+            <a href="${dashboardUrl}" style="display: inline-block; background: #0089FF; color: #ffffff; font-size: 15px; font-weight: 600; text-decoration: none; padding: 14px 32px; border-radius: 10px;">
+              Go to Dashboard →
+            </a>
+          </div>
+
+          <div style="background: #f8fafc; border-radius: 12px; padding: 20px 22px; margin-top: 8px;">
+            <p style="font-size: 12px; font-weight: 600; letter-spacing: 0.5px; color: #475569; margin: 0 0 8px; text-transform: uppercase;">A small note from us</p>
+            <p style="font-size: 13px; color: #475569; line-height: 1.6; margin: 0;">
+              Trading is hard. Even the best strategies lose sometimes. Start small, watch your results, and let the numbers guide you — not FOMO. We're building AlgoPulse to be the platform we wished existed when we started. Glad to have you along for the ride.
+            </p>
+            <p style="font-size: 13px; font-weight: 600; color: #0f172a; margin: 12px 0 0;">
+              — The AlgoPulse Team
+            </p>
+          </div>
+
+          <div style="margin-top: 28px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center;">
+            <p style="font-size: 12px; color: #64748b; line-height: 1.6; margin: 0;">
+              Got a question? Just reply to this email — it goes straight to us, no bots.<br/>
+              We usually get back within a few hours.
+            </p>
+          </div>
+
+          <div style="text-align: center; margin-top: 24px;">
+            <p style="font-size: 11px; color: #cbd5e1; margin: 0;">
+              AlgoPulse — Algorithmic Crypto Trading
+            </p>
+          </div>
+        </div>
+      `,
+    });
+    console.log(`[Email] Welcome email sent to ${to}`);
+    return true;
+  } catch (err) {
+    console.error(`[Email] Failed to send welcome email to ${to}:`, (err as Error).message);
+    return false;
+  }
+}
+
 /** Verify SMTP connection on startup */
 export async function verifyEmailConnection(): Promise<boolean> {
   try {
