@@ -385,7 +385,7 @@ export default function BrokersPage() {
             <div>
               <p className="text-sm font-medium">Your keys are safe</p>
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                We only request <strong>trade-only</strong> API permissions. Your funds stay on the exchange — CryptoX never has withdrawal access.
+                We only request <strong>trade-only</strong> API permissions. Your funds stay on the exchange — AlgoPulse never has withdrawal access.
                 All API keys are encrypted at rest with AES-256 and transmitted over TLS 1.3. We recommend enabling IP whitelisting on your exchange for added security.
               </p>
             </div>
@@ -501,7 +501,7 @@ export default function BrokersPage() {
                         <div className="flex-1">
                           <p className="text-xs font-medium">IP Whitelist Required</p>
                           <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
-                            Add this IP in your exchange API settings to allow CryptoX to trade:
+                            Add this IP in your exchange API settings to allow AlgoPulse to trade:
                           </p>
                           <div className="mt-2 flex items-center gap-2">
                             <code className="rounded bg-muted px-2.5 py-1 font-mono text-xs font-semibold text-foreground">3.24.173.212</code>
@@ -526,7 +526,7 @@ export default function BrokersPage() {
                           <p className="text-xs font-medium text-warning">Important</p>
                           <p className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground">
                             Enable only <strong>trade</strong> permissions on your exchange.
-                            Do NOT enable withdrawal permissions. CryptoX will verify permissions before connecting.
+                            Do NOT enable withdrawal permissions. AlgoPulse will verify permissions before connecting.
                           </p>
                         </div>
                       </div>

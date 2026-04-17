@@ -7,7 +7,6 @@ import { motion } from "framer-motion"
 import { useTheme } from "next-themes"
 import { useAuthStore } from "@/stores/auth-store"
 import {
-  Activity,
   Eye,
   EyeOff,
   Mail,
@@ -214,13 +213,9 @@ export function AuthPage({ defaultTab = "login" }: { defaultTab?: "login" | "sig
       {/* Left — Branding panel (desktop only) */}
       <div className="relative hidden w-[480px] shrink-0 flex-col justify-between overflow-hidden border-r border-border/50 bg-card/30 p-10 lg:flex xl:w-[540px]">
         <div>
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-              <Activity className="h-5 w-5 text-primary" />
-            </div>
-            <span className="text-xl font-bold tracking-tight">
-              Crypto<span className="text-primary">X</span>
-            </span>
+          <Link href="/" className="flex items-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.svg" alt="AlgoPulse" className="h-8 w-auto md:h-9" />
           </Link>
         </div>
 
@@ -250,7 +245,7 @@ export function AuthPage({ defaultTab = "login" }: { defaultTab?: "login" | "sig
         </div>
 
         <p className="text-xs text-muted-foreground">
-          &copy; {new Date().getFullYear()} CryptoX. All rights reserved.
+          &copy; {new Date().getFullYear()} AlgoPulse. All rights reserved.
         </p>
       </div>
 
@@ -277,10 +272,9 @@ export function AuthPage({ defaultTab = "login" }: { defaultTab?: "login" | "sig
             </Button>
 
             {/* Mobile logo */}
-            <Link href="/" className="flex items-center gap-2 lg:hidden">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-                <Activity className="h-4 w-4 text-primary" />
-              </div>
+            <Link href="/" className="flex items-center lg:hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logo.svg" alt="AlgoPulse" className="h-7 w-auto" />
             </Link>
           </div>
         </div>

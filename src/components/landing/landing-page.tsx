@@ -77,13 +77,9 @@ function Navbar() {
       }`}
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-            <Activity className="h-4.5 w-4.5 text-primary" />
-          </div>
-          <span className="text-lg font-bold tracking-tight">
-            Crypto<span className="text-primary">X</span>
-          </span>
+        <Link href="/" className="flex items-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.svg" alt="AlgoPulse" className="h-7 w-auto md:h-8" />
         </Link>
 
         <div className="hidden items-center gap-8 md:flex">
@@ -1043,13 +1039,9 @@ function Footer() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
           <div className="sm:col-span-2 lg:col-span-1">
-            <Link href="/" className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-                <Activity className="h-4.5 w-4.5 text-primary" />
-              </div>
-              <span className="text-lg font-bold tracking-tight">
-                Crypto<span className="text-primary">X</span>
-              </span>
+            <Link href="/" className="flex items-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logo.svg" alt="AlgoPulse" className="h-7 w-auto md:h-8" />
             </Link>
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted-foreground">
               Algorithmic crypto trading for everyone. Deploy strategies, backtest with real data, and trade 24/7.
@@ -1104,7 +1096,7 @@ function Footer() {
 
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border/40 pt-8 sm:flex-row">
           <p className="text-sm text-muted-foreground">
-            &copy; {new Date().getFullYear()} CryptoX. All rights reserved.
+            &copy; {new Date().getFullYear()} AlgoPulse. All rights reserved.
           </p>
         </div>
       </div>

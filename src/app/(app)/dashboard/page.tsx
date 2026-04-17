@@ -191,7 +191,7 @@ export default function DashboardPage() {
         <motion.div variants={fadeUp}>
           <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-chart-4/5">
             <CardContent className="p-6">
-              <h2 className="text-lg font-bold">Welcome to CryptoX</h2>
+              <h2 className="text-lg font-bold">Welcome to AlgoPulse</h2>
               <p className="mt-1 text-sm text-muted-foreground">
                 Get started in 3 simple steps to begin automated crypto trading.
               </p>

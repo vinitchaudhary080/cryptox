@@ -4,7 +4,6 @@ import Link from "next/link"
 import { motion } from "framer-motion"
 import { useTheme } from "next-themes"
 import {
-  Activity,
   ArrowRight,
   Sun,
   Moon,
@@ -35,7 +34,7 @@ const stagger = {
 const WHATSAPP_NUMBER = "919876543211"
 const PHONE_NUMBER = "+919876543211"
 const DEFAULT_WA_MESSAGE = encodeURIComponent(
-  "Hi CryptoX team! I need help with your platform. Could you please assist me?"
+  "Hi AlgoPulse team! I need help with your platform. Could you please assist me?"
 )
 
 function Navbar() {
@@ -58,11 +57,9 @@ function Navbar() {
       }`}
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-            <Activity className="h-4.5 w-4.5 text-primary" />
-          </div>
-          <span className="text-lg font-bold tracking-tight">Crypto<span className="text-primary">X</span></span>
+        <Link href="/" className="flex items-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.svg" alt="AlgoPulse" className="h-7 w-auto md:h-8" />
         </Link>
         <div className="hidden items-center gap-3 md:flex">
           <Button variant="ghost" size="icon" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
@@ -85,11 +82,9 @@ function Footer() {
     <footer className="border-t border-border/40 py-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
-              <Activity className="h-4 w-4 text-primary" />
-            </div>
-            <span className="text-sm font-bold">Crypto<span className="text-primary">X</span></span>
+          <Link href="/" className="flex items-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.svg" alt="AlgoPulse" className="h-6 w-auto" />
           </Link>
           <div className="flex items-center gap-6 text-sm text-muted-foreground">
             <Link href="/about" className="hover:text-foreground transition-colors">About</Link>
@@ -97,7 +92,7 @@ function Footer() {
             <Link href="/terms" className="hover:text-foreground transition-colors">Terms</Link>
             <Link href="/contact" className="hover:text-foreground transition-colors">Contact</Link>
           </div>
-          <p className="text-xs text-muted-foreground">&copy; {new Date().getFullYear()} CryptoX</p>
+          <p className="text-xs text-muted-foreground">&copy; {new Date().getFullYear()} AlgoPulse</p>
         </div>
       </div>
     </footer>

@@ -4,7 +4,6 @@ import Link from "next/link"
 import { motion } from "framer-motion"
 import { useTheme } from "next-themes"
 import {
-  Activity,
   ArrowRight,
   Sun,
   Moon,
@@ -52,13 +51,9 @@ function Navbar() {
       }`}
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-            <Activity className="h-4.5 w-4.5 text-primary" />
-          </div>
-          <span className="text-lg font-bold tracking-tight">
-            Crypto<span className="text-primary">X</span>
-          </span>
+        <Link href="/" className="flex items-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.svg" alt="AlgoPulse" className="h-7 w-auto md:h-8" />
         </Link>
         <div className="hidden items-center gap-3 md:flex">
           <Button variant="ghost" size="icon" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
@@ -89,11 +84,9 @@ function Footer() {
     <footer className="border-t border-border/40 py-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
-              <Activity className="h-4 w-4 text-primary" />
-            </div>
-            <span className="text-sm font-bold">Crypto<span className="text-primary">X</span></span>
+          <Link href="/" className="flex items-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.svg" alt="AlgoPulse" className="h-6 w-auto" />
           </Link>
           <div className="flex items-center gap-6 text-sm text-muted-foreground">
             <Link href="/about" className="hover:text-foreground transition-colors">About</Link>
@@ -101,7 +94,7 @@ function Footer() {
             <Link href="/terms" className="hover:text-foreground transition-colors">Terms</Link>
             <Link href="/contact" className="hover:text-foreground transition-colors">Contact</Link>
           </div>
-          <p className="text-xs text-muted-foreground">&copy; {new Date().getFullYear()} CryptoX</p>
+          <p className="text-xs text-muted-foreground">&copy; {new Date().getFullYear()} AlgoPulse</p>
         </div>
       </div>
     </footer>
@@ -162,13 +155,13 @@ export default function AboutPage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <motion.div initial="hidden" animate="visible" variants={stagger} className="max-w-2xl">
             <motion.div variants={fadeUp}>
-              <Badge variant="secondary" className="mb-4 px-3 py-1 text-xs">About CryptoX</Badge>
+              <Badge variant="secondary" className="mb-4 px-3 py-1 text-xs">About AlgoPulse</Badge>
             </motion.div>
             <motion.h1 variants={fadeUp} className="text-4xl font-bold tracking-tight sm:text-5xl">
               Making algo trading accessible to every crypto trader
             </motion.h1>
             <motion.p variants={fadeUp} className="mt-6 text-lg leading-relaxed text-muted-foreground">
-              CryptoX was born from a simple frustration: algorithmic trading tools were either too
+              AlgoPulse was born from a simple frustration: algorithmic trading tools were either too
               complex for regular traders or too basic to be useful. We set out to build something
               different — a platform where anyone can deploy proven strategies without writing code.
             </motion.p>
@@ -198,12 +191,12 @@ export default function AboutPage() {
                 and manually executing the same strategies over and over. We knew there had to be a better way.
               </motion.p>
               <motion.p variants={fadeUp} className="leading-relaxed text-muted-foreground">
-                We started building CryptoX as a side project — a simple tool to automate our own Grid
+                We started building AlgoPulse as a side project — a simple tool to automate our own Grid
                 Trading and DCA strategies on Delta Exchange. Word spread. Friends wanted in. Then their
                 friends. Before we knew it, we had a platform.
               </motion.p>
               <motion.p variants={fadeUp} className="leading-relaxed text-muted-foreground">
-                Today, CryptoX supports 6 major exchanges, 10+ pre-built strategies, and a backtesting
+                Today, AlgoPulse supports 6 major exchanges, 10+ pre-built strategies, and a backtesting
                 engine with 3 years of minute-level data. But our mission hasn&apos;t changed: make algo
                 trading simple enough that any trader can use it, and powerful enough that they&apos;d never
                 go back to manual trading.
@@ -307,7 +300,7 @@ export default function AboutPage() {
           >
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Want to join the journey?</h2>
             <p className="mx-auto mt-4 max-w-md text-muted-foreground">
-              Start trading with CryptoX today. Free plan, no credit card required.
+              Start trading with AlgoPulse today. Free plan, no credit card required.
             </p>
             <div className="mt-8">
               <Link href="/signup" className={buttonVariants({ size: "lg", className: "h-12 px-8 text-base" })}>
