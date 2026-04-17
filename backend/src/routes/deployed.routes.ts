@@ -213,7 +213,22 @@ router.patch("/:id/pause", authenticate, async (req: AuthRequest, res: Response)
     const updated = await prisma.deployedStrategy.update({
       where: { id: deployed.id },
       data: { status: "PAUSED" },
+      include: { strategy: { select: { name: true } } },
     });
+
+    createNotification({
+      userId: req.user!.userId,
+      type: "strategy_pause",
+      title: "Strategy Paused",
+      message: `${updated.strategy.name} on ${updated.pair} paused. Closed ${result.closed} position(s) at PnL $${result.totalPnl.toFixed(2)}`,
+      data: {
+        deployedId: updated.id,
+        pair: updated.pair,
+        strategyName: updated.strategy.name,
+        closedCount: result.closed,
+        closedPnl: result.totalPnl,
+      },
+    }).catch(() => {});
 
     res.json({
       success: true,
@@ -245,9 +260,22 @@ router.patch("/:id/resume", authenticate, async (req: AuthRequest, res: Response
     const updated = await prisma.deployedStrategy.update({
       where: { id: deployed.id },
       data: { status: "ACTIVE" },
+      include: { strategy: { select: { name: true } } },
     });
 
     await workerClient.startStrategy(deployed.id);
+
+    createNotification({
+      userId: req.user!.userId,
+      type: "strategy_resume",
+      title: "Strategy Resumed",
+      message: `${updated.strategy.name} on ${updated.pair} is active again`,
+      data: {
+        deployedId: updated.id,
+        pair: updated.pair,
+        strategyName: updated.strategy.name,
+      },
+    }).catch(() => {});
 
     res.json({ success: true, data: updated, message: "Strategy resumed" });
   } catch (err: unknown) {
@@ -282,7 +310,25 @@ router.patch("/:id/stop", authenticate, async (req: AuthRequest, res: Response) 
     const updated = await prisma.deployedStrategy.update({
       where: { id: deployed.id },
       data: { status: "STOPPED", stoppedAt: new Date() },
+      include: { strategy: { select: { name: true } } },
     });
+
+    const reason = (req.body?.reason as string | undefined) ?? "user stopped";
+
+    createNotification({
+      userId: req.user!.userId,
+      type: "strategy_stop",
+      title: "Strategy Stopped",
+      message: `${updated.strategy.name} on ${updated.pair} stopped (${reason}). Closed ${result.closed} position(s) at PnL $${result.totalPnl.toFixed(2)}`,
+      data: {
+        deployedId: updated.id,
+        pair: updated.pair,
+        strategyName: updated.strategy.name,
+        closedCount: result.closed,
+        closedPnl: result.totalPnl,
+        reason,
+      },
+    }).catch(() => {});
 
     res.json({
       success: true,

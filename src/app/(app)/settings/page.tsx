@@ -37,6 +37,12 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { userApi } from "@/lib/api"
 import { TradingLoader } from "@/components/ui/trading-loader"
 import { useAuthStore } from "@/stores/auth-store"
+import {
+  isPushSupported,
+  isSubscribed,
+  subscribeToPush,
+  unsubscribeFromPush,
+} from "@/lib/push-notifications"
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -80,6 +86,47 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false)
   const [editing, setEditing] = useState(false)
   const [telegramConnected, setTelegramConnected] = useState(false)
+
+  // Browser push notifications
+  const [pushSupported, setPushSupported] = useState(false)
+  const [pushEnabled, setPushEnabled] = useState(false)
+  const [pushPermission, setPushPermission] = useState<NotificationPermission | "unsupported">("default")
+  const [pushBusy, setPushBusy] = useState(false)
+  const [pushError, setPushError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const supported = isPushSupported()
+    setPushSupported(supported)
+    if (!supported) {
+      setPushPermission("unsupported")
+      return
+    }
+    setPushPermission(Notification.permission)
+    isSubscribed().then(setPushEnabled)
+  }, [])
+
+  const togglePush = async (nextOn: boolean) => {
+    setPushBusy(true)
+    setPushError(null)
+    if (nextOn) {
+      const res = await subscribeToPush()
+      if (res.ok) {
+        setPushEnabled(true)
+        setPushPermission(Notification.permission)
+      } else {
+        setPushEnabled(false)
+        setPushPermission(Notification.permission)
+        if (res.reason === "denied") setPushError("Permission denied. Enable notifications in browser settings.")
+        else if (res.reason === "unsupported") setPushError("This browser does not support web push.")
+        else setPushError(res.message ?? "Failed to subscribe")
+      }
+    } else {
+      const res = await unsubscribeFromPush()
+      setPushEnabled(false)
+      if (!res.ok) setPushError(res.message ?? "Failed to unsubscribe")
+    }
+    setPushBusy(false)
+  }
   const { user: authUser } = useAuthStore()
 
   // Form fields
@@ -384,6 +431,39 @@ export default function SettingsPage() {
         {/* ══════════ Alerts Tab ══════════ */}
         <TabsContent value="alerts">
           <motion.div variants={fadeUp} className="space-y-4">
+            <Card className="border-border/50 bg-card/80">
+              <CardHeader>
+                <CardTitle className="text-base">Browser Notifications</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/20 p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                      <Bell className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Push notifications</p>
+                      <p className="text-xs text-muted-foreground">
+                        {!pushSupported
+                          ? "This browser does not support web push"
+                          : pushPermission === "denied"
+                            ? "Blocked in browser settings — unblock notifications for this site"
+                            : pushEnabled
+                              ? "Enabled on this device — trades & strategy events will push live"
+                              : "Get live alerts on trades, strategy state and admin messages"}
+                      </p>
+                      {pushError && <p className="mt-1 text-xs text-red-500">{pushError}</p>}
+                    </div>
+                  </div>
+                  <Switch
+                    checked={pushEnabled}
+                    disabled={!pushSupported || pushBusy || pushPermission === "denied"}
+                    onCheckedChange={togglePush}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
             <Card className="border-border/50 bg-card/80">
               <CardHeader>
                 <CardTitle className="text-base">Notification Channels</CardTitle>

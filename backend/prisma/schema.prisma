@@ -26,12 +26,13 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  brokers             Broker[]
-  deployedStrategies  DeployedStrategy[]
-  refreshTokens       RefreshToken[]
-  backtestRuns        BacktestRun[]
-  notifications       Notification[]
-  subscriptions       Subscription[]
+  brokers            Broker[]
+  deployedStrategies DeployedStrategy[]
+  refreshTokens      RefreshToken[]
+  backtestRuns       BacktestRun[]
+  notifications      Notification[]
+  subscriptions      Subscription[]
+  pushSubscriptions  PushSubscription[]
 
   @@map("users")
 }
@@ -51,18 +52,18 @@ model RefreshToken {
 }
 
 model Broker {
-  id              String       @id @default(uuid())
-  userId          String
-  uid             String       @default("") // user-given label to identify broker
-  exchangeId      String       // ccxt exchange id: "delta", "binance", etc.
-  name            String       // exchange display name
-  apiKey          String       // encrypted
-  apiSecret       String       // encrypted
-  passphrase      String?      // encrypted, optional
-  status          BrokerStatus @default(CONNECTED)
-  ipWhitelist     Boolean      @default(false)
-  connectedAt     DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  id          String       @id @default(uuid())
+  userId      String
+  uid         String       @default("") // user-given label to identify broker
+  exchangeId  String // ccxt exchange id: "delta", "binance", etc.
+  name        String // exchange display name
+  apiKey      String // encrypted
+  apiSecret   String // encrypted
+  passphrase  String? // encrypted, optional
+  status      BrokerStatus @default(CONNECTED)
+  ipWhitelist Boolean      @default(false)
+  connectedAt DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   deployedStrategies DeployedStrategy[]
@@ -74,15 +75,15 @@ model Broker {
 }
 
 model Strategy {
-  id            String        @id @default(uuid())
-  name          String
-  description   String
-  category      String        // Grid, DCA, Trend, Mean Reversion, Arbitrage, Scalping
-  riskLevel     RiskLevel
-  config        Json          // strategy-specific parameters
-  isSystem      Boolean       @default(true) // system = pre-built template
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  id          String    @id @default(uuid())
+  name        String
+  description String
+  category    String // Grid, DCA, Trend, Mean Reversion, Arbitrage, Scalping
+  riskLevel   RiskLevel
+  config      Json // strategy-specific parameters
+  isSystem    Boolean   @default(true) // system = pre-built template
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   deployedStrategies DeployedStrategy[]
 
@@ -90,18 +91,18 @@ model Strategy {
 }
 
 model DeployedStrategy {
-  id              String              @id @default(uuid())
-  userId          String
-  strategyId      String
-  brokerId        String
-  pair            String              // e.g. "BTC/USDT"
-  status          DeployedStatus      @default(ACTIVE)
-  investedAmount  Float
-  currentValue    Float               @default(0)
-  config          Json                // user overrides: stop loss, take profit, etc.
-  deployedAt      DateTime            @default(now())
-  stoppedAt       DateTime?
-  updatedAt       DateTime            @updatedAt
+  id             String         @id @default(uuid())
+  userId         String
+  strategyId     String
+  brokerId       String
+  pair           String // e.g. "BTC/USDT"
+  status         DeployedStatus @default(ACTIVE)
+  investedAmount Float
+  currentValue   Float          @default(0)
+  config         Json // user overrides: stop loss, take profit, etc.
+  deployedAt     DateTime       @default(now())
+  stoppedAt      DateTime?
+  updatedAt      DateTime       @updatedAt
 
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   strategy Strategy @relation(fields: [strategyId], references: [id])
@@ -117,18 +118,18 @@ model DeployedStrategy {
 }
 
 model Trade {
-  id                 String   @id @default(uuid())
+  id                 String      @id @default(uuid())
   deployedStrategyId String
   pair               String
   side               Side
   entryPrice         Float
   exitPrice          Float?
   quantity           Float
-  pnl                Float    @default(0)
-  fee                Float    @default(0)
+  pnl                Float       @default(0)
+  fee                Float       @default(0)
   status             TradeStatus @default(OPEN)
-  exchangeOrderId    String?  // order id from exchange
-  openedAt           DateTime @default(now())
+  exchangeOrderId    String? // order id from exchange
+  openedAt           DateTime    @default(now())
   closedAt           DateTime?
 
   deployedStrategy DeployedStrategy @relation(fields: [deployedStrategyId], references: [id], onDelete: Cascade)
@@ -157,16 +158,16 @@ enum SubscriptionStatus {
 }
 
 model Subscription {
-  id            String             @id @default(uuid())
-  userId        String
-  plan          Plan
-  cycle         BillingCycle
-  status        SubscriptionStatus @default(ACTIVE)
-  amount        Float              // price paid
-  startDate     DateTime           @default(now())
-  endDate       DateTime           // when billing period ends
-  cancelledAt   DateTime?
-  createdAt     DateTime           @default(now())
+  id          String             @id @default(uuid())
+  userId      String
+  plan        Plan
+  cycle       BillingCycle
+  status      SubscriptionStatus @default(ACTIVE)
+  amount      Float // price paid
+  startDate   DateTime           @default(now())
+  endDate     DateTime // when billing period ends
+  cancelledAt DateTime?
+  createdAt   DateTime           @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -207,37 +208,37 @@ enum TradeStatus {
 // ── Backtest Models ─────────────────────────────────────────
 
 model BacktestRun {
-  id              String    @id @default(uuid())
+  id              String   @id @default(uuid())
   userId          String
   coin            String
   startDate       DateTime
   endDate         DateTime
-  strategyType    String    // "code" or "ui"
+  strategyType    String // "code" or "ui"
   strategyName    String
   strategyConfig  Json
   initialCapital  Float
-  finalEquity     Float     @default(0)
-  totalPnl        Float     @default(0)
-  grossPnl        Float     @default(0)
-  totalFees       Float     @default(0)
-  makerFee        Float     @default(0.0005)
-  slippage        Float     @default(0.0001)
-  totalTrades     Int       @default(0)
-  winTrades       Int       @default(0)
-  lossTrades      Int       @default(0)
-  winRate         Float     @default(0)
-  maxDrawdown     Float     @default(0)
-  sharpeRatio     Float     @default(0)
-  profitFactor    Float     @default(0)
-  avgWin          Float     @default(0)
-  avgLoss         Float     @default(0)
-  bestTrade       Float     @default(0)
-  worstTrade      Float     @default(0)
-  equityCurve     Json      @default("[]")
-  extendedMetrics Json?     // drawdownCurve, cumulativePnlCurve, largestWin/LossTrades, avgBars, mddRecoveryDays
-  status          String    @default("RUNNING") // RUNNING, COMPLETED, FAILED
-  duration        Int?      // ms to complete
-  createdAt       DateTime  @default(now())
+  finalEquity     Float    @default(0)
+  totalPnl        Float    @default(0)
+  grossPnl        Float    @default(0)
+  totalFees       Float    @default(0)
+  makerFee        Float    @default(0.0005)
+  slippage        Float    @default(0.0001)
+  totalTrades     Int      @default(0)
+  winTrades       Int      @default(0)
+  lossTrades      Int      @default(0)
+  winRate         Float    @default(0)
+  maxDrawdown     Float    @default(0)
+  sharpeRatio     Float    @default(0)
+  profitFactor    Float    @default(0)
+  avgWin          Float    @default(0)
+  avgLoss         Float    @default(0)
+  bestTrade       Float    @default(0)
+  worstTrade      Float    @default(0)
+  equityCurve     Json     @default("[]")
+  extendedMetrics Json? // drawdownCurve, cumulativePnlCurve, largestWin/LossTrades, avgBars, mddRecoveryDays
+  status          String   @default("RUNNING") // RUNNING, COMPLETED, FAILED
+  duration        Int? // ms to complete
+  createdAt       DateTime @default(now())
 
   user   User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   trades BacktestTrade[]
@@ -252,7 +253,7 @@ model BacktestTrade {
   entryTime     DateTime
   entryPrice    Float
   qty           Float
-  side          String    // "BUY" or "SELL"
+  side          String // "BUY" or "SELL"
   leverage      Float     @default(1)
   sl            Float?
   tp            Float?
@@ -260,7 +261,7 @@ model BacktestTrade {
   exitPrice     Float?
   pnl           Float     @default(0)
   fee           Float     @default(0)
-  exitReason    String?   // "TP", "SL", "SIGNAL", "END"
+  exitReason    String? // "TP", "SL", "SIGNAL", "END"
   status        String    @default("OPEN")
 
   backtestRun BacktestRun @relation(fields: [backtestRunId], references: [id], onDelete: Cascade)
@@ -274,10 +275,10 @@ model BacktestTrade {
 model Notification {
   id        String   @id @default(uuid())
   userId    String
-  type      String   // "trade_open", "trade_close", "strategy_deploy", "strategy_stop"
+  type      String // "trade_open", "trade_close", "strategy_deploy", "strategy_stop"
   title     String
   message   String
-  data      Json?    // extra context: { pair, pnl, strategyName, ... }
+  data      Json? // extra context: { pair, pnl, strategyName, ... }
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
 
@@ -286,4 +287,20 @@ model Notification {
   @@index([userId, read])
   @@index([userId, createdAt])
   @@map("notifications")
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  endpoint  String
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, endpoint])
+  @@index([userId])
+  @@map("push_subscriptions")
 }

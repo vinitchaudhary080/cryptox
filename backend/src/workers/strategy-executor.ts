@@ -368,6 +368,14 @@ class StrategyWorker {
           pair: deployed.pair,
         });
 
+        createNotification({
+          userId: deployed.userId,
+          type: "trade_error",
+          title: "Order Failed",
+          message: `${deployed.strategy.name} on ${deployed.pair}: ${side} order failed — ${msg}`,
+          data: { pair: deployed.pair, side, strategyName: deployed.strategy.name, deployedId: deployed.id, error: msg },
+        }).catch(() => {});
+
         return null;
       }
     }

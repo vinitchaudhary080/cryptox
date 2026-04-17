@@ -36,4 +36,9 @@ export const env = {
     from: process.env.SMTP_FROM || "",
   },
   frontendUrl: process.env.FRONTEND_URL || "http://localhost:3000",
+  vapid: {
+    publicKey: process.env.VAPID_PUBLIC_KEY || "",
+    privateKey: process.env.VAPID_PRIVATE_KEY || "",
+    subject: process.env.VAPID_SUBJECT || "mailto:vinitchaudhary080@gmail.com",
+  },
 } as const;

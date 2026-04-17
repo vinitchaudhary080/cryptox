@@ -283,7 +283,33 @@ export const notificationApi = {
     apiFetch(`/notifications/${id}/read`, { method: "PATCH" }),
   markAllRead: () =>
     apiFetch("/notifications/read-all", { method: "PATCH" }),
-}
+  vapidPublicKey: () => apiFetch("/notifications/vapid-public-key"),
+  subscribe: (payload: {
+    endpoint: string;
+    keys: { p256dh: string; auth: string };
+    userAgent?: string;
+  }) =>
+    apiFetch("/notifications/subscribe", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  unsubscribe: (endpoint: string) =>
+    apiFetch("/notifications/unsubscribe", {
+      method: "POST",
+      body: JSON.stringify({ endpoint }),
+    }),
+  adminSend: (payload: {
+    title: string;
+    message: string;
+    userId?: string;
+    url?: string;
+    data?: Record<string, unknown>;
+  }) =>
+    apiFetch("/notifications/admin-send", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+};
 
 // Portfolio
 export const portfolioApi = {
