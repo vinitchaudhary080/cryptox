@@ -573,13 +573,19 @@ export function AuthPage({ defaultTab = "login" }: { defaultTab?: "login" | "sig
                 className="mt-4 text-center text-[11px] leading-relaxed text-muted-foreground"
               >
                 By creating an account, you agree to our{" "}
-                <a href="#" className="text-foreground underline underline-offset-2 hover:text-primary">
+                <Link
+                  href="/terms"
+                  className="text-foreground underline underline-offset-2 hover:text-primary"
+                >
                   Terms of Service
-                </a>{" "}
+                </Link>{" "}
                 and{" "}
-                <a href="#" className="text-foreground underline underline-offset-2 hover:text-primary">
+                <Link
+                  href="/privacy"
+                  className="text-foreground underline underline-offset-2 hover:text-primary"
+                >
                   Privacy Policy
-                </a>
+                </Link>
                 .
               </motion.p>
             )}
