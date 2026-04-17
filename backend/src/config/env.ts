@@ -35,6 +35,12 @@ export const env = {
     pass: process.env.SMTP_PASS || "",
     from: process.env.SMTP_FROM || "",
   },
+  resend: {
+    apiKey: process.env.RESEND_API_KEY || "",
+    // Must be on a verified domain in your Resend dashboard.
+    // Fall back to the AlgoPulse Gmail brand if unset.
+    from: process.env.RESEND_FROM || "AlgoPulse <noreply@algopulse.in>",
+  },
   frontendUrl: process.env.FRONTEND_URL || "http://localhost:3000",
   vapid: {
     publicKey: process.env.VAPID_PUBLIC_KEY || "",

@@ -1,5 +1,55 @@
 import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import { env } from "../config/env.js";
+
+// Transactional provider — Resend if configured + domain verified; otherwise
+// fall back to the Gmail SMTP account. Resend delivers much better inbox
+// placement because emails are signed SPF + DKIM for our own domain.
+const resend = env.resend.apiKey ? new Resend(env.resend.apiKey) : null;
+
+/**
+ * Unified email sender. Tries Resend first (if configured); on any failure
+ * falls back to the Gmail SMTP transporter so emails don't silently drop.
+ */
+async function sendMail(opts: {
+  to: string;
+  subject: string;
+  html: string;
+  text?: string;
+  replyTo?: string;
+}): Promise<void> {
+  if (resend) {
+    try {
+      const resp = await resend.emails.send({
+        from: env.resend.from,
+        to: opts.to,
+        subject: opts.subject,
+        html: opts.html,
+        text: opts.text,
+        replyTo: opts.replyTo,
+        headers: {
+          "List-Unsubscribe": "<mailto:algopulseteam@gmail.com?subject=unsubscribe>",
+        },
+      });
+      if (!resp.error) {
+        return; // delivered via Resend
+      }
+      console.warn("[Email] Resend failed, falling back to SMTP:", resp.error.message);
+    } catch (err) {
+      console.warn("[Email] Resend threw, falling back to SMTP:", (err as Error).message);
+    }
+  }
+
+  // Fallback — Gmail SMTP via nodemailer
+  await transporter.sendMail({
+    from: env.smtp.from,
+    to: opts.to,
+    subject: opts.subject,
+    html: opts.html,
+    text: opts.text,
+    replyTo: opts.replyTo,
+  });
+}
 
 const transporter = nodemailer.createTransport({
   host: env.smtp.host,
@@ -38,8 +88,7 @@ export function generateOTP(): string {
 /** Send OTP verification email */
 export async function sendOTPEmail(to: string, otp: string): Promise<boolean> {
   try {
-    await transporter.sendMail({
-      from: env.smtp.from,
+    await sendMail({
       to,
       subject: `${otp} is your CryptoX verification code`,
       html: `
@@ -85,8 +134,7 @@ export async function sendOTPEmail(to: string, otp: string): Promise<boolean> {
 /** Password reset OTP — Step 1 of forgot-password flow */
 export async function sendPasswordResetOtpEmail(to: string, otp: string): Promise<boolean> {
   try {
-    await transporter.sendMail({
-      from: env.smtp.from,
+    await sendMail({
       to,
       subject: `${otp} — Reset your AlgoPulse password`,
       html: `
@@ -129,8 +177,7 @@ export async function sendPasswordResetOtpEmail(to: string, otp: string): Promis
 export async function sendPasswordResetConfirmationEmail(to: string): Promise<boolean> {
   try {
     const when = new Date().toUTCString();
-    await transporter.sendMail({
-      from: env.smtp.from,
+    await sendMail({
       to,
       subject: `Your AlgoPulse password was changed`,
       html: `
@@ -176,8 +223,7 @@ export async function sendWelcomeEmail(to: string, name?: string | null): Promis
   const dashboardUrl = `${env.frontendUrl}/dashboard`;
 
   try {
-    await transporter.sendMail({
-      from: env.smtp.from,
+    await sendMail({
       to,
       subject: `You're in, ${firstName} — welcome to AlgoPulse 🎉`,
       html: `
