@@ -32,8 +32,8 @@ const stagger = {
   visible: { transition: { staggerChildren: 0.08 } },
 }
 
-const WHATSAPP_NUMBER = "918398020076"
-const PHONE_NUMBER = "+918398020076"
+const WHATSAPP_NUMBER = "919876543211"
+const PHONE_NUMBER = "+919876543211"
 const DEFAULT_WA_MESSAGE = encodeURIComponent(
   "Hi CryptoX team! I need help with your platform. Could you please assist me?"
 )

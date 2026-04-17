@@ -110,22 +110,22 @@ function Footer() {
 
 const team = [
   {
-    name: "Vinit Chaudhary",
+    name: "Aayush Chaudhary",
     role: "Co-Founder & CEO",
     bio: "Full-stack developer and crypto trader with a passion for building products that make algorithmic trading accessible to everyone.",
-    initials: "VC",
+    initials: "AC",
   },
   {
-    name: "Arjun Mehta",
+    name: "Shalini Rathour",
     role: "Co-Founder & CTO",
     bio: "Systems engineer specializing in high-performance trading infrastructure, real-time data pipelines, and exchange integrations.",
-    initials: "AM",
+    initials: "SR",
   },
   {
-    name: "Priya Sharma",
+    name: "Rahul Kumar",
     role: "Co-Founder & Head of Product",
     bio: "Product designer and quant researcher focused on creating intuitive interfaces for complex trading strategies and analytics.",
-    initials: "PS",
+    initials: "RK",
   },
 ]
 

@@ -206,7 +206,7 @@ export default function TermsPage() {
             <motion.div variants={fadeUp}>
               <h2 className="mb-4 text-xl font-semibold">12. Contact</h2>
               <div className="space-y-3 text-muted-foreground leading-relaxed">
-                <p>For questions about these terms, reach out through our <Link href="/contact" className="text-primary hover:underline">contact page</Link> or via WhatsApp at +91 8398020076.</p>
+                <p>For questions about these terms, reach out through our <Link href="/contact" className="text-primary hover:underline">contact page</Link> or via WhatsApp at +91 9876543211.</p>
               </div>
             </motion.div>
           </motion.div>

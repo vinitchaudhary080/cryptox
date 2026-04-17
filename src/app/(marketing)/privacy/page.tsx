@@ -192,7 +192,7 @@ export default function PrivacyPage() {
             <motion.div variants={fadeUp}>
               <h2 className="mb-4 text-xl font-semibold">9. Contact Us</h2>
               <div className="space-y-3 text-muted-foreground leading-relaxed">
-                <p>If you have questions about this privacy policy or your data, reach out to us through our <Link href="/contact" className="text-primary hover:underline">contact page</Link> or via WhatsApp at +91 8398020076.</p>
+                <p>If you have questions about this privacy policy or your data, reach out to us through our <Link href="/contact" className="text-primary hover:underline">contact page</Link> or via WhatsApp at +91 9876543211.</p>
               </div>
             </motion.div>
           </motion.div>

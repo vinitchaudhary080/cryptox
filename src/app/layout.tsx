@@ -21,6 +21,11 @@ export const metadata: Metadata = {
     "Deploy AI-powered trading strategies, model portfolios, and copy top traders. No code required.",
   manifest: "/manifest.json",
   themeColor: "#0a0a0a",
+  icons: {
+    icon: [{ url: "/Fabicon.svg", type: "image/svg+xml" }],
+    shortcut: [{ url: "/Fabicon.svg", type: "image/svg+xml" }],
+    apple: [{ url: "/Fabicon.svg", type: "image/svg+xml" }],
+  },
   appleWebApp: {
     capable: true,
     title: "AlgoPulse",
