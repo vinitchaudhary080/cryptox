@@ -125,6 +125,27 @@ export const authApi = {
       body: JSON.stringify({ email }),
       skipAuth: true,
     }),
+
+  forgotPassword: (email: string) =>
+    apiFetch("/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+      skipAuth: true,
+    }),
+
+  verifyResetOtp: (email: string, otp: string) =>
+    apiFetch("/auth/verify-reset-otp", {
+      method: "POST",
+      body: JSON.stringify({ email, otp }),
+      skipAuth: true,
+    }),
+
+  resetPassword: (resetToken: string, newPassword: string) =>
+    apiFetch("/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ resetToken, newPassword }),
+      skipAuth: true,
+    }),
 };
 
 // Brokers

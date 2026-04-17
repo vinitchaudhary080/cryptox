@@ -82,6 +82,95 @@ export async function sendOTPEmail(to: string, otp: string): Promise<boolean> {
 }
 
 /** Verify SMTP connection on startup */
+/** Password reset OTP — Step 1 of forgot-password flow */
+export async function sendPasswordResetOtpEmail(to: string, otp: string): Promise<boolean> {
+  try {
+    await transporter.sendMail({
+      from: env.smtp.from,
+      to,
+      subject: `${otp} — Reset your AlgoPulse password`,
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px;">
+          <div style="text-align: center; margin-bottom: 32px;">
+            <h1 style="font-size: 24px; font-weight: 700; color: #0f172a; margin: 0;">AlgoPulse</h1>
+          </div>
+
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 32px; text-align: center;">
+            <p style="font-size: 14px; color: #64748b; margin: 0 0 8px;">Enter this code to reset your password</p>
+            <p style="font-size: 36px; font-weight: 700; color: #0f172a; letter-spacing: 8px; margin: 0 0 16px;">
+              ${otp}
+            </p>
+            <p style="font-size: 13px; color: #94a3b8; margin: 0;">
+              This code expires in <strong>10 minutes</strong>
+            </p>
+          </div>
+
+          <p style="font-size: 12px; color: #94a3b8; text-align: center; margin-top: 24px; line-height: 1.5;">
+            If you didn't request a password reset, you can safely ignore this email — your account is still secure.
+          </p>
+
+          <div style="text-align: center; margin-top: 32px; padding-top: 16px; border-top: 1px solid #e2e8f0;">
+            <p style="font-size: 11px; color: #cbd5e1; margin: 0;">
+              AlgoPulse — Algorithmic Crypto Trading
+            </p>
+          </div>
+        </div>
+      `,
+    });
+    console.log(`[Email] Password reset OTP sent to ${to}`);
+    return true;
+  } catch (err) {
+    console.error(`[Email] Failed to send reset OTP to ${to}:`, (err as Error).message);
+    return false;
+  }
+}
+
+/** Post-change confirmation — lets the user know their password was just changed */
+export async function sendPasswordResetConfirmationEmail(to: string): Promise<boolean> {
+  try {
+    const when = new Date().toUTCString();
+    await transporter.sendMail({
+      from: env.smtp.from,
+      to,
+      subject: `Your AlgoPulse password was changed`,
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px;">
+          <div style="text-align: center; margin-bottom: 32px;">
+            <h1 style="font-size: 24px; font-weight: 700; color: #0f172a; margin: 0;">AlgoPulse</h1>
+          </div>
+
+          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 24px;">
+            <p style="font-size: 14px; font-weight: 600; color: #166534; margin: 0 0 8px;">✓ Password changed successfully</p>
+            <p style="font-size: 13px; color: #15803d; margin: 0;">Changed at: <strong>${when}</strong></p>
+          </div>
+
+          <p style="font-size: 13px; color: #475569; line-height: 1.6; margin-top: 24px;">
+            Your AlgoPulse account password was just changed. All your existing sessions have been logged out — please sign in again with your new password.
+          </p>
+
+          <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 16px; margin-top: 16px;">
+            <p style="font-size: 12px; color: #991b1b; line-height: 1.5; margin: 0;">
+              <strong>Didn't do this?</strong> Reset your password again immediately and contact support.
+            </p>
+          </div>
+
+          <div style="text-align: center; margin-top: 32px; padding-top: 16px; border-top: 1px solid #e2e8f0;">
+            <p style="font-size: 11px; color: #cbd5e1; margin: 0;">
+              AlgoPulse — Algorithmic Crypto Trading
+            </p>
+          </div>
+        </div>
+      `,
+    });
+    console.log(`[Email] Password change confirmation sent to ${to}`);
+    return true;
+  } catch (err) {
+    console.error(`[Email] Failed to send reset confirmation to ${to}:`, (err as Error).message);
+    return false;
+  }
+}
+
+/** Verify SMTP connection on startup */
 export async function verifyEmailConnection(): Promise<boolean> {
   try {
     await transporter.verify();

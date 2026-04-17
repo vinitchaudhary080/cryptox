@@ -22,6 +22,12 @@ model User {
   emailVerified Boolean   @default(false)
   verifyCode    String?
   verifyExpiry  DateTime?
+  // ── Password reset (Approach C: OTP + short-lived reset token) ──
+  resetOtp         String?
+  resetOtpExpiry   DateTime?
+  resetOtpAttempts Int       @default(0) // wrong-OTP counter; reset on new OTP request
+  resetTokenHash   String? // sha256 of JWT resetToken — single-use check
+  resetTokenExpiry DateTime?
   plan          Plan      @default(FREE)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt

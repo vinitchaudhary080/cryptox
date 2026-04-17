@@ -92,6 +92,108 @@ export function AuthPage({ defaultTab = "login" }: { defaultTab?: "login" | "sig
   const [otpError, setOtpError] = useState("")
   const [otpSuccess, setOtpSuccess] = useState("")
 
+  // Forgot password state (Approach C: email → OTP → new password)
+  type ForgotStep = "email" | "otp" | "reset" | "done"
+  const [forgotStep, setForgotStep] = useState<ForgotStep | null>(null)
+  const [forgotEmail, setForgotEmail] = useState("")
+  const [forgotOtp, setForgotOtp] = useState("")
+  const [forgotResetToken, setForgotResetToken] = useState("")
+  const [forgotNewPassword, setForgotNewPassword] = useState("")
+  const [forgotConfirmPassword, setForgotConfirmPassword] = useState("")
+  const [showForgotPassword, setShowForgotPassword] = useState(false)
+  const [forgotLoading, setForgotLoading] = useState(false)
+  const [forgotError, setForgotError] = useState("")
+  const [forgotInfo, setForgotInfo] = useState("")
+
+  const resetForgotFlow = () => {
+    setForgotStep(null)
+    setForgotEmail("")
+    setForgotOtp("")
+    setForgotResetToken("")
+    setForgotNewPassword("")
+    setForgotConfirmPassword("")
+    setForgotError("")
+    setForgotInfo("")
+    setForgotLoading(false)
+  }
+
+  const handleForgotRequest = async () => {
+    if (!forgotEmail) {
+      setForgotError("Enter your email address")
+      return
+    }
+    setForgotLoading(true)
+    setForgotError("")
+    setForgotInfo("")
+    try {
+      const res = await authApi.forgotPassword(forgotEmail.trim()) as { success: boolean; error?: string }
+      if (res.success) {
+        setForgotStep("otp")
+        setForgotInfo(`If an account exists for ${forgotEmail}, a 6-digit code has been sent. Check your inbox (and spam).`)
+      } else {
+        setForgotError(res.error || "Failed to send code")
+      }
+    } catch (err) {
+      setForgotError((err as Error).message || "Something went wrong")
+    } finally {
+      setForgotLoading(false)
+    }
+  }
+
+  const handleForgotVerifyOtp = async () => {
+    if (forgotOtp.length !== 6) {
+      setForgotError("Enter the full 6-digit code")
+      return
+    }
+    setForgotLoading(true)
+    setForgotError("")
+    setForgotInfo("")
+    try {
+      const res = await authApi.verifyResetOtp(forgotEmail.trim(), forgotOtp) as {
+        success: boolean
+        data?: { resetToken?: string }
+        error?: string
+      }
+      if (res.success && res.data?.resetToken) {
+        setForgotResetToken(res.data.resetToken)
+        setForgotStep("reset")
+      } else {
+        setForgotError(res.error || "Invalid code")
+      }
+    } catch (err) {
+      setForgotError((err as Error).message || "Something went wrong")
+    } finally {
+      setForgotLoading(false)
+    }
+  }
+
+  const handleForgotResetPassword = async () => {
+    if (forgotNewPassword.length < 8) {
+      setForgotError("Password must be at least 8 characters")
+      return
+    }
+    if (forgotNewPassword !== forgotConfirmPassword) {
+      setForgotError("Passwords do not match")
+      return
+    }
+    setForgotLoading(true)
+    setForgotError("")
+    setForgotInfo("")
+    try {
+      const res = await authApi.resetPassword(forgotResetToken, forgotNewPassword) as { success: boolean; error?: string }
+      if (res.success) {
+        setForgotStep("done")
+        setForgotInfo("Password reset. Sign in with your new password.")
+      } else {
+        setForgotError(res.error || "Failed to reset password")
+      }
+    } catch (err) {
+      setForgotError((err as Error).message || "Something went wrong")
+    } finally {
+      setForgotLoading(false)
+    }
+  }
+
   // Redirect-based Google OAuth — no popup, works reliably with COOP.
   const handleGoogleLogin = () => {
     const redirectUri = `${window.location.origin}/login`
@@ -281,7 +383,179 @@ export function AuthPage({ defaultTab = "login" }: { defaultTab?: "login" | "sig
         {/* Form area */}
         <div className="flex flex-1 items-center justify-center px-4 pb-12">
           {/* OTP Verification Screen */}
-          {showOtp ? (
+          {forgotStep !== null ? (
+            <motion.div
+              initial="hidden"
+              animate="visible"
+              variants={stagger}
+              className="w-full max-w-[400px]"
+            >
+              <motion.div variants={fadeUp} className="text-center">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
+                  <Lock className="h-8 w-8 text-primary" />
+                </div>
+                <h1 className="mt-6 text-2xl font-bold tracking-tight">
+                  {forgotStep === "email" && "Reset your password"}
+                  {forgotStep === "otp" && "Enter the code"}
+                  {forgotStep === "reset" && "Set new password"}
+                  {forgotStep === "done" && "All set"}
+                </h1>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {forgotStep === "email" && "Enter your registered email and we'll send you a 6-digit code."}
+                  {forgotStep === "otp" && (
+                    <>We sent a code to <span className="font-medium text-foreground">{forgotEmail}</span></>
+                  )}
+                  {forgotStep === "reset" && "Choose a new password — your other sessions will be signed out."}
+                  {forgotStep === "done" && "Your password has been reset. Sign in with the new one."}
+                </p>
+              </motion.div>
+
+              <motion.div variants={fadeUp} className="mt-8 space-y-4">
+                {forgotStep === "email" && (
+                  <div>
+                    <Label className="text-xs font-medium text-muted-foreground">Email address</Label>
+                    <div className="relative mt-1.5">
+                      <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        type="email"
+                        placeholder="aayush@gmail.com"
+                        className="h-12 rounded-xl bg-muted/30 pl-10 text-sm"
+                        value={forgotEmail}
+                        onChange={(e) => setForgotEmail(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleForgotRequest()}
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {forgotStep === "otp" && (
+                  <div>
+                    <Label className="text-xs font-medium text-muted-foreground">Verification Code</Label>
+                    <Input
+                      placeholder="Enter 6-digit code"
+                      className="mt-1.5 h-12 rounded-xl bg-muted/30 text-center text-lg font-bold tracking-[0.5em]"
+                      value={forgotOtp}
+                      onChange={(e) => setForgotOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      onKeyDown={(e) => e.key === "Enter" && forgotOtp.length === 6 && handleForgotVerifyOtp()}
+                      maxLength={6}
+                      autoFocus
+                    />
+                  </div>
+                )}
+
+                {forgotStep === "reset" && (
+                  <>
+                    <div>
+                      <Label className="text-xs font-medium text-muted-foreground">New password</Label>
+                      <div className="relative mt-1.5">
+                        <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          type={showForgotPassword ? "text" : "password"}
+                          placeholder="At least 8 characters"
+                          className="h-12 rounded-xl bg-muted/30 pl-10 pr-10 text-sm"
+                          value={forgotNewPassword}
+                          onChange={(e) => setForgotNewPassword(e.target.value)}
+                          autoFocus
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowForgotPassword(!showForgotPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        >
+                          {showForgotPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs font-medium text-muted-foreground">Confirm password</Label>
+                      <div className="relative mt-1.5">
+                        <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          type={showForgotPassword ? "text" : "password"}
+                          placeholder="Re-enter new password"
+                          className="h-12 rounded-xl bg-muted/30 pl-10 text-sm"
+                          value={forgotConfirmPassword}
+                          onChange={(e) => setForgotConfirmPassword(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && handleForgotResetPassword()}
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+              </motion.div>
+
+              {forgotInfo && (
+                <motion.p variants={fadeUp} className="mt-4 rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-primary">
+                  {forgotInfo}
+                </motion.p>
+              )}
+              {forgotError && (
+                <motion.p variants={fadeUp} className="mt-4 rounded-md border border-red-500/30 bg-red-500/5 px-3 py-2 text-xs text-red-500">
+                  {forgotError}
+                </motion.p>
+              )}
+
+              <motion.div variants={fadeUp} className="mt-6 space-y-2">
+                {forgotStep === "email" && (
+                  <Button
+                    className="h-12 w-full rounded-xl text-sm font-semibold"
+                    disabled={forgotLoading || !forgotEmail}
+                    onClick={handleForgotRequest}
+                  >
+                    {forgotLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send code"}
+                  </Button>
+                )}
+                {forgotStep === "otp" && (
+                  <>
+                    <Button
+                      className="h-12 w-full rounded-xl text-sm font-semibold"
+                      disabled={forgotLoading || forgotOtp.length !== 6}
+                      onClick={handleForgotVerifyOtp}
+                    >
+                      {forgotLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify code"}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="h-10 w-full rounded-xl text-xs"
+                      onClick={handleForgotRequest}
+                      disabled={forgotLoading}
+                    >
+                      Resend code
+                    </Button>
+                  </>
+                )}
+                {forgotStep === "reset" && (
+                  <Button
+                    className="h-12 w-full rounded-xl text-sm font-semibold"
+                    disabled={forgotLoading || !forgotNewPassword || forgotNewPassword !== forgotConfirmPassword}
+                    onClick={handleForgotResetPassword}
+                  >
+                    {forgotLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Reset password"}
+                  </Button>
+                )}
+                {forgotStep === "done" && (
+                  <Button
+                    className="h-12 w-full rounded-xl text-sm font-semibold"
+                    onClick={resetForgotFlow}
+                  >
+                    Back to sign in
+                  </Button>
+                )}
+
+                {forgotStep !== "done" && (
+                  <Button
+                    variant="ghost"
+                    className="h-10 w-full rounded-xl text-xs text-muted-foreground"
+                    onClick={resetForgotFlow}
+                    disabled={forgotLoading}
+                  >
+                    Cancel
+                  </Button>
+                )}
+              </motion.div>
+            </motion.div>
+          ) : showOtp ? (
             <motion.div
               initial="hidden"
               animate="visible"
@@ -476,12 +750,17 @@ export function AuthPage({ defaultTab = "login" }: { defaultTab?: "login" | "sig
                     Password
                   </Label>
                   {tab === "login" && (
-                    <a
-                      href="#"
+                    <button
+                      type="button"
+                      onClick={() => {
+                        resetForgotFlow()
+                        setForgotEmail(email)
+                        setForgotStep("email")
+                      }}
                       className="text-xs font-medium text-primary hover:underline"
                     >
                       Forgot password?
-                    </a>
+                    </button>
                   )}
                 </div>
                 <div className="relative mt-1.5">
