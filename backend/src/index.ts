@@ -45,6 +45,8 @@ const allowedOrigins = [
   "http://3.24.173.212",
   "http://10.67.170.229:3000",
   "https://cryptox-lovat-six.vercel.app",
+  "https://algopulse.in",
+  "https://www.algopulse.in",
 ];
 
 app.use(cors({
