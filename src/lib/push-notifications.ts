@@ -46,13 +46,21 @@ export function getPermissionState(): NotificationPermission | "unsupported" {
   return Notification.permission;
 }
 
-/** Register (or fetch existing) service worker at /sw.js. */
+/** Register (or fetch existing) service worker at /sw.js. Also triggers update check. */
 export async function getServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (!isPushSupported()) return null;
   try {
     const existing = await navigator.serviceWorker.getRegistration("/sw.js");
-    if (existing) return existing;
-    return await navigator.serviceWorker.register("/sw.js");
+    if (existing) {
+      // Force check for updated sw.js so iOS PWA picks up new version.
+      try {
+        await existing.update();
+      } catch {
+        // ignore
+      }
+      return existing;
+    }
+    return await navigator.serviceWorker.register("/sw.js", { scope: "/" });
   } catch (err) {
     console.error("[push] SW register failed", err);
     return null;
