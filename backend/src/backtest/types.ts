@@ -194,6 +194,8 @@ export interface BacktestMetrics {
   tradeDoubleCount: number;            // trades that gained ≥100% of deployed capital
   equityBlowoutCount: number;          // times total equity crossed below 1% of initial
   equityDoubleCount: number;           // times total equity crossed above 2× initial
+  peakEquity: number;                  // highest equity reached during backtest
+  lowestEquity: number;                // lowest equity reached during backtest
 }
 
 export interface BacktestResult {

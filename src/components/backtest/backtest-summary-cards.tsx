@@ -54,6 +54,9 @@ type ExtendedMetrics = {
   tradeDoubleCount?: number
   equityBlowoutCount?: number
   equityDoubleCount?: number
+  peakEquity?: number
+  lowestEquity?: number
+  maxDrawdownPercent?: number
   [key: string]: unknown
 }
 
@@ -126,7 +129,11 @@ export function BacktestSummaryCards({
     {
       label: "Max Drawdown",
       value: `$${run.maxDrawdown.toFixed(2)}`,
-      sub: `${run.initialCapital > 0 ? (run.maxDrawdown / run.initialCapital * 100).toFixed(2) : "0"}% of capital`,
+      sub: ext.maxDrawdownPercent != null
+        ? `${ext.maxDrawdownPercent.toFixed(2)}% peak → trough`
+        : ext.peakEquity && ext.peakEquity > 0
+          ? `${(run.maxDrawdown / ext.peakEquity * 100).toFixed(2)}% peak → trough`
+          : `${run.initialCapital > 0 ? (run.maxDrawdown / run.initialCapital * 100).toFixed(2) : "0"}% of initial capital`,
       icon: ArrowDownRight,
       color: "text-loss",
       bg: "bg-loss/10",
@@ -194,6 +201,22 @@ export function BacktestSummaryCards({
       icon: Rocket,
       color: "text-profit",
       bg: "bg-profit/10",
+    },
+    {
+      label: "Peak Equity",
+      value: ext.peakEquity != null ? `$${ext.peakEquity.toFixed(2)}` : "—",
+      sub: "Highest equity reached in run",
+      icon: ArrowUpRight,
+      color: "text-profit",
+      bg: "bg-profit/10",
+    },
+    {
+      label: "Lowest Equity",
+      value: ext.lowestEquity != null ? `$${ext.lowestEquity.toFixed(2)}` : "—",
+      sub: "Lowest equity reached in run",
+      icon: ArrowDownRight,
+      color: "text-loss",
+      bg: "bg-loss/10",
     },
   ]
 

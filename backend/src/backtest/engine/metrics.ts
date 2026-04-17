@@ -59,6 +59,8 @@ export function computeMetrics(
     tradeDoubleCount: 0,
     equityBlowoutCount: 0,
     equityDoubleCount: 0,
+    peakEquity: 0,
+    lowestEquity: 0,
   };
 
   if (closedTrades.length === 0) return empty;
@@ -204,7 +206,11 @@ export function computeMetrics(
   let equityDoubleCount = 0;
   let blowoutArmed = true; // true when we're eligible to count next blowout
   let doubleArmed = true;
+  let peakEquity = initialCapital;
+  let lowestEquity = initialCapital;
   for (const point of equityCurve) {
+    if (point.equity > peakEquity) peakEquity = point.equity;
+    if (point.equity < lowestEquity) lowestEquity = point.equity;
     // Blowout: we're armed and equity drops to/below threshold.
     if (blowoutArmed && point.equity <= blowoutThreshold) {
       equityBlowoutCount++;
@@ -253,6 +259,8 @@ export function computeMetrics(
     tradeDoubleCount,
     equityBlowoutCount,
     equityDoubleCount,
+    peakEquity,
+    lowestEquity,
   };
 }
 
