@@ -14,6 +14,7 @@ import { PositionManager } from "./position-manager.js";
 import { computeMetrics } from "./metrics.js";
 import { getStrategyByName } from "../strategies/strategy-runner.js";
 import { resetMeriStrategyCache, precomputeMeriStrategy } from "../strategies/builtin/meri-strategy.js";
+import { resetMeriV2StrategyCache, precomputeMeriV2Strategy } from "../strategies/builtin/meri-strategy-v2.js";
 import { resetSupertrendStrategyCache, precomputeSupertrendStrategy } from "../strategies/builtin/supertrend-strategy.js";
 import { resetCPRCache, precomputeCPRLevels } from "../strategies/builtin/cpr-pivot-strategy.js";
 import { resetGannStrategyCache, precomputeGannStrategy } from "../strategies/builtin/gann-matrix-momentum.js";
@@ -26,6 +27,7 @@ const EQUITY_SAMPLE_INTERVAL = 60; // sample equity every 60 candles (1 hour)
 export async function runBacktest(config: BacktestConfig): Promise<BacktestResult> {
   // Reset multi-timeframe caches
   resetMeriStrategyCache();
+  resetMeriV2StrategyCache();
   resetSupertrendStrategyCache();
   resetCPRCache();
   resetGannStrategyCache();
@@ -71,6 +73,8 @@ export async function runBacktest(config: BacktestConfig): Promise<BacktestResul
   // Pre-compute multi-timeframe data for multi-TF strategies
   if (config.strategyName === "meri-strategy") {
     precomputeMeriStrategy(candles);
+  } else if (config.strategyName === "meri-strategy-v2") {
+    precomputeMeriV2Strategy(candles);
   } else if (config.strategyName === "supertrend-strategy") {
     precomputeSupertrendStrategy(candles);
   } else if (config.strategyName === "cpr-pivot-strategy") {

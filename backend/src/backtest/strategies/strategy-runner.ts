@@ -15,6 +15,7 @@ import { emaCrossover } from "./builtin/ema-crossover.js";
 import { macdTrend } from "./builtin/macd-trend.js";
 import { bollingerBounce } from "./builtin/bollinger-bounce.js";
 import { meriStrategy } from "./builtin/meri-strategy.js";
+import { meriStrategyV2 } from "./builtin/meri-strategy-v2.js";
 import { supertrendStrategy } from "./builtin/supertrend-strategy.js";
 import { cprPivotStrategy } from "./builtin/cpr-pivot-strategy.js";
 import { quickTestStrategy } from "./builtin/quick-test-strategy.js";
@@ -27,6 +28,7 @@ const BUILTIN_STRATEGIES: Record<string, BacktestStrategy> = {
   "rsi-mean-reversion": rsiMeanReversion,
   "ema-crossover": emaCrossover,
   "meri-strategy": meriStrategy,
+  "meri-strategy-v2": meriStrategyV2,
   "supertrend-strategy": supertrendStrategy,
   "cpr-pivot-strategy": cprPivotStrategy,
   "quick-test-strategy": quickTestStrategy,
