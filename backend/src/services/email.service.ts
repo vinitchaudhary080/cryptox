@@ -217,14 +217,14 @@ export async function sendPasswordResetConfirmationEmail(to: string): Promise<bo
   }
 }
 
-/** Welcome email — fired after a new user is verified (OTP or Google OAuth) */
+/** Welcome email — fired after a new user is verified (OTP or Google OAuth).
+ *  Transactional-style design (minimal HTML, single column, small CTA) so Gmail
+ *  treats it as a receipt rather than marketing → lands in Primary tab. */
 export async function sendWelcomeEmail(to: string, name?: string | null): Promise<boolean> {
   const rawFirst = (name || "").trim().split(" ")[0] || "";
-  // Don't greet someone with an email-slug like "Hey bpl!" — fall back to "there".
   const looksLikeEmailSlug = rawFirst.includes("@") || /^\d/.test(rawFirst) || rawFirst.length < 2;
   const firstName = looksLikeEmailSlug ? "there" : rawFirst;
 
-  // Guard against stale dev FRONTEND_URL values leaking into production emails.
   const baseUrl = env.frontendUrl && !/localhost|:3000|:4000|3\.24\.173\.212/i.test(env.frontendUrl)
     ? env.frontendUrl
     : "https://algopulse.in";
@@ -233,129 +233,100 @@ export async function sendWelcomeEmail(to: string, name?: string | null): Promis
   try {
     await sendMail({
       to,
-      subject: `You're in, ${firstName} — welcome to AlgoPulse`,
+      subject: `Welcome to AlgoPulse, ${firstName}`,
       text: [
-        `Hey ${firstName}!`,
+        `Hey ${firstName},`,
         "",
         "Welcome to AlgoPulse — glad you're here.",
         "",
         "We built AlgoPulse for traders who'd rather let the market do the grunt work while they sleep, travel, or actually enjoy their weekends. You just joined that club.",
         "",
-        "3 steps to get rolling:",
-        "1. Connect your broker (CoinDCX, Delta India, Pi42, or Bybit) with a trade-only API key.",
-        "2. Pick a strategy — each one ships with a 3-year backtest report.",
+        "Here's what to do next:",
+        "",
+        "1. Connect your broker (CoinDCX, Delta India, Pi42, or Bybit) with a trade-only API key. We never touch your funds.",
+        "",
+        "2. Pick a strategy. Each one ships with a 3-year backtest report — see win rate, drawdown, and equity curves before you risk a single rupee.",
+        "",
         "3. Deploy with one click. Monitor, pause, or stop anytime.",
         "",
         `Start here: ${dashboardUrl}`,
         "",
-        "A note from us: Trading is hard. Even the best strategies lose sometimes. Start small, watch your numbers, and let data guide you — not FOMO.",
+        "A note from us:",
+        "Trading is hard. Even the best strategies lose sometimes. Start small, watch your numbers, and let data guide you — not FOMO. We're building AlgoPulse to be the platform we wished existed when we started. Glad to have you along.",
         "",
         "— The AlgoPulse Team",
-        "",
-        "Questions? Just reply to this email. It goes straight to us — no bots, no tickets.",
       ].join("\n"),
       replyTo: "algopulseteam@gmail.com",
       html: `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Welcome to AlgoPulse</title></head>
-<body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-  <div style="display:none;max-height:0;overflow:hidden;">Your algorithmic trading journey begins. 3 quick steps to deploy your first strategy.</div>
-  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#f1f5f9;"><tr><td style="padding:40px 16px;">
-    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="560" align="center" style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 4px 24px rgba(15,23,42,0.06);">
-      <tr><td style="padding:28px 32px 0;text-align:center;">
-        <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center"><tr>
-          <td style="vertical-align:middle;"><div style="width:28px;height:28px;border-radius:8px;background:#0089FF;display:inline-block;"></div></td>
-          <td style="vertical-align:middle;padding-left:10px;"><span style="font-size:19px;font-weight:700;color:#0f172a;letter-spacing:-0.3px;">AlgoPulse</span></td>
-        </tr></table>
+<body style="margin:0;padding:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1f2937;">
+  <div style="display:none;max-height:0;overflow:hidden;">Your account is ready. Three steps to deploy your first strategy.</div>
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#ffffff;"><tr><td style="padding:32px 16px;">
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="520" align="center" style="max-width:520px;margin:0 auto;">
+
+      <tr><td style="padding:0 0 24px;border-bottom:1px solid #e5e7eb;">
+        <span style="font-size:17px;font-weight:700;color:#0f172a;letter-spacing:-0.2px;">AlgoPulse</span>
       </td></tr>
-      <tr><td style="padding:28px 32px 0;">
-        <div style="background:linear-gradient(135deg,#0089FF 0%,#0066cc 100%);border-radius:16px;padding:40px 24px;text-align:center;">
-          <div style="display:inline-block;background:rgba(255,255,255,0.18);border-radius:999px;padding:6px 14px;margin-bottom:18px;"><span style="font-size:12px;color:#ffffff;font-weight:600;letter-spacing:0.3px;">🎉 You're officially in</span></div>
-          <h1 style="font-size:30px;font-weight:800;color:#ffffff;margin:0 0 10px;line-height:1.2;letter-spacing:-0.6px;">Hey ${firstName}!</h1>
-          <p style="font-size:15px;color:rgba(255,255,255,0.92);margin:0;line-height:1.5;">Welcome to AlgoPulse — glad you're here.</p>
-        </div>
+
+      <tr><td style="padding:28px 0 0;">
+        <p style="font-size:16px;line-height:1.6;margin:0 0 16px;color:#111827;">Hey ${firstName},</p>
+        <p style="font-size:16px;line-height:1.65;margin:0 0 16px;color:#111827;">Welcome to AlgoPulse — glad you're here.</p>
+        <p style="font-size:15px;line-height:1.7;margin:0 0 24px;color:#374151;">We built AlgoPulse for traders who'd rather let the market do the grunt work while they sleep, travel, or actually enjoy their weekends. You just joined that club.</p>
+        <p style="font-size:15px;line-height:1.7;margin:0 0 20px;color:#374151;">Here's what to do next:</p>
       </td></tr>
-      <tr><td style="padding:30px 32px 8px;">
-        <p style="font-size:16px;line-height:1.65;color:#334155;margin:0 0 14px;">We built AlgoPulse for traders who'd rather let the market do the grunt work — while they sleep, travel, or actually enjoy their weekends.</p>
-        <p style="font-size:16px;line-height:1.65;color:#0089FF;margin:0;font-weight:600;">You just joined that club. 👏</p>
-      </td></tr>
-      <tr><td style="padding:24px 32px 0;">
-        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%"><tr><td style="background:#f8fafc;border-radius:14px;padding:18px 12px;">
-          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%"><tr>
-            <td style="text-align:center;width:25%;"><p style="font-size:22px;font-weight:800;color:#0089FF;margin:0;line-height:1.1;">10+</p><p style="font-size:11px;color:#64748b;margin:4px 0 0;font-weight:500;">Strategies</p></td>
-            <td style="text-align:center;width:25%;"><p style="font-size:22px;font-weight:800;color:#0089FF;margin:0;line-height:1.1;">4</p><p style="font-size:11px;color:#64748b;margin:4px 0 0;font-weight:500;">Exchanges</p></td>
-            <td style="text-align:center;width:25%;"><p style="font-size:22px;font-weight:800;color:#0089FF;margin:0;line-height:1.1;">18</p><p style="font-size:11px;color:#64748b;margin:4px 0 0;font-weight:500;">Coins</p></td>
-            <td style="text-align:center;width:25%;"><p style="font-size:22px;font-weight:800;color:#0089FF;margin:0;line-height:1.1;">3yr</p><p style="font-size:11px;color:#64748b;margin:4px 0 0;font-weight:500;">Backtests</p></td>
-          </tr></table>
-        </td></tr></table>
-      </td></tr>
-      <tr><td style="padding:36px 32px 0;text-align:center;">
-        <p style="font-size:11px;font-weight:700;letter-spacing:2px;color:#0089FF;margin:0 0 6px;text-transform:uppercase;">Get started</p>
-        <h2 style="font-size:20px;font-weight:700;color:#0f172a;margin:0;letter-spacing:-0.3px;">3 steps. 5 minutes. You're live.</h2>
-      </td></tr>
-      <tr><td style="padding:24px 32px 0;">
-        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="border:1px solid #e2e8f0;border-radius:14px;"><tr><td style="padding:20px;">
-          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%"><tr>
-            <td style="width:56px;vertical-align:top;"><div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#dbeafe 0%,#bfdbfe 100%);text-align:center;line-height:44px;font-size:22px;">🔗</div></td>
-            <td style="vertical-align:top;padding-left:14px;">
-              <span style="display:inline-block;background:#dbeafe;color:#1e40af;font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;letter-spacing:0.6px;margin-bottom:8px;">STEP 1</span>
-              <p style="font-size:16px;font-weight:700;color:#0f172a;margin:0 0 6px;">Connect your broker</p>
-              <p style="font-size:14px;line-height:1.6;color:#64748b;margin:0;">Link CoinDCX, Delta India, Pi42, or Bybit with a <strong style="color:#334155;">trade-only API key</strong>. We never touch your funds.</p>
+
+      <tr><td style="padding:0 0 12px;">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+          <tr>
+            <td style="width:28px;vertical-align:top;padding-top:2px;"><span style="font-size:14px;font-weight:700;color:#0089FF;">1.</span></td>
+            <td style="vertical-align:top;">
+              <p style="font-size:15px;font-weight:600;color:#111827;margin:0 0 4px;">Connect your broker</p>
+              <p style="font-size:14px;line-height:1.6;color:#4b5563;margin:0;">Link CoinDCX, Delta India, Pi42, or Bybit with a trade-only API key. We never touch your funds.</p>
             </td>
-          </tr></table>
-        </td></tr></table>
+          </tr>
+        </table>
       </td></tr>
-      <tr><td style="padding:12px 32px 0;">
-        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="border:1px solid #e2e8f0;border-radius:14px;"><tr><td style="padding:20px;">
-          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%"><tr>
-            <td style="width:56px;vertical-align:top;"><div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#dcfce7 0%,#bbf7d0 100%);text-align:center;line-height:44px;font-size:22px;">📊</div></td>
-            <td style="vertical-align:top;padding-left:14px;">
-              <span style="display:inline-block;background:#dcfce7;color:#166534;font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;letter-spacing:0.6px;margin-bottom:8px;">STEP 2</span>
-              <p style="font-size:16px;font-weight:700;color:#0f172a;margin:0 0 6px;">Pick a strategy that suits you</p>
-              <p style="font-size:14px;line-height:1.6;color:#64748b;margin:0;">10+ pre-built strategies, each with a <strong style="color:#334155;">3-year backtest report</strong>. See win rate, drawdown, equity curves — before you risk a single rupee.</p>
+
+      <tr><td style="padding:16px 0 12px;">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+          <tr>
+            <td style="width:28px;vertical-align:top;padding-top:2px;"><span style="font-size:14px;font-weight:700;color:#0089FF;">2.</span></td>
+            <td style="vertical-align:top;">
+              <p style="font-size:15px;font-weight:600;color:#111827;margin:0 0 4px;">Pick a strategy</p>
+              <p style="font-size:14px;line-height:1.6;color:#4b5563;margin:0;">Each strategy ships with a 3-year backtest report. See win rate, drawdown, and equity curves before you risk a single rupee.</p>
             </td>
-          </tr></table>
-        </td></tr></table>
+          </tr>
+        </table>
       </td></tr>
-      <tr><td style="padding:12px 32px 0;">
-        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="border:1px solid #e2e8f0;border-radius:14px;"><tr><td style="padding:20px;">
-          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%"><tr>
-            <td style="width:56px;vertical-align:top;"><div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%);text-align:center;line-height:44px;font-size:22px;">🚀</div></td>
-            <td style="vertical-align:top;padding-left:14px;">
-              <span style="display:inline-block;background:#fef3c7;color:#92400e;font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;letter-spacing:0.6px;margin-bottom:8px;">STEP 3</span>
-              <p style="font-size:16px;font-weight:700;color:#0f172a;margin:0 0 6px;">Deploy and chill</p>
-              <p style="font-size:14px;line-height:1.6;color:#64748b;margin:0;">One click to go live. Monitor PnL real-time, pause anytime, stop whenever. <em style="color:#475569;">Markets don't sleep, but you can.</em></p>
+
+      <tr><td style="padding:16px 0 28px;">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+          <tr>
+            <td style="width:28px;vertical-align:top;padding-top:2px;"><span style="font-size:14px;font-weight:700;color:#0089FF;">3.</span></td>
+            <td style="vertical-align:top;">
+              <p style="font-size:15px;font-weight:600;color:#111827;margin:0 0 4px;">Deploy with one click</p>
+              <p style="font-size:14px;line-height:1.6;color:#4b5563;margin:0;">Monitor PnL real-time, pause anytime, stop whenever. Markets don't sleep, but you can.</p>
             </td>
-          </tr></table>
-        </td></tr></table>
+          </tr>
+        </table>
       </td></tr>
-      <tr><td style="padding:38px 32px 0;text-align:center;">
-        <a href="${dashboardUrl}" style="display:inline-block;background:#0089FF;color:#ffffff;font-size:16px;font-weight:700;text-decoration:none;padding:16px 40px;border-radius:12px;box-shadow:0 8px 20px rgba(0,137,255,0.28);">Go to Dashboard →</a>
-        <p style="font-size:12px;color:#94a3b8;margin:16px 0 0;">Takes 5 minutes to get your first strategy live</p>
+
+      <tr><td style="padding:0 0 32px;">
+        <a href="${dashboardUrl}" style="display:inline-block;background:#0089FF;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:11px 22px;border-radius:6px;">Go to Dashboard</a>
       </td></tr>
-      <tr><td style="padding:40px 32px 0;">
-        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#f8fafc;border-radius:14px;border-left:4px solid #0089FF;"><tr><td style="padding:22px 24px;">
-          <p style="font-size:11px;font-weight:700;letter-spacing:1.5px;color:#475569;margin:0 0 12px;text-transform:uppercase;">💬 A note from us</p>
-          <p style="font-size:14px;color:#334155;line-height:1.65;margin:0 0 12px;">Trading is hard. Even the best strategies lose sometimes. Start small, watch your numbers, and let data guide you — <strong>not FOMO</strong>.</p>
-          <p style="font-size:14px;color:#334155;line-height:1.65;margin:0 0 16px;">We're building AlgoPulse to be the platform <em>we</em> wished existed when we started. Glad to have you along.</p>
-          <p style="font-size:14px;font-weight:700;color:#0f172a;margin:0;">— The AlgoPulse Team</p>
-        </td></tr></table>
+
+      <tr><td style="padding:20px 0 0;border-top:1px solid #e5e7eb;">
+        <p style="font-size:13px;line-height:1.7;color:#4b5563;margin:0 0 12px;">A note from us — trading is hard. Even the best strategies lose sometimes. Start small, watch your numbers, and let data guide you, not FOMO. We're building AlgoPulse to be the platform we wished existed when we started. Glad to have you along.</p>
+        <p style="font-size:13px;font-weight:600;color:#111827;margin:0;">— The AlgoPulse Team</p>
       </td></tr>
-      <tr><td style="padding:32px 32px 0;">
-        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%"><tr>
-          <td style="text-align:center;width:33%;padding:0 6px;"><p style="font-size:22px;margin:0;">🔒</p><p style="font-size:11px;color:#64748b;margin:6px 0 0;line-height:1.4;font-weight:500;">Trade-only<br/>API keys</p></td>
-          <td style="text-align:center;width:34%;padding:0 6px;"><p style="font-size:22px;margin:0;">🇮🇳</p><p style="font-size:11px;color:#64748b;margin:6px 0 0;line-height:1.4;font-weight:500;">Built for<br/>Indian traders</p></td>
-          <td style="text-align:center;width:33%;padding:0 6px;"><p style="font-size:22px;margin:0;">💬</p><p style="font-size:11px;color:#64748b;margin:6px 0 0;line-height:1.4;font-weight:500;">Real human<br/>support</p></td>
-        </tr></table>
+
+      <tr><td style="padding:28px 0 0;">
+        <p style="font-size:12px;color:#9ca3af;margin:0 0 4px;">AlgoPulse — Algorithmic Crypto Trading</p>
+        <p style="font-size:11px;color:#9ca3af;margin:0;line-height:1.5;">You're receiving this because you just signed up for AlgoPulse.</p>
       </td></tr>
-      <tr><td style="padding:32px 32px 28px;border-top:1px solid #f1f5f9;text-align:center;">
-        <p style="font-size:13px;color:#64748b;line-height:1.65;margin:20px 0 0;"><strong style="color:#334155;">Got a question?</strong> Just reply to this email.<br/>It goes straight to us — no bots, no tickets.</p>
-      </td></tr>
+
     </table>
-    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="560" align="center" style="max-width:560px;margin:24px auto 0;"><tr><td style="text-align:center;padding:0 20px;">
-      <p style="font-size:12px;color:#94a3b8;margin:0 0 6px;font-weight:500;">AlgoPulse — Algorithmic Crypto Trading</p>
-      <p style="font-size:11px;color:#cbd5e1;margin:0;line-height:1.5;">You're receiving this because you just signed up for AlgoPulse.</p>
-    </td></tr></table>
   </td></tr></table>
 </body>
 </html>`,
