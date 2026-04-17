@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { Logo } from "@/components/ui/logo"
 import { cn } from "@/lib/utils"
 import { authApi } from "@/lib/api"
 
@@ -214,8 +215,7 @@ export function AuthPage({ defaultTab = "login" }: { defaultTab?: "login" | "sig
       <div className="relative hidden w-[480px] shrink-0 flex-col justify-between overflow-hidden border-r border-border/50 bg-card/30 p-10 lg:flex xl:w-[540px]">
         <div>
           <Link href="/" className="flex items-center">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.svg" alt="AlgoPulse" className="h-8 w-auto md:h-9" />
+            <Logo className="h-8 w-auto md:h-9" />
           </Link>
         </div>
 
@@ -273,8 +273,7 @@ export function AuthPage({ defaultTab = "login" }: { defaultTab?: "login" | "sig
 
             {/* Mobile logo */}
             <Link href="/" className="flex items-center lg:hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logo.svg" alt="AlgoPulse" className="h-7 w-auto" />
+              <Logo className="h-7 w-auto" />
             </Link>
           </div>
         </div>

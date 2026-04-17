@@ -20,6 +20,7 @@ import {
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
+import { Logo } from "@/components/ui/logo"
 import { useState, useEffect } from "react"
 
 const fadeUp = {
@@ -52,8 +53,7 @@ function Navbar() {
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
         <Link href="/" className="flex items-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.svg" alt="AlgoPulse" className="h-7 w-auto md:h-8" />
+          <Logo className="h-7 w-auto md:h-8" />
         </Link>
         <div className="hidden items-center gap-3 md:flex">
           <Button variant="ghost" size="icon" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
@@ -85,8 +85,7 @@ function Footer() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
           <Link href="/" className="flex items-center">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.svg" alt="AlgoPulse" className="h-6 w-auto" />
+            <Logo className="h-6 w-auto" />
           </Link>
           <div className="flex items-center gap-6 text-sm text-muted-foreground">
             <Link href="/about" className="hover:text-foreground transition-colors">About</Link>

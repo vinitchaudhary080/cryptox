@@ -39,6 +39,7 @@ import { NotificationPanel } from "./notification-panel"
 import { SendNotificationDialog } from "@/components/admin/send-notification-dialog"
 import { notificationApi } from "@/lib/api"
 import { Megaphone } from "lucide-react"
+import { Logo } from "@/components/ui/logo"
 
 const showBacktest = process.env.NEXT_PUBLIC_SHOW_BACKTEST !== "false"
 
@@ -107,12 +108,7 @@ export function AppHeader() {
           {/* Left: Logo + Nav */}
           <div className="flex items-center gap-6">
             <Link href="/dashboard" className="flex items-center">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/logo.svg"
-                alt="AlgoPulse"
-                className="h-7 w-auto md:h-8"
-              />
+              <Logo className="h-7 w-auto md:h-8" />
             </Link>
 
             {/* Desktop nav */}

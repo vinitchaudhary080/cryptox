@@ -32,6 +32,7 @@ import {
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
+import { Logo } from "@/components/ui/logo"
 import { marketApi } from "@/lib/api"
 
 /* ─── Animations ─── */
@@ -78,8 +79,7 @@ function Navbar() {
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
         <Link href="/" className="flex items-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.svg" alt="AlgoPulse" className="h-7 w-auto md:h-8" />
+          <Logo className="h-7 w-auto md:h-8" />
         </Link>
 
         <div className="hidden items-center gap-8 md:flex">
@@ -1040,8 +1040,7 @@ function Footer() {
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
           <div className="sm:col-span-2 lg:col-span-1">
             <Link href="/" className="flex items-center">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logo.svg" alt="AlgoPulse" className="h-7 w-auto md:h-8" />
+              <Logo className="h-7 w-auto md:h-8" />
             </Link>
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted-foreground">
               Algorithmic crypto trading for everyone. Deploy strategies, backtest with real data, and trade 24/7.
