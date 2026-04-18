@@ -135,8 +135,29 @@ export default function StrategyBacktestReportPage() {
   const [coin, setCoin] = useState<Coin>("BTC");
   const [period, setPeriod] = useState<Period>("1Y");
   const [trades, setTrades] = useState<Trade[]>([]);
+  const [tradePage, setTradePage] = useState(1);
   const [loadingMeta, setLoadingMeta] = useState(true);
   const [loadingTrades, setLoadingTrades] = useState(false);
+
+  const TRADES_PER_PAGE = 20;
+
+  // Sort trades newest-first so the public report shows recent activity at the top
+  const sortedTrades = useMemo(
+    () =>
+      [...trades].sort(
+        (a, b) => new Date(b.entryTime).getTime() - new Date(a.entryTime).getTime(),
+      ),
+    [trades],
+  );
+
+  const paginatedTrades = useMemo(
+    () =>
+      sortedTrades.slice(
+        (tradePage - 1) * TRADES_PER_PAGE,
+        tradePage * TRADES_PER_PAGE,
+      ),
+    [sortedTrades, tradePage],
+  );
 
   // Fetch strategy meta + all featured runs once
   useEffect(() => {
@@ -176,6 +197,7 @@ export default function StrategyBacktestReportPage() {
   );
 
   useEffect(() => {
+    setTradePage(1); // reset pagination whenever the selected run changes
     if (selectedRun) {
       loadTrades(selectedRun.id);
     } else {
@@ -358,7 +380,7 @@ export default function StrategyBacktestReportPage() {
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <motion.div variants={fadeUp}>
-              <PnlChart trades={trades.slice(0, 50)} />
+              <PnlChart trades={sortedTrades.slice(0, 50)} />
             </motion.div>
             <motion.div variants={fadeUp}>
               <DrawdownChart data={ext.drawdownCurve ?? []} />
@@ -374,7 +396,7 @@ export default function StrategyBacktestReportPage() {
 
           <motion.div variants={fadeUp}>
             <MonthlyHeatmap
-              trades={trades}
+              trades={sortedTrades}
               startDate={selectedRun.startDate}
               endDate={selectedRun.endDate}
             />
@@ -382,12 +404,12 @@ export default function StrategyBacktestReportPage() {
 
           <motion.div variants={fadeUp}>
             <TradeLogTable
-              trades={trades}
-              total={trades.length}
-              page={1}
-              limit={trades.length || 1}
-              onPageChange={() => {}}
-              allTrades={trades}
+              trades={paginatedTrades}
+              total={sortedTrades.length}
+              page={tradePage}
+              limit={TRADES_PER_PAGE}
+              onPageChange={setTradePage}
+              allTrades={sortedTrades}
             />
           </motion.div>
 
