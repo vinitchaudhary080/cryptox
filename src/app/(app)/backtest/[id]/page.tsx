@@ -83,6 +83,8 @@ interface BacktestRun {
   isFeatured?: boolean
   featuredStrategyId?: string | null
   periodLabel?: "1Y" | "2Y" | "3Y" | null
+  liveSyncStatus?: "synced" | "pushing" | "error" | null
+  liveSyncAt?: string | null
 }
 
 interface Trade {
@@ -221,6 +223,8 @@ export default function BacktestDetailPage() {
             isFeatured={!!run.isFeatured}
             featuredStrategyId={run.featuredStrategyId ?? null}
             periodLabel={run.periodLabel ?? null}
+            liveSyncStatus={run.liveSyncStatus ?? null}
+            liveSyncAt={run.liveSyncAt ?? null}
             onChange={fetchRun}
           />
           <Button

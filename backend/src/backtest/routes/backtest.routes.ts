@@ -4,6 +4,12 @@ import { authenticate } from "../../middleware/auth.js";
 import { runBacktest } from "../engine/backtest-engine.js";
 import { listBuiltinStrategies } from "../strategies/strategy-runner.js";
 import { BACKTEST_COINS, type BacktestConfig } from "../types.js";
+import {
+  isLiveSyncConfigured,
+  pushFeaturedBacktestToLive,
+  LiveSyncDisabledError,
+  LiveSyncRequestError,
+} from "../../services/live-sync.service.js";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -406,6 +412,263 @@ router.post("/runs/:id/feature", async (req: Request, res: Response) => {
     });
 
     res.json({ success: true, data: updated });
+  } catch (err) {
+    res.status(500).json({ success: false, error: (err as Error).message });
+  }
+});
+
+// GET /api/backtest/live-sync-config — admin, returns whether live-sync env
+// vars are set. Frontend hides the 'Push to Live' button if this is false.
+router.get("/live-sync-config", async (req: Request, res: Response) => {
+  const userId = (req as unknown as { user: { userId: string } }).user.userId;
+  if (!(await isAdmin(userId))) {
+    res.status(403).json({ success: false, error: "Admin only" });
+    return;
+  }
+  res.json({ success: true, data: { enabled: isLiveSyncConfigured() } });
+});
+
+// POST /api/backtest/runs/:id/push-to-live — admin. Pushes a featured run +
+// trades to the live DB via the prod API. Updates local liveSyncStatus.
+router.post("/runs/:id/push-to-live", async (req: Request, res: Response) => {
+  const runId = req.params.id as string;
+  try {
+    const userId = (req as unknown as { user: { userId: string } }).user.userId;
+    if (!(await isAdmin(userId))) {
+      res.status(403).json({ success: false, error: "Admin only" });
+      return;
+    }
+    if (!isLiveSyncConfigured()) {
+      res.status(400).json({
+        success: false,
+        error: "Live sync not configured. Set LIVE_API_URL / LIVE_ADMIN_EMAIL / LIVE_ADMIN_PASSWORD in backend/.env",
+      });
+      return;
+    }
+
+    const run = await prisma.backtestRun.findUnique({ where: { id: runId } });
+    if (!run) {
+      res.status(404).json({ success: false, error: "Run not found" });
+      return;
+    }
+    if (!run.isFeatured || !run.featuredStrategyId || !run.periodLabel) {
+      res.status(400).json({
+        success: false,
+        error: "Only featured runs can be pushed (run must have isFeatured + periodLabel + featuredStrategyId)",
+      });
+      return;
+    }
+
+    // Mark pushing so UI can reflect the in-flight state
+    await prisma.backtestRun.update({
+      where: { id: run.id },
+      data: { liveSyncStatus: "pushing" },
+    });
+
+    const trades = await prisma.backtestTrade.findMany({
+      where: { backtestRunId: run.id },
+      orderBy: { entryTime: "asc" },
+    });
+
+    try {
+      const { runId: liveRunId } = await pushFeaturedBacktestToLive({
+        run: {
+          id: run.id,
+          coin: run.coin,
+          startDate: run.startDate,
+          endDate: run.endDate,
+          strategyType: run.strategyType,
+          strategyName: run.strategyName,
+          strategyConfig: run.strategyConfig,
+          initialCapital: run.initialCapital,
+          finalEquity: run.finalEquity,
+          totalPnl: run.totalPnl,
+          grossPnl: run.grossPnl,
+          totalFees: run.totalFees,
+          makerFee: run.makerFee,
+          slippage: run.slippage,
+          totalTrades: run.totalTrades,
+          winTrades: run.winTrades,
+          lossTrades: run.lossTrades,
+          winRate: run.winRate,
+          maxDrawdown: run.maxDrawdown,
+          sharpeRatio: run.sharpeRatio,
+          profitFactor: run.profitFactor,
+          avgWin: run.avgWin,
+          avgLoss: run.avgLoss,
+          bestTrade: run.bestTrade,
+          worstTrade: run.worstTrade,
+          equityCurve: run.equityCurve,
+          extendedMetrics: run.extendedMetrics,
+          status: run.status,
+          duration: run.duration,
+          periodLabel: run.periodLabel,
+          featuredStrategyId: run.featuredStrategyId,
+        },
+        trades: trades.map((t) => ({
+          entryTime: t.entryTime,
+          entryPrice: t.entryPrice,
+          qty: t.qty,
+          side: t.side,
+          leverage: t.leverage,
+          sl: t.sl,
+          tp: t.tp,
+          exitTime: t.exitTime,
+          exitPrice: t.exitPrice,
+          pnl: t.pnl,
+          fee: t.fee,
+          exitReason: t.exitReason,
+          status: t.status,
+        })),
+      });
+
+      await prisma.backtestRun.update({
+        where: { id: run.id },
+        data: { liveSyncStatus: "synced", liveSyncAt: new Date() },
+      });
+
+      res.json({ success: true, data: { liveRunId, syncedAt: new Date() } });
+    } catch (syncErr) {
+      await prisma.backtestRun.update({
+        where: { id: run.id },
+        data: { liveSyncStatus: "error" },
+      });
+      if (syncErr instanceof LiveSyncDisabledError) {
+        res.status(400).json({ success: false, error: syncErr.message });
+        return;
+      }
+      if (syncErr instanceof LiveSyncRequestError) {
+        res.status(502).json({ success: false, error: syncErr.message });
+        return;
+      }
+      throw syncErr;
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, error: (err as Error).message });
+  }
+});
+
+// POST /api/backtest/featured/import — admin. Called by LOCAL backend's push
+// endpoint to land a featured run on this (live) DB. Idempotent:
+// (featuredStrategyId, coin, periodLabel) is a unique slot, re-import replaces.
+router.post("/featured/import", async (req: Request, res: Response) => {
+  try {
+    const userId = (req as unknown as { user: { userId: string } }).user.userId;
+    if (!(await isAdmin(userId))) {
+      res.status(403).json({ success: false, error: "Admin only" });
+      return;
+    }
+
+    const body = req.body as {
+      run?: Record<string, unknown> & {
+        coin?: string;
+        periodLabel?: string;
+        featuredStrategyId?: string;
+      };
+      trades?: Array<Record<string, unknown>>;
+    };
+
+    const run = body.run;
+    if (!run || !run.coin || !run.periodLabel || !run.featuredStrategyId) {
+      res.status(400).json({ success: false, error: "run.coin, run.periodLabel, run.featuredStrategyId required" });
+      return;
+    }
+
+    // Verify target strategy exists on this DB
+    const strategy = await prisma.strategy.findUnique({
+      where: { id: run.featuredStrategyId },
+      select: { id: true },
+    });
+    if (!strategy) {
+      res.status(404).json({
+        success: false,
+        error: `Strategy "${run.featuredStrategyId}" does not exist on live — push the strategy first, then retry`,
+      });
+      return;
+    }
+
+    // Clear any existing featured run for this slot, then insert fresh
+    const existing = await prisma.backtestRun.findMany({
+      where: {
+        featuredStrategyId: run.featuredStrategyId,
+        coin: run.coin,
+        periodLabel: run.periodLabel,
+        isFeatured: true,
+      },
+      select: { id: true },
+    });
+    const existingIds = existing.map((r) => r.id);
+
+    const inserted = await prisma.$transaction(async (tx) => {
+      if (existingIds.length > 0) {
+        await tx.backtestTrade.deleteMany({ where: { backtestRunId: { in: existingIds } } });
+        await tx.backtestRun.deleteMany({ where: { id: { in: existingIds } } });
+      }
+
+      const created = await tx.backtestRun.create({
+        data: {
+          userId, // owner on live = the admin who pushed
+          coin: String(run.coin),
+          startDate: new Date(run.startDate as string),
+          endDate: new Date(run.endDate as string),
+          strategyType: String(run.strategyType ?? "code"),
+          strategyName: String(run.strategyName ?? ""),
+          strategyConfig: (run.strategyConfig ?? {}) as object,
+          initialCapital: Number(run.initialCapital ?? 0),
+          finalEquity: Number(run.finalEquity ?? 0),
+          totalPnl: Number(run.totalPnl ?? 0),
+          grossPnl: Number(run.grossPnl ?? 0),
+          totalFees: Number(run.totalFees ?? 0),
+          makerFee: Number(run.makerFee ?? 0.0005),
+          slippage: Number(run.slippage ?? 0.0001),
+          totalTrades: Number(run.totalTrades ?? 0),
+          winTrades: Number(run.winTrades ?? 0),
+          lossTrades: Number(run.lossTrades ?? 0),
+          winRate: Number(run.winRate ?? 0),
+          maxDrawdown: Number(run.maxDrawdown ?? 0),
+          sharpeRatio: Number(run.sharpeRatio ?? 0),
+          profitFactor: Number(run.profitFactor ?? 0),
+          avgWin: Number(run.avgWin ?? 0),
+          avgLoss: Number(run.avgLoss ?? 0),
+          bestTrade: Number(run.bestTrade ?? 0),
+          worstTrade: Number(run.worstTrade ?? 0),
+          equityCurve: (run.equityCurve ?? []) as object[],
+          extendedMetrics: run.extendedMetrics
+            ? (run.extendedMetrics as object)
+            : undefined,
+          status: "COMPLETED",
+          duration: run.duration != null ? Number(run.duration) : null,
+          isFeatured: true,
+          periodLabel: String(run.periodLabel),
+          featuredStrategyId: String(run.featuredStrategyId),
+        },
+      });
+
+      if (body.trades && body.trades.length > 0) {
+        await tx.backtestTrade.createMany({
+          data: body.trades.map((t) => ({
+            backtestRunId: created.id,
+            entryTime: new Date(t.entryTime as string),
+            entryPrice: Number(t.entryPrice),
+            qty: Number(t.qty),
+            side: String(t.side),
+            leverage: Number(t.leverage ?? 1),
+            sl: t.sl != null ? Number(t.sl) : null,
+            tp: t.tp != null ? Number(t.tp) : null,
+            exitTime: t.exitTime ? new Date(t.exitTime as string) : null,
+            exitPrice: t.exitPrice != null ? Number(t.exitPrice) : null,
+            pnl: Number(t.pnl ?? 0),
+            fee: Number(t.fee ?? 0),
+            exitReason: (t.exitReason as string | null) ?? null,
+            status: String(t.status ?? "CLOSED"),
+          })),
+        });
+      }
+
+      return created;
+    }, { timeout: 60_000 });
+
+    res.json({ success: true, data: { runId: inserted.id } });
   } catch (err) {
     res.status(500).json({ success: false, error: (err as Error).message });
   }

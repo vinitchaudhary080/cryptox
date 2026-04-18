@@ -11,6 +11,10 @@ import {
   Zap,
   ArrowRight,
   LineChart as LineChartIcon,
+  CloudUpload,
+  CheckCircle2,
+  AlertTriangle,
+  Loader2,
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -34,7 +38,7 @@ import {
   CartesianGrid,
   Tooltip as RechartsTooltip,
 } from "recharts"
-import { strategyApi } from "@/lib/api"
+import { strategyApi, backtestApi } from "@/lib/api"
 import { strategies as mockStrategies } from "@/lib/mock-data"
 import { DeployDialog } from "@/components/strategies/deploy-dialog"
 
@@ -62,18 +66,70 @@ type ApiStrategy = {
   config: Record<string, unknown>
 }
 
+type SyncStatus = "synced" | "pushing" | "error" | null
+type AdminStrategyInfo = {
+  id: string
+  name: string
+  isVisible: boolean
+  liveSyncStatus: SyncStatus
+  liveSyncAt: string | null
+}
+
 export default function StrategiesPage() {
   const router = useRouter()
   const [search, setSearch] = useState("")
   const [apiStrategies, setApiStrategies] = useState<ApiStrategy[]>([])
   const [deployOpen, setDeployOpen] = useState(false)
   const [deployTarget, setDeployTarget] = useState<{ id: string; name: string; category: string } | null>(null)
+  const [admin, setAdmin] = useState(false)
+  const [liveSyncEnabled, setLiveSyncEnabled] = useState(false)
+  const [syncInfo, setSyncInfo] = useState<Record<string, AdminStrategyInfo>>({})
+  const [pushingId, setPushingId] = useState<string | null>(null)
 
   useEffect(() => {
     strategyApi.list().then((res) => {
       if (res.success && res.data) setApiStrategies(res.data as ApiStrategy[])
     })
   }, [])
+
+  // Admin + sync status — only runs for admins; non-admins see an identical
+  // page without any of the push-to-live affordances.
+  useEffect(() => {
+    backtestApi.adminCheck().then((res) => {
+      if (res.success && res.data && (res.data as { isAdmin: boolean }).isAdmin) {
+        setAdmin(true)
+      }
+    })
+  }, [])
+
+  const refreshSyncStatus = async () => {
+    const res = await strategyApi.adminSyncStatus()
+    if (res.success && res.data) {
+      const map: Record<string, AdminStrategyInfo> = {}
+      for (const s of res.data as AdminStrategyInfo[]) map[s.id] = s
+      setSyncInfo(map)
+    }
+  }
+
+  useEffect(() => {
+    if (!admin) return
+    refreshSyncStatus()
+    backtestApi.liveSyncConfig().then((res) => {
+      if (res.success && res.data) {
+        setLiveSyncEnabled((res.data as { enabled: boolean }).enabled)
+      }
+    })
+  }, [admin])
+
+  const handlePushStrategy = async (strategyId: string) => {
+    setPushingId(strategyId)
+    const res = await strategyApi.pushToLive(strategyId)
+    setPushingId(null)
+    await refreshSyncStatus()
+    if (!res.success) {
+      alert(`Push failed: ${res.error ?? "unknown error"}`)
+    }
+  }
 
   // Use API strategies directly
   const strategies = apiStrategies.length > 0
@@ -298,6 +354,49 @@ export default function StrategiesPage() {
                       ))}
                     </div>
                   </div>
+
+                  {/* Admin-only: push strategy row to live DB */}
+                  {admin && liveSyncEnabled && (() => {
+                    const apiMatch = apiStrategies.find((a) => a.name === strategy.name)
+                    const sid = apiMatch?.id ?? strategy.id
+                    const info = syncInfo[sid]
+                    const status: SyncStatus = info?.liveSyncStatus ?? null
+                    const isPushing = pushingId === sid || status === "pushing"
+                    return (
+                      <div className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-muted/20 px-3 py-2 text-xs">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <span className="font-medium">Live DB:</span>
+                          {status === "synced" ? (
+                            <span className="inline-flex items-center gap-1 text-profit">
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              Synced{info?.liveSyncAt ? ` · ${new Date(info.liveSyncAt).toLocaleDateString()}` : ""}
+                            </span>
+                          ) : status === "error" ? (
+                            <span className="inline-flex items-center gap-1 text-loss">
+                              <AlertTriangle className="h-3.5 w-3.5" />
+                              Sync failed
+                            </span>
+                          ) : (
+                            <span>Local only</span>
+                          )}
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 gap-1.5 text-xs"
+                          onClick={() => handlePushStrategy(sid)}
+                          disabled={isPushing}
+                        >
+                          {isPushing ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <CloudUpload className="h-3 w-3" />
+                          )}
+                          {status === "synced" ? "Re-push" : "Push to Live"}
+                        </Button>
+                      </div>
+                    )
+                  })()}
 
                   {/* Action buttons */}
                   <div className="flex flex-col gap-2 sm:flex-row">

@@ -89,6 +89,9 @@ model Strategy {
   config      Json // strategy-specific parameters
   isSystem    Boolean   @default(true) // system = pre-built template
   isVisible   Boolean   @default(true) // false = hidden from strategy page but retained for existing deployments
+  // Live-sync tracking — tracks whether this local row has been pushed to prod DB
+  liveSyncStatus String? // "synced" | "error" | "pushing" | null (never pushed)
+  liveSyncAt     DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -252,6 +255,10 @@ model BacktestRun {
   isFeatured         Boolean @default(false)
   periodLabel        String? // "1Y", "2Y", "3Y"
   featuredStrategyId String?
+
+  // Live-sync tracking — does this run also exist on prod DB?
+  liveSyncStatus     String? // "synced" | "error" | "pushing" | null
+  liveSyncAt         DateTime?
 
   user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   trades           BacktestTrade[]

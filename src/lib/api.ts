@@ -181,6 +181,10 @@ export const strategyApi = {
     apiFetch(`/strategies/${id}/featured-backtests`, { skipAuth: true }),
   getFeaturedBacktestTrades: (id: string, runId: string) =>
     apiFetch(`/strategies/${id}/featured-backtests/${runId}/trades`, { skipAuth: true }),
+  // Admin-only
+  adminSyncStatus: () => apiFetch("/strategies/admin/sync-status"),
+  pushToLive: (id: string) =>
+    apiFetch(`/strategies/${id}/push-to-live`, { method: "POST" }),
 };
 
 // Deployed
@@ -287,6 +291,11 @@ export const backtestApi = {
 
   unfeatureRun: (id: string) =>
     apiFetch(`/backtest/runs/${id}/feature`, { method: "DELETE" }),
+
+  liveSyncConfig: () => apiFetch("/backtest/live-sync-config"),
+
+  pushRunToLive: (id: string) =>
+    apiFetch(`/backtest/runs/${id}/push-to-live`, { method: "POST" }),
 }
 
 // Historical Data

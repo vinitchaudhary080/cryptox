@@ -61,7 +61,8 @@ app.use(cors({
 }));
 app.use(compression());
 app.use(morgan("dev"));
-app.use(express.json());
+// 50 MB limit — featured backtest imports carry full trade list + equity curve
+app.use(express.json({ limit: "50mb" }));
 
 // Trust the reverse proxy / load balancer so rate limiter sees real client IPs
 app.set("trust proxy", 1);
