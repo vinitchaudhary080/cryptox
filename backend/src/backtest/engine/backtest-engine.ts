@@ -20,7 +20,6 @@ import { resetCPRCache, precomputeCPRLevels } from "../strategies/builtin/cpr-pi
 import { resetGannStrategyCache, precomputeGannStrategy } from "../strategies/builtin/gann-matrix-momentum.js";
 import { resetGannV2StrategyCache, precomputeGannV2Strategy } from "../strategies/builtin/gann-matrix-momentum-v2.js";
 import { resetGannV3StrategyCache, precomputeGannV3Strategy } from "../strategies/builtin/gann-matrix-momentum-v3.js";
-import { resetSRBreakoutCache, precomputeSRBreakout } from "../strategies/builtin/sr-breakout.js";
 import { evaluateUIRules } from "../strategies/strategy-runner.js";
 
 const EQUITY_SAMPLE_INTERVAL = 60; // sample equity every 60 candles (1 hour)
@@ -34,7 +33,6 @@ export async function runBacktest(config: BacktestConfig): Promise<BacktestResul
   resetGannStrategyCache();
   resetGannV2StrategyCache();
   resetGannV3StrategyCache();
-  resetSRBreakoutCache();
 
   const startMs = Date.now();
 
@@ -87,8 +85,6 @@ export async function runBacktest(config: BacktestConfig): Promise<BacktestResul
     precomputeGannV2Strategy(candles);
   } else if (config.strategyName === "gann-matrix-momentum-v3") {
     precomputeGannV3Strategy(candles);
-  } else if (config.strategyName === "sr-breakout") {
-    precomputeSRBreakout(candles);
   }
 
   // Run simulation
