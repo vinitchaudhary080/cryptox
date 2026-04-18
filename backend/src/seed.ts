@@ -80,6 +80,13 @@ const systemStrategies = [
     riskLevel: "LOW" as const,
     config: { intervalHours: 168, baseAmount: 25 },
   },
+  {
+    name: "Support/Resistance Breakout",
+    description: "15m volume-confirmed pivot zones with 20-bar lookback and ATR(200)-wide boxes. BUY on fresh close above resistance, SELL on fresh close below support. Hard SL at the far edge of the broken zone, then KAMA(10,2,30) trail once KAMA is more favourable. Optional 1% candle-size filter.",
+    category: "Support/Resistance Breakout",
+    riskLevel: "MEDIUM" as const,
+    config: { leverage: 1, positionSizePercent: 25, candleSizeFilterPercent: 0 },
+  },
 ];
 
 async function seed() {
