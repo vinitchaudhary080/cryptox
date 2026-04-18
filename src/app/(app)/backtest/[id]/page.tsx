@@ -17,6 +17,7 @@ import { TradeLogTable } from "@/components/backtest/trade-log-table"
 import { CumulativePnlChart } from "@/components/backtest/cumulative-pnl-chart"
 import { DrawdownChart } from "@/components/backtest/drawdown-chart"
 import { TopTradesTable } from "@/components/backtest/top-trades-table"
+import { downloadBacktestReport } from "@/lib/backtest-report-export"
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -74,6 +75,10 @@ interface BacktestRun {
   status: string
   duration: number | null
   createdAt: string
+  grossPnl?: number
+  totalFees?: number
+  makerFee?: number
+  slippage?: number
 }
 
 interface Trade {
@@ -205,6 +210,16 @@ export default function BacktestDetailPage() {
             </div>
           </div>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2"
+          onClick={() => downloadBacktestReport(run, allTrades, ext)}
+          disabled={allTrades.length === 0}
+        >
+          <Download className="h-4 w-4" />
+          Download Report
+        </Button>
       </motion.div>
 
       {/* Summary Cards (existing 8 + new 3) */}
