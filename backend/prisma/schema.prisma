@@ -92,6 +92,7 @@ model Strategy {
   updatedAt   DateTime  @updatedAt
 
   deployedStrategies DeployedStrategy[]
+  featuredBacktests  BacktestRun[]      @relation("FeaturedBacktests")
 
   @@map("strategies")
 }
@@ -246,10 +247,17 @@ model BacktestRun {
   duration        Int? // ms to complete
   createdAt       DateTime @default(now())
 
-  user   User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  trades BacktestTrade[]
+  // Featured backtest — shown publicly on strategy detail page
+  isFeatured         Boolean @default(false)
+  periodLabel        String? // "1Y", "2Y", "3Y"
+  featuredStrategyId String?
+
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trades           BacktestTrade[]
+  featuredStrategy Strategy?       @relation("FeaturedBacktests", fields: [featuredStrategyId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
+  @@index([isFeatured, featuredStrategyId, coin, periodLabel])
   @@map("backtest_runs")
 }
 

@@ -8,6 +8,25 @@ import { BACKTEST_COINS, type BacktestConfig } from "../types.js";
 const router = Router();
 const prisma = new PrismaClient();
 
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "")
+  .split(",")
+  .map((s) => s.trim().toLowerCase())
+  .filter(Boolean);
+
+const ADMIN_USER_IDS = (process.env.ADMIN_USER_IDS ?? "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+async function isAdmin(userId: string): Promise<boolean> {
+  if (ADMIN_USER_IDS.includes(userId)) return true;
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+  return !!user && ADMIN_EMAILS.includes(user.email.toLowerCase());
+}
+
+const VALID_PERIODS = ["1Y", "2Y", "3Y"] as const;
+type PeriodLabel = (typeof VALID_PERIODS)[number];
+
 // All backtest routes require auth
 router.use(authenticate);
 
@@ -288,11 +307,19 @@ router.delete("/runs/:id", async (req: Request, res: Response) => {
     const userId = (req as unknown as { user: { userId: string } }).user.userId;
     const run = await prisma.backtestRun.findFirst({
       where: { id: req.params.id as string, userId },
-      select: { id: true },
+      select: { id: true, isFeatured: true },
     });
 
     if (!run) {
       res.status(404).json({ success: false, error: "Backtest run not found" });
+      return;
+    }
+
+    if (run.isFeatured) {
+      res.status(400).json({
+        success: false,
+        error: "Run is featured. Unfeature it first before deleting.",
+      });
       return;
     }
 
@@ -301,6 +328,112 @@ router.delete("/runs/:id", async (req: Request, res: Response) => {
     await prisma.backtestRun.delete({ where: { id: run.id } });
 
     res.json({ success: true, message: "Backtest run deleted" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: (err as Error).message });
+  }
+});
+
+// GET /api/backtest/admin-check — is current user an admin?
+router.get("/admin-check", async (req: Request, res: Response) => {
+  const userId = (req as unknown as { user: { userId: string } }).user.userId;
+  const admin = await isAdmin(userId);
+  res.json({ success: true, data: { isAdmin: admin } });
+});
+
+// POST /api/backtest/runs/:id/feature — mark run as featured (admin only).
+// Body: { strategyId, periodLabel }. Enforces uniqueness: only one featured run
+// per (strategyId, coin, periodLabel) — replaces the old one if present.
+router.post("/runs/:id/feature", async (req: Request, res: Response) => {
+  try {
+    const userId = (req as unknown as { user: { userId: string } }).user.userId;
+    if (!(await isAdmin(userId))) {
+      res.status(403).json({ success: false, error: "Admin only" });
+      return;
+    }
+
+    const runId = req.params.id as string;
+    const { strategyId, periodLabel } = req.body as {
+      strategyId?: string;
+      periodLabel?: PeriodLabel;
+    };
+
+    if (!strategyId || !periodLabel) {
+      res.status(400).json({ success: false, error: "strategyId and periodLabel required" });
+      return;
+    }
+    if (!VALID_PERIODS.includes(periodLabel)) {
+      res.status(400).json({ success: false, error: `periodLabel must be one of ${VALID_PERIODS.join(", ")}` });
+      return;
+    }
+
+    const run = await prisma.backtestRun.findUnique({
+      where: { id: runId },
+      select: { id: true, coin: true, status: true },
+    });
+    if (!run) {
+      res.status(404).json({ success: false, error: "Run not found" });
+      return;
+    }
+    if (run.status !== "COMPLETED") {
+      res.status(400).json({ success: false, error: "Only COMPLETED runs can be featured" });
+      return;
+    }
+
+    const strategy = await prisma.strategy.findUnique({ where: { id: strategyId }, select: { id: true } });
+    if (!strategy) {
+      res.status(404).json({ success: false, error: "Strategy not found" });
+      return;
+    }
+
+    // Unfeature any existing run for this (strategy, coin, period) slot — we
+    // only keep one featured run per slot so the public page has a single
+    // answer to "show me BTC / 2Y for Meri Strategy".
+    await prisma.backtestRun.updateMany({
+      where: {
+        featuredStrategyId: strategyId,
+        coin: run.coin,
+        periodLabel,
+        isFeatured: true,
+        id: { not: runId },
+      },
+      data: { isFeatured: false, featuredStrategyId: null, periodLabel: null },
+    });
+
+    const updated = await prisma.backtestRun.update({
+      where: { id: runId },
+      data: { isFeatured: true, featuredStrategyId: strategyId, periodLabel },
+      select: { id: true, coin: true, periodLabel: true, featuredStrategyId: true, isFeatured: true },
+    });
+
+    res.json({ success: true, data: updated });
+  } catch (err) {
+    res.status(500).json({ success: false, error: (err as Error).message });
+  }
+});
+
+// DELETE /api/backtest/runs/:id/feature — unmark a run as featured (admin only)
+router.delete("/runs/:id/feature", async (req: Request, res: Response) => {
+  try {
+    const userId = (req as unknown as { user: { userId: string } }).user.userId;
+    if (!(await isAdmin(userId))) {
+      res.status(403).json({ success: false, error: "Admin only" });
+      return;
+    }
+
+    const runId = req.params.id as string;
+    const run = await prisma.backtestRun.findUnique({ where: { id: runId }, select: { id: true } });
+    if (!run) {
+      res.status(404).json({ success: false, error: "Run not found" });
+      return;
+    }
+
+    const updated = await prisma.backtestRun.update({
+      where: { id: runId },
+      data: { isFeatured: false, featuredStrategyId: null, periodLabel: null },
+      select: { id: true, isFeatured: true },
+    });
+
+    res.json({ success: true, data: updated });
   } catch (err) {
     res.status(500).json({ success: false, error: (err as Error).message });
   }

@@ -177,6 +177,10 @@ export const brokerApi = {
 export const strategyApi = {
   list: () => apiFetch("/strategies"),
   get: (id: string) => apiFetch(`/strategies/${id}`),
+  getFeaturedBacktests: (id: string) =>
+    apiFetch(`/strategies/${id}/featured-backtests`, { skipAuth: true }),
+  getFeaturedBacktestTrades: (id: string, runId: string) =>
+    apiFetch(`/strategies/${id}/featured-backtests/${runId}/trades`, { skipAuth: true }),
 };
 
 // Deployed
@@ -272,6 +276,17 @@ export const backtestApi = {
   getStrategies: () => apiFetch("/backtest/strategies"),
 
   getCoins: () => apiFetch("/backtest/coins"),
+
+  adminCheck: () => apiFetch("/backtest/admin-check"),
+
+  featureRun: (id: string, strategyId: string, periodLabel: "1Y" | "2Y" | "3Y") =>
+    apiFetch(`/backtest/runs/${id}/feature`, {
+      method: "POST",
+      body: JSON.stringify({ strategyId, periodLabel }),
+    }),
+
+  unfeatureRun: (id: string) =>
+    apiFetch(`/backtest/runs/${id}/feature`, { method: "DELETE" }),
 }
 
 // Historical Data

@@ -18,6 +18,7 @@ import { CumulativePnlChart } from "@/components/backtest/cumulative-pnl-chart"
 import { DrawdownChart } from "@/components/backtest/drawdown-chart"
 import { TopTradesTable } from "@/components/backtest/top-trades-table"
 import { downloadBacktestReport } from "@/lib/backtest-report-export"
+import { FeatureRunButton } from "@/components/backtest/feature-run-button"
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -79,6 +80,9 @@ interface BacktestRun {
   totalFees?: number
   makerFee?: number
   slippage?: number
+  isFeatured?: boolean
+  featuredStrategyId?: string | null
+  periodLabel?: "1Y" | "2Y" | "3Y" | null
 }
 
 interface Trade {
@@ -210,16 +214,26 @@ export default function BacktestDetailPage() {
             </div>
           </div>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-2"
-          onClick={() => downloadBacktestReport(run, allTrades, ext)}
-          disabled={allTrades.length === 0}
-        >
-          <Download className="h-4 w-4" />
-          Download Report
-        </Button>
+        <div className="flex items-center gap-2">
+          <FeatureRunButton
+            runId={run.id}
+            coin={run.coin}
+            isFeatured={!!run.isFeatured}
+            featuredStrategyId={run.featuredStrategyId ?? null}
+            periodLabel={run.periodLabel ?? null}
+            onChange={fetchRun}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => downloadBacktestReport(run, allTrades, ext)}
+            disabled={allTrades.length === 0}
+          >
+            <Download className="h-4 w-4" />
+            Download Report
+          </Button>
+        </div>
       </motion.div>
 
       {/* Summary Cards (existing 8 + new 3) */}
