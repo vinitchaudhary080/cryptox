@@ -58,22 +58,25 @@ async function seed() {
 
   const allowedIds = systemStrategies.map((s) => s.name.toLowerCase().replace(/\s+/g, "-"));
 
-  // Remove any system strategies that are no longer in the allowed list
-  const removed = await prisma.strategy.deleteMany({
+  // Hide (not delete) any existing system strategies that aren't in the
+  // allowed list. Hiding keeps existing DeployedStrategy rows intact while
+  // removing the strategy from the public strategy page.
+  const hidden = await prisma.strategy.updateMany({
     where: {
       isSystem: true,
       id: { notIn: allowedIds },
     },
+    data: { isVisible: false },
   });
-  if (removed.count > 0) {
-    console.log(`  ✗ Removed ${removed.count} stale system strategies`);
+  if (hidden.count > 0) {
+    console.log(`  ⤵  Hid ${hidden.count} legacy system strategies (kept in DB for existing deployments)`);
   }
 
   for (const s of systemStrategies) {
     await prisma.strategy.upsert({
       where: { id: s.name.toLowerCase().replace(/\s+/g, "-") },
-      update: { ...s, isSystem: true },
-      create: { id: s.name.toLowerCase().replace(/\s+/g, "-"), ...s, isSystem: true },
+      update: { ...s, isSystem: true, isVisible: true },
+      create: { id: s.name.toLowerCase().replace(/\s+/g, "-"), ...s, isSystem: true, isVisible: true },
     });
     console.log(`  ✓ ${s.name}`);
   }

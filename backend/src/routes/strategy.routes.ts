@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 router.get("/", async (_req: Request, res: Response) => {
   try {
     const strategies = await prisma.strategy.findMany({
-      where: { isSystem: true },
+      where: { isSystem: true, isVisible: true },
       orderBy: { createdAt: "desc" },
     });
     res.json({ success: true, data: strategies });
