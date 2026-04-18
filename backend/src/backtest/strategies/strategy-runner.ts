@@ -9,36 +9,22 @@ import type {
   Operator,
 } from "../types.js";
 
-// Built-in strategies registry
-import { rsiMeanReversion } from "./builtin/rsi-mean-reversion.js";
-import { emaCrossover } from "./builtin/ema-crossover.js";
-import { macdTrend } from "./builtin/macd-trend.js";
-import { bollingerBounce } from "./builtin/bollinger-bounce.js";
+// Built-in strategies registry — kept intentionally small to match the
+// strategy page. Unused implementations still live in ./builtin/ but aren't
+// exposed in the backtest dropdown.
 import { meriStrategy } from "./builtin/meri-strategy.js";
 import { meriStrategyV2 } from "./builtin/meri-strategy-v2.js";
 import { supertrendStrategy } from "./builtin/supertrend-strategy.js";
-import { cprPivotStrategy } from "./builtin/cpr-pivot-strategy.js";
-import { quickTestStrategy } from "./builtin/quick-test-strategy.js";
 import { raviStrategy } from "./builtin/ravi-strategy.js";
 import { gannMatrixMomentum } from "./builtin/gann-matrix-momentum.js";
-import { gannMatrixMomentumV2 } from "./builtin/gann-matrix-momentum-v2.js";
-import { gannMatrixMomentumV3 } from "./builtin/gann-matrix-momentum-v3.js";
 import { srBreakoutStrategy } from "./builtin/sr-breakout.js";
 
 const BUILTIN_STRATEGIES: Record<string, BacktestStrategy> = {
-  "rsi-mean-reversion": rsiMeanReversion,
-  "ema-crossover": emaCrossover,
   "meri-strategy": meriStrategy,
   "meri-strategy-v2": meriStrategyV2,
   "supertrend-strategy": supertrendStrategy,
-  "cpr-pivot-strategy": cprPivotStrategy,
-  "quick-test-strategy": quickTestStrategy,
   "ravi-strategy": raviStrategy,
-  "macd-trend": macdTrend,
-  "bollinger-bounce": bollingerBounce,
   "gann-matrix-momentum": gannMatrixMomentum,
-  "gann-matrix-momentum-v2": gannMatrixMomentumV2,
-  "gann-matrix-momentum-v3": gannMatrixMomentumV3,
   "sr-breakout": srBreakoutStrategy,
 };
 
