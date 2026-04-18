@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import {
   Search,
@@ -9,6 +10,7 @@ import {
   BarChart3,
   Zap,
   ArrowRight,
+  LineChart as LineChartIcon,
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -61,6 +63,7 @@ type ApiStrategy = {
 }
 
 export default function StrategiesPage() {
+  const router = useRouter()
   const [search, setSearch] = useState("")
   const [apiStrategies, setApiStrategies] = useState<ApiStrategy[]>([])
   const [deployOpen, setDeployOpen] = useState(false)
@@ -296,8 +299,19 @@ export default function StrategiesPage() {
                     </div>
                   </div>
 
-                  {/* Deploy Button */}
-                  <div className="flex gap-3">
+                  {/* Action buttons */}
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => {
+                        const apiMatch = apiStrategies.find((a) => a.name === strategy.name)
+                        router.push(`/strategies/${apiMatch?.id || strategy.id}/backtest`)
+                      }}
+                    >
+                      <LineChartIcon className="mr-2 h-4 w-4" />
+                      View Backtest Report
+                    </Button>
                     <Button
                       className="flex-1"
                       onClick={() => {
