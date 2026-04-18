@@ -1,19 +1,20 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import {
   Search,
-  Filter,
   TrendingUp,
   Users,
   BarChart3,
   Zap,
   ArrowRight,
+  LineChart as LineChartIcon,
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button, buttonVariants } from "@/components/ui/button"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
   Dialog,
@@ -46,8 +47,6 @@ const stagger = {
   visible: { transition: { staggerChildren: 0.06 } },
 }
 
-const categories = ["All", "Grid", "DCA", "Trend", "Mean Reversion", "Meri Strategy", "Arbitrage", "Scalping"]
-
 const riskColors: Record<string, string> = {
   low: "border-profit/30 text-profit bg-profit/5",
   medium: "border-warning/30 text-warning bg-warning/5",
@@ -64,8 +63,8 @@ type ApiStrategy = {
 }
 
 export default function StrategiesPage() {
+  const router = useRouter()
   const [search, setSearch] = useState("")
-  const [activeCategory, setActiveCategory] = useState("All")
   const [apiStrategies, setApiStrategies] = useState<ApiStrategy[]>([])
   const [deployOpen, setDeployOpen] = useState(false)
   const [deployTarget, setDeployTarget] = useState<{ id: string; name: string; category: string } | null>(null)
@@ -98,12 +97,9 @@ export default function StrategiesPage() {
       })
     : []
 
-  const filtered = strategies.filter((s) => {
-    const matchesSearch = s.name.toLowerCase().includes(search.toLowerCase())
-    const matchesCategory =
-      activeCategory === "All" || s.category === activeCategory
-    return matchesSearch && matchesCategory
-  })
+  const filtered = strategies.filter((s) =>
+    s.name.toLowerCase().includes(search.toLowerCase()),
+  )
 
   return (
     <motion.div
@@ -122,7 +118,7 @@ export default function StrategiesPage() {
         </div>
       </motion.div>
 
-      {/* Filters */}
+      {/* Search */}
       <motion.div variants={fadeUp} className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1 sm:max-w-xs">
           <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -133,21 +129,6 @@ export default function StrategiesPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex flex-wrap gap-1.5">
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              className={`rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
-                activeCategory === cat
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
       </motion.div>
 
       {/* Strategy Cards */}
@@ -156,12 +137,12 @@ export default function StrategiesPage() {
           <Card className="border-border/50">
             <CardContent className="flex flex-col items-center justify-center py-16 text-center">
               <Zap className="mb-3 h-10 w-10 text-muted-foreground/20" />
-              <p className="text-sm font-medium text-muted-foreground">No strategies match your filter</p>
+              <p className="text-sm font-medium text-muted-foreground">No strategies match your search</p>
               <p className="mt-1 text-xs text-muted-foreground/60">
-                Try a different category or clear your search
+                Try a different keyword or clear your search
               </p>
               <button
-                onClick={() => { setActiveCategory("All"); setSearch("") }}
+                onClick={() => setSearch("")}
                 className="mt-3 text-xs font-medium text-primary hover:underline"
               >
                 Show all strategies
@@ -318,8 +299,19 @@ export default function StrategiesPage() {
                     </div>
                   </div>
 
-                  {/* Deploy Button */}
-                  <div className="flex gap-3">
+                  {/* Action buttons */}
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => {
+                        const apiMatch = apiStrategies.find((a) => a.name === strategy.name)
+                        router.push(`/strategies/${apiMatch?.id || strategy.id}/backtest`)
+                      }}
+                    >
+                      <LineChartIcon className="mr-2 h-4 w-4" />
+                      View Backtest Report
+                    </Button>
                     <Button
                       className="flex-1"
                       onClick={() => {
