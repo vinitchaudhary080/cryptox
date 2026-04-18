@@ -325,4 +325,69 @@ router.post("/google", async (req: Request, res: Response) => {
   }
 });
 
+// ── Forgot password (Approach C: OTP + short-lived reset token) ──
+
+const forgotPasswordSchema = z.object({
+  email: z.string().email("Invalid email address"),
+});
+
+router.post("/forgot-password", async (req: Request, res: Response) => {
+  try {
+    const { email } = forgotPasswordSchema.parse(req.body);
+    await authService.requestPasswordReset(email);
+    // Always return the same response regardless of whether the email exists
+    res.json({
+      success: true,
+      message: "If an account exists for that email, a verification code has been sent.",
+    });
+  } catch (err: unknown) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ success: false, error: err.issues[0].message });
+      return;
+    }
+    const e = err as { statusCode?: number; message: string };
+    res.status(e.statusCode || 500).json({ success: false, error: e.message });
+  }
+});
+
+const verifyResetOtpSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  otp: z.string().length(6, "Code must be 6 digits"),
+});
+
+router.post("/verify-reset-otp", async (req: Request, res: Response) => {
+  try {
+    const { email, otp } = verifyResetOtpSchema.parse(req.body);
+    const { resetToken } = await authService.verifyPasswordResetOtp(email, otp);
+    res.json({ success: true, data: { resetToken } });
+  } catch (err: unknown) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ success: false, error: err.issues[0].message });
+      return;
+    }
+    const e = err as { statusCode?: number; message: string };
+    res.status(e.statusCode || 500).json({ success: false, error: e.message });
+  }
+});
+
+const resetPasswordSchema = z.object({
+  resetToken: z.string().min(10, "Invalid reset token"),
+  newPassword: z.string().min(8, "Password must be at least 8 characters"),
+});
+
+router.post("/reset-password", async (req: Request, res: Response) => {
+  try {
+    const { resetToken, newPassword } = resetPasswordSchema.parse(req.body);
+    await authService.resetPasswordWithToken(resetToken, newPassword);
+    res.json({ success: true, message: "Password reset successfully. Please sign in." });
+  } catch (err: unknown) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ success: false, error: err.issues[0].message });
+      return;
+    }
+    const e = err as { statusCode?: number; message: string };
+    res.status(e.statusCode || 500).json({ success: false, error: e.message });
+  }
+});
+
 export default router;
