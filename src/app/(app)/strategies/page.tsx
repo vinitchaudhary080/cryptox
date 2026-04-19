@@ -295,8 +295,21 @@ export default function StrategiesPage() {
                 </Card>
               </DialogTrigger>
 
-              {/* Strategy Detail Dialog — mobile-friendly: scrollable, tall tap targets */}
-              <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto p-5 sm:p-6">
+              {/* Strategy Detail Dialog — bottom-sheet on mobile, centered card on desktop */}
+              <DialogContent className="
+                !fixed !bottom-0 !left-0 !top-auto
+                !max-h-[85vh] !w-full !max-w-none
+                !translate-x-0 !translate-y-0
+                !rounded-t-2xl !rounded-b-none
+                overflow-y-auto p-5 pb-6
+                data-open:animate-in data-open:slide-in-from-bottom
+                sm:!bottom-auto sm:!left-1/2 sm:!top-1/2
+                sm:!max-w-lg sm:!-translate-x-1/2 sm:!-translate-y-1/2
+                sm:!rounded-2xl sm:p-6
+                sm:data-open:slide-in-from-bottom-0 sm:data-open:zoom-in-95
+              ">
+                {/* Drag indicator — only visible on mobile bottom-sheet */}
+                <div className="mx-auto -mt-2 mb-2 h-1 w-10 rounded-full bg-muted-foreground/30 sm:hidden" />
                 <DialogHeader>
                   <DialogTitle className="flex flex-wrap items-center gap-2 pr-8 text-base sm:text-lg">
                     <span>{strategy.name}</span>
