@@ -64,6 +64,8 @@ type ApiStrategy = {
   category: string
   riskLevel: string
   config: Record<string, unknown>
+  defaultPositionSize?: number
+  positionSizeLocked?: boolean
 }
 
 type SyncStatus = "synced" | "pushing" | "error" | null
@@ -80,7 +82,13 @@ export default function StrategiesPage() {
   const [search, setSearch] = useState("")
   const [apiStrategies, setApiStrategies] = useState<ApiStrategy[]>([])
   const [deployOpen, setDeployOpen] = useState(false)
-  const [deployTarget, setDeployTarget] = useState<{ id: string; name: string; category: string } | null>(null)
+  const [deployTarget, setDeployTarget] = useState<{
+    id: string
+    name: string
+    category: string
+    defaultPositionSize: number
+    positionSizeLocked: boolean
+  } | null>(null)
   const [admin, setAdmin] = useState(false)
   const [liveSyncEnabled, setLiveSyncEnabled] = useState(false)
   const [syncInfo, setSyncInfo] = useState<Record<string, AdminStrategyInfo>>({})
@@ -419,6 +427,8 @@ export default function StrategiesPage() {
                           id: apiMatch?.id || strategy.id,
                           name: strategy.name,
                           category: apiMatch?.category || strategy.category,
+                          defaultPositionSize: apiMatch?.defaultPositionSize ?? 10,
+                          positionSizeLocked: apiMatch?.positionSizeLocked ?? false,
                         })
                         setDeployOpen(true)
                       }}
@@ -445,6 +455,8 @@ export default function StrategiesPage() {
           strategyId={deployTarget.id}
           strategyName={deployTarget.name}
           strategyType={deployTarget.category}
+          defaultPositionSize={deployTarget.defaultPositionSize}
+          positionSizeLocked={deployTarget.positionSizeLocked}
         />
       )}
     </motion.div>

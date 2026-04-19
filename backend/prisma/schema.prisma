@@ -89,6 +89,9 @@ model Strategy {
   config      Json // strategy-specific parameters
   isSystem    Boolean   @default(true) // system = pre-built template
   isVisible   Boolean   @default(true) // false = hidden from strategy page but retained for existing deployments
+  // Per-trade position sizing (% of invested capital deployed per entry)
+  defaultPositionSize Float   @default(10)    // percent, e.g. 10 = 10%
+  positionSizeLocked  Boolean @default(false) // if true, user cannot override in deploy dialog
   // Live-sync tracking — tracks whether this local row has been pushed to prod DB
   liveSyncStatus String? // "synced" | "error" | "pushing" | null (never pushed)
   liveSyncAt     DateTime?

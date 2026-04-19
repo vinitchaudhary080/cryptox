@@ -54,6 +54,10 @@ type DeployDialogProps = {
   strategyName: string
   strategyType: string
   defaultPairs?: string[]
+  /** When true, the Position Size input is disabled — strategy code enforces its own sizing. */
+  positionSizeLocked?: boolean
+  /** Default position size percent (0–100). Used as initial value and as the locked display value. */
+  defaultPositionSize?: number
 }
 
 type Step = "broker" | "config" | "confirm"
@@ -83,6 +87,8 @@ export function DeployDialog({
   onOpenChange,
   strategyId,
   strategyName,
+  positionSizeLocked = false,
+  defaultPositionSize = 10,
   strategyType,
 }: DeployDialogProps) {
   const router = useRouter()
@@ -98,6 +104,7 @@ export function DeployDialog({
   const [selectedPair, setSelectedPair] = useState("")
   const [amount, setAmount] = useState("5")
   const [leverage, setLeverage] = useState("10")
+  const [positionSize, setPositionSize] = useState(String(defaultPositionSize))
 
   // Pair list + instrument info state (broker-aware)
   const [availablePairs, setAvailablePairs] = useState<string[]>([])
@@ -181,10 +188,14 @@ export function DeployDialog({
     })
   }, [selectedBrokerId, selectedPair])
 
-  // Live min-validation math
+  // Live min-validation math — effective notional = invested × position% × leverage.
+  // This mirrors exactly what the live executor trades per entry, so the
+  // deploy-time check won't lie to the user.
   const amountNum = parseFloat(amount) || 0
   const leverageNum = parseInt(leverage) || 1
-  const effectiveNotional = amountNum * leverageNum
+  const positionSizeNum = Math.max(1, Math.min(100, parseFloat(positionSize) || defaultPositionSize))
+  const positionSizeFraction = positionSizeNum / 100
+  const effectiveNotional = amountNum * positionSizeFraction * leverageNum
   const minNotional = instrument?.minNotional ?? 0
   const meetsMin = !instrument || minNotional === 0 || effectiveNotional >= minNotional
   const maxLeverage = instrument?.maxLeverage ?? 100
@@ -213,6 +224,9 @@ export function DeployDialog({
       investedAmount: parseFloat(amount),
       config: {
         leverage: parseInt(leverage),
+        // If locked, server honours strategy.defaultPositionSize anyway — send
+        // it through so DB config stays self-descriptive.
+        positionSizePercent: positionSizeLocked ? defaultPositionSize : positionSizeNum,
       },
     })
 
@@ -551,6 +565,52 @@ export function DeployDialog({
                     />
                   </div>
 
+                  {/* Position Size (% of investment deployed per trade) */}
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs text-muted-foreground">
+                        Position Size (%)
+                      </Label>
+                      {positionSizeLocked && (
+                        <span className="text-[10px] font-medium text-warning">
+                          Locked by strategy · {defaultPositionSize}%
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-2 flex gap-2">
+                      {["10", "25", "50", "75", "100"].map((v) => (
+                        <button
+                          key={v}
+                          disabled={positionSizeLocked}
+                          onClick={() => setPositionSize(v)}
+                          className={cn(
+                            "flex-1 rounded-xl border py-2.5 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-40",
+                            positionSize === v && !positionSizeLocked
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border/50 text-muted-foreground hover:border-primary/30 hover:text-foreground"
+                          )}
+                        >
+                          {v}%
+                        </button>
+                      ))}
+                    </div>
+                    <Input
+                      type="number"
+                      value={positionSizeLocked ? String(defaultPositionSize) : positionSize}
+                      onChange={(e) => setPositionSize(e.target.value)}
+                      disabled={positionSizeLocked}
+                      className="mt-2 h-8 bg-muted/30 text-xs disabled:opacity-60"
+                      placeholder="Custom position size %"
+                      min="1"
+                      max="100"
+                    />
+                    <p className="mt-1 text-[10px] text-muted-foreground">
+                      {positionSizeLocked
+                        ? "This strategy's code sets its own position size — cannot be overridden."
+                        : "Fraction of your investment deployed per entry."}
+                    </p>
+                  </div>
+
                   {/* Live min-notional readout */}
                   {instrumentLoading ? (
                     <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-muted/20 p-2.5 text-[11px] text-muted-foreground">
@@ -572,12 +632,17 @@ export function DeployDialog({
                         </span>
                       ) : meetsMin ? (
                         <span>
-                          ✓ Position notional <strong>${effectiveNotional.toFixed(2)}</strong> meets minimum (${minNotional.toFixed(2)}).
+                          ✓ Per-trade notional <strong>${effectiveNotional.toFixed(2)}</strong>
+                          {" "}(<strong>${amountNum.toFixed(2)}</strong> × {positionSizeNum}% × {leverageNum}x)
+                          {" "}meets minimum (${minNotional.toFixed(2)}).
                         </span>
                       ) : (
                         <span>
-                          ⚠ Position notional <strong>${effectiveNotional.toFixed(2)}</strong> below minimum <strong>${minNotional.toFixed(2)}</strong>.
-                          {" "}Increase amount or leverage. (e.g. ${(minNotional / leverageNum).toFixed(2)} at {leverageNum}x, or ${amount} at {Math.ceil(minNotional / amountNum)}x)
+                          ⚠ Per-trade notional <strong>${effectiveNotional.toFixed(2)}</strong>
+                          {" "}(<strong>${amountNum.toFixed(2)}</strong> × {positionSizeNum}% × {leverageNum}x)
+                          {" "}below minimum <strong>${minNotional.toFixed(2)}</strong>.
+                          {" "}Increase investment, position size, or leverage.
+                          {" "}e.g. ${Math.ceil(minNotional / (positionSizeFraction * leverageNum)).toFixed(2)} at current settings.
                         </span>
                       )}
                     </div>

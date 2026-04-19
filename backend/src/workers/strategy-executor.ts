@@ -26,6 +26,42 @@ function readLeverage(config: unknown): number {
   return 1;
 }
 
+/**
+ * Resolve the effective position-size PERCENT for a deployment, honouring:
+ *   1. Strategy-level lock (if positionSizeLocked, user override is ignored)
+ *   2. User override in deployed.config.positionSizePercent (0–100)
+ *   3. Legacy config.positionSize (0–1 ratio — tolerated for old deployments)
+ *   4. Strategy.defaultPositionSize from the DB
+ *   5. Final fallback: 10%
+ */
+function readPositionSizePercent(deployed: {
+  config: unknown;
+  strategy: { positionSizeLocked?: boolean; defaultPositionSize?: number | null };
+}): number {
+  const locked = deployed.strategy.positionSizeLocked === true;
+  const def = Number(deployed.strategy.defaultPositionSize ?? 10);
+  if (locked) return def;
+
+  const config = (deployed.config && typeof deployed.config === "object"
+    ? (deployed.config as Record<string, unknown>)
+    : {});
+  const pct = Number(config.positionSizePercent);
+  if (Number.isFinite(pct) && pct > 0) return pct;
+
+  const ratio = Number(config.positionSize);
+  if (Number.isFinite(ratio) && ratio > 0 && ratio <= 1) return ratio * 100;
+
+  return def;
+}
+
+/** Dollar amount of margin deployed per entry. */
+function perTradeCapital(deployed: DeployedStrategy & {
+  strategy: { positionSizeLocked?: boolean; defaultPositionSize?: number | null };
+}): number {
+  const pct = readPositionSizePercent(deployed);
+  return deployed.investedAmount * (pct / 100);
+}
+
 // ── OHLCV → Candle conversion ───────────────────────────────────
 
 function ohlcvToCandles(ohlcv: OHLCV[]): Candle[] {
@@ -526,8 +562,8 @@ class StrategyWorker {
     isPaperTrade: boolean,
     ticker: Ticker,
   ): Promise<void> {
-    const config = (deployed.config as Record<string, number>) || {};
-    const positionSize = config.positionSize || (deployed.investedAmount * 0.1);
+    const positionSize = perTradeCapital(deployed);
+    const leverage = readLeverage(deployed.config);
     const currentPrice = ticker.last || 0;
     if (!currentPrice) return;
 
@@ -589,7 +625,7 @@ class StrategyWorker {
       const openTrades = deployed.trades.filter((t) => t.status === "OPEN");
       const hasLong = openTrades.some((t) => t.side === "BUY");
       const hasShort = openTrades.some((t) => t.side === "SELL");
-      const quantity = await this.calculateQuantity(exchange, deployed.pair, positionSize, 1, currentPrice);
+      const quantity = await this.calculateQuantity(exchange, deployed.pair, positionSize, leverage, currentPrice);
 
       log(deployed.strategy.name, deployed.pair,
         `5m: EMA9=${currEma9_5.toFixed(2)} EMA21=${currEma21_5.toFixed(2)} RSI=${currRsi.toFixed(1)} | 15m: EMA9=${currEma9_15.toFixed(2)} EMA21=${currEma21_15.toFixed(2)} ${bullish15m ? "BULL" : "BEAR"}`);
@@ -637,7 +673,8 @@ class StrategyWorker {
     ticker: Ticker,
   ): Promise<void> {
     const config = (deployed.config as Record<string, number>) || {};
-    const positionSize = config.positionSize || (deployed.investedAmount * 0.1);
+    const positionSize = perTradeCapital(deployed);
+    const leverage = readLeverage(deployed.config);
     const currentPrice = ticker.last || 0;
     if (!currentPrice) return;
 
@@ -678,7 +715,7 @@ class StrategyWorker {
       const openTrades = deployed.trades.filter((t) => t.status === "OPEN");
       const hasLong = openTrades.some((t) => t.side === "BUY");
       const hasShort = openTrades.some((t) => t.side === "SELL");
-      const quantity = await this.calculateQuantity(exchange, deployed.pair, positionSize, 1, currentPrice);
+      const quantity = await this.calculateQuantity(exchange, deployed.pair, positionSize, leverage, currentPrice);
 
       const flipBullish = prevStDir === -1 && stDir === 1;
       const flipBearish = prevStDir === 1 && stDir === -1;
@@ -733,6 +770,7 @@ class StrategyWorker {
     ticker: Ticker,
   ): Promise<void> {
     const config = (deployed.config as Record<string, number>) || {};
+    const positionSize = perTradeCapital(deployed);
     const currentPrice = ticker.last || 0;
     if (!currentPrice) return;
 
@@ -771,7 +809,7 @@ class StrategyWorker {
       const hasShort = openTrades.some((t) => t.side === "SELL");
 
       const leverage = Number(config.leverage ?? 1);
-      const quantity = await this.calculateQuantity(exchange, deployed.pair, deployed.investedAmount, leverage, currentPrice);
+      const quantity = await this.calculateQuantity(exchange, deployed.pair, positionSize, leverage, currentPrice);
 
       const slPct = Number(config.slPercent ?? 1) / 100;
       const tpPct = Number(config.tpPercent ?? 2) / 100;
