@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { getBlogs } from "@/data/blogs";
 
 const SITE_URL = "https://algopulse.in";
 
@@ -10,8 +11,9 @@ const SITE_URL = "https://algopulse.in";
 export default function sitemap(): MetadataRoute.Sitemap {
   const lastModified = new Date();
 
-  const routes: MetadataRoute.Sitemap = [
+  const staticRoutes: MetadataRoute.Sitemap = [
     { url: `${SITE_URL}`,          lastModified, changeFrequency: "weekly",  priority: 1.0 },
+    { url: `${SITE_URL}/blog`,     lastModified, changeFrequency: "weekly",  priority: 0.9 },
     { url: `${SITE_URL}/about`,    lastModified, changeFrequency: "monthly", priority: 0.8 },
     { url: `${SITE_URL}/contact`,  lastModified, changeFrequency: "monthly", priority: 0.6 },
     { url: `${SITE_URL}/privacy`,  lastModified, changeFrequency: "yearly",  priority: 0.3 },
@@ -20,5 +22,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${SITE_URL}/signup`,   lastModified, changeFrequency: "yearly",  priority: 0.7 },
   ];
 
-  return routes;
+  const blogRoutes: MetadataRoute.Sitemap = getBlogs().map((b) => ({
+    url: `${SITE_URL}/blog/${b.slug}`,
+    lastModified: new Date(b.publishedAt),
+    changeFrequency: "monthly",
+    priority: 0.7,
+  }));
+
+  return [...staticRoutes, ...blogRoutes];
 }

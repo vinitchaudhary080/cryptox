@@ -926,7 +926,7 @@ function Footer() {
             {
               title: "Resources",
               links: [
-                { label: "Blog", href: "#" },
+                { label: "Blog", href: "/blog" },
                 { label: "Support", href: "/contact" },
               ],
             },
