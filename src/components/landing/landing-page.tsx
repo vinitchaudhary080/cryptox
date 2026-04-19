@@ -36,24 +36,33 @@ import { Logo } from "@/components/ui/logo"
 import { marketApi } from "@/lib/api"
 
 /* ─── Animations ─── */
+/* Tuned for mobile-first snappiness: shorter travel, faster duration, lighter
+   stagger.  Desktop still looks smooth — users there just won't notice the
+   40% speedup.  On mobile the page no longer feels blank during scroll. */
 const fadeUp = {
-  hidden: { opacity: 0, y: 24 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.25, 0.1, 0.25, 1] as const } },
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.1, 0.25, 1] as const } },
 }
 
 const fadeIn = {
   hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { duration: 0.6 } },
+  visible: { opacity: 1, transition: { duration: 0.4 } },
 }
 
 const stagger = {
-  visible: { transition: { staggerChildren: 0.08 } },
+  visible: { transition: { staggerChildren: 0.05 } },
 }
 
 const scaleIn = {
-  hidden: { opacity: 0, scale: 0.95 },
-  visible: { opacity: 1, scale: 1, transition: { duration: 0.5, ease: [0.25, 0.1, 0.25, 1] as const } },
+  hidden: { opacity: 0, scale: 0.97 },
+  visible: { opacity: 1, scale: 1, transition: { duration: 0.35, ease: [0.25, 0.1, 0.25, 1] as const } },
 }
+
+/* Single viewport config used everywhere — trigger as soon as 5% of an
+   element enters the viewport instead of waiting for -50 to -100px inside
+   it.  Fixes the "blank section while scrolling" feel on short phone
+   screens where the old margin pushed triggers way past the fold. */
+const viewportOnce = { once: true, amount: 0.05 as const }
 
 /* ─── Navbar ─── */
 function Navbar() {
@@ -389,7 +398,7 @@ function StatsBar() {
         <motion.div
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true }}
+          viewport={viewportOnce}
           variants={stagger}
           className="grid grid-cols-2 gap-8 lg:grid-cols-4"
         >
@@ -459,7 +468,7 @@ function FeaturesSection() {
         <motion.div
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, margin: "-100px" }}
+          viewport={viewportOnce}
           variants={stagger}
         >
           <motion.p variants={fadeUp} className="text-sm font-semibold uppercase tracking-widest text-primary">
@@ -482,7 +491,7 @@ function FeaturesSection() {
         <motion.div
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, margin: "-50px" }}
+          viewport={viewportOnce}
           variants={stagger}
           className="mt-16 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
         >
@@ -541,7 +550,7 @@ function HowItWorks() {
         <motion.div
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, margin: "-100px" }}
+          viewport={viewportOnce}
           variants={stagger}
         >
           <motion.p variants={fadeUp} className="text-sm font-semibold uppercase tracking-widest text-primary">
@@ -558,7 +567,7 @@ function HowItWorks() {
         <motion.div
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, margin: "-50px" }}
+          viewport={viewportOnce}
           variants={stagger}
           className="mt-16 grid gap-12 md:grid-cols-3 md:gap-8"
         >
@@ -599,7 +608,7 @@ function BacktestShowcase() {
           <motion.div
             initial="hidden"
             whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
+            viewport={viewportOnce}
             variants={stagger}
           >
             <motion.p variants={fadeUp} className="text-sm font-semibold uppercase tracking-widest text-primary">
@@ -646,7 +655,7 @@ function BacktestShowcase() {
           <motion.div
             initial="hidden"
             whileInView="visible"
-            viewport={{ once: true }}
+            viewport={viewportOnce}
             variants={scaleIn}
           >
             <div className="rounded-xl border border-border/40 bg-card/60 p-5">
@@ -713,7 +722,7 @@ function StrategiesPreview() {
         <motion.div
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, margin: "-100px" }}
+          viewport={viewportOnce}
           variants={stagger}
           className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end"
         >
@@ -741,7 +750,7 @@ function StrategiesPreview() {
         <motion.div
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, margin: "-50px" }}
+          viewport={viewportOnce}
           variants={stagger}
           className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
         >
@@ -816,7 +825,7 @@ function ExchangesSection() {
         <motion.div
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, margin: "-100px" }}
+          viewport={viewportOnce}
           variants={stagger}
           className="text-center"
         >
@@ -837,7 +846,7 @@ function ExchangesSection() {
         <motion.div
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, margin: "-50px" }}
+          viewport={viewportOnce}
           variants={stagger}
           className="mx-auto mt-12 grid max-w-4xl grid-cols-2 gap-3 sm:grid-cols-4"
         >
@@ -917,7 +926,7 @@ function PricingSection() {
         <motion.div
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, margin: "-100px" }}
+          viewport={viewportOnce}
           variants={stagger}
           className="text-center"
         >
@@ -941,7 +950,7 @@ function PricingSection() {
         <motion.div
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, margin: "-50px" }}
+          viewport={viewportOnce}
           variants={stagger}
           className="mt-16 grid gap-6 md:grid-cols-3"
         >
@@ -1003,7 +1012,7 @@ function CtaSection() {
         <motion.div
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true }}
+          viewport={viewportOnce}
           variants={fadeUp}
           className="relative overflow-hidden rounded-2xl border border-border/40 bg-muted/50 px-6 py-16 text-center sm:px-12"
         >
