@@ -11,7 +11,6 @@ import {
   BarChart3,
   Bell,
   ArrowRight,
-  Check,
   Menu,
   X,
   Sun,
@@ -92,7 +91,7 @@ function Navbar() {
         </Link>
 
         <div className="hidden items-center gap-8 md:flex">
-          {["Features", "How it Works", "Strategies", "Pricing"].map((item) => (
+          {["Features", "How it Works", "Strategies"].map((item) => (
             <a
               key={item}
               href={`#${item.toLowerCase().replace(/\s+/g, "-")}`}
@@ -140,7 +139,7 @@ function Navbar() {
           className="border-t border-border/50 bg-background/95 backdrop-blur-xl md:hidden"
         >
           <div className="flex flex-col gap-1 p-4">
-            {["Features", "How it Works", "Strategies", "Pricing"].map((item) => (
+            {["Features", "How it Works", "Strategies"].map((item) => (
               <a
                 key={item}
                 href={`#${item.toLowerCase().replace(/\s+/g, "-")}`}
@@ -869,141 +868,6 @@ function ExchangesSection() {
   )
 }
 
-/* ─── Pricing Section ─── */
-function PricingSection() {
-  const plans = [
-    {
-      name: "Free",
-      price: "$0",
-      period: "forever",
-      description: "Start algo trading",
-      features: [
-        "2 deployed strategies",
-        "1 broker connection",
-        "Full 3-year strategy backtest reports",
-        "Community support",
-      ],
-      cta: "Get Started",
-      highlighted: false,
-    },
-    {
-      name: "Pro",
-      price: "$29",
-      period: "/month",
-      description: "For serious traders",
-      features: [
-        "20 deployed strategies",
-        "5 broker connections",
-        "Full 3-year strategy backtest reports",
-        "Priority execution",
-        "Advanced analytics",
-        "Email support",
-      ],
-      cta: "Start Pro Trial",
-      highlighted: true,
-    },
-    {
-      name: "Max",
-      price: "$99",
-      period: "/month",
-      description: "Everything, unlimited",
-      features: [
-        "Unlimited strategies",
-        "Unlimited brokers",
-        "Full 3-year strategy backtest reports",
-        "Custom strategy builder (coming soon)",
-        "API access",
-        "Dedicated support",
-      ],
-      cta: "Go Max",
-      highlighted: false,
-    },
-  ]
-
-  return (
-    <section id="pricing" className="border-t border-border/30 bg-muted/20 py-24 sm:py-32">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={viewportOnce}
-          variants={stagger}
-          className="text-center"
-        >
-          <motion.p variants={fadeUp} className="text-sm font-semibold uppercase tracking-widest text-primary">
-            Pricing
-          </motion.p>
-          <motion.h2
-            variants={fadeUp}
-            className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl"
-          >
-            Simple, transparent pricing
-          </motion.h2>
-          <motion.p
-            variants={fadeUp}
-            className="mx-auto mt-4 max-w-lg text-muted-foreground"
-          >
-            Start free. Upgrade when you need more power.
-          </motion.p>
-        </motion.div>
-
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={viewportOnce}
-          variants={stagger}
-          className="mt-16 grid gap-6 md:grid-cols-3"
-        >
-          {plans.map((plan) => (
-            <motion.div key={plan.name} variants={fadeUp}>
-              <Card
-                className={`h-full ${
-                  plan.highlighted
-                    ? "relative border-primary/30 bg-card"
-                    : "border-border/40 bg-card/40"
-                }`}
-              >
-                {plan.highlighted && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <Badge className="bg-primary px-4 py-1 text-primary-foreground">
-                      Most Popular
-                    </Badge>
-                  </div>
-                )}
-                <CardContent className="p-6 pt-8">
-                  <h3 className="text-lg font-semibold">{plan.name}</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">{plan.description}</p>
-                  <div className="mt-6 flex items-baseline gap-1">
-                    <span className="text-4xl font-bold">{plan.price}</span>
-                    <span className="text-sm text-muted-foreground">{plan.period}</span>
-                  </div>
-                  <Link
-                    href="/signup"
-                    className={buttonVariants({
-                      variant: plan.highlighted ? "default" : "outline",
-                      className: "mt-6 w-full",
-                    })}
-                  >
-                    {plan.cta}
-                  </Link>
-                  <ul className="mt-6 space-y-3">
-                    {plan.features.map((feature) => (
-                      <li key={feature} className="flex items-start gap-2.5 text-sm">
-                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                        {feature}
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
-        </motion.div>
-      </div>
-    </section>
-  )
-}
-
 /* ─── CTA Section ─── */
 function CtaSection() {
   return (
@@ -1056,7 +920,6 @@ function Footer() {
               links: [
                 { label: "Strategies", href: "/strategies" },
                 { label: "Dashboard", href: "/dashboard" },
-                { label: "Pricing", href: "#pricing" },
               ],
             },
             {
@@ -1119,7 +982,6 @@ export function LandingPage() {
       <BacktestShowcase />
       <StrategiesPreview />
       <ExchangesSection />
-      <PricingSection />
       <CtaSection />
       <Footer />
     </div>
