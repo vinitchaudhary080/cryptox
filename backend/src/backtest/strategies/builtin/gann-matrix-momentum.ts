@@ -52,9 +52,11 @@ export const gannMatrixMomentum: BacktestStrategy = {
     const { candle, index, positions, equity, config } = ctx;
     const { map15m, ema20, ema50, gannAtCandle } = precomputed;
 
-    if ((index + 1) % 15 !== 0) return [];
+    // Fire only when we transition into a new 15m bucket — gap-resilient.
+    // Evaluate against the bucket that just CLOSED to avoid look-ahead bias.
+    if (index === 0 || map15m[index] === map15m[index - 1]) return [];
 
-    const idx15m = map15m[index];
+    const idx15m = map15m[index] - 1;
     if (idx15m < 51) return [];
 
     const currEma20 = ema20[idx15m];

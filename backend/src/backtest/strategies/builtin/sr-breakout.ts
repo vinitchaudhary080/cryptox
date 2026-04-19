@@ -262,10 +262,12 @@ export const srBreakoutStrategy: BacktestStrategy = {
     const { candle, index, positions, equity, config } = ctx;
     const { map15m, candles15m, kama, activeSupportAt, activeResistanceAt, breakSupAt, breakResAt } = precomputed;
 
-    // Evaluate only on 15m boundaries
-    if ((index + 1) % 15 !== 0) return [];
+    // Fire only at the first 1m bar of each new 15m bucket — resilient to
+    // CSV gaps that would otherwise misalign an index-based check. Evaluate
+    // against the bucket that just CLOSED (idx15 - 1) to avoid look-ahead.
+    if (index === 0 || map15m[index] === map15m[index - 1]) return [];
 
-    const idx15 = map15m[index];
+    const idx15 = map15m[index] - 1;
     if (idx15 < ATR_PERIOD + LOOKBACK) return []; // wait for ATR + pivot confirmation warmup
 
     const bar = candles15m[idx15];
