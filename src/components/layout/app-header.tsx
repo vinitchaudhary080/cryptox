@@ -3,9 +3,7 @@
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useTheme } from "next-themes"
-import { motion, AnimatePresence } from "framer-motion"
 import {
-  Bell,
   Search,
   Sun,
   Moon,
@@ -13,13 +11,9 @@ import {
   Zap,
   BarChart3,
   Settings,
-  Menu,
-  X,
   Plug,
   Rocket,
   FlaskConical,
-  ChevronRight,
-  LogOut,
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useAuthStore } from "@/stores/auth-store"
@@ -33,7 +27,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
 import { NotificationPanel } from "./notification-panel"
 import { SendNotificationDialog } from "@/components/admin/send-notification-dialog"
@@ -58,7 +51,6 @@ export function AppHeader() {
   const router = useRouter()
   const { theme, setTheme } = useTheme()
   const { user, logout } = useAuthStore()
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
@@ -83,23 +75,6 @@ export function AppHeader() {
   const initials = user?.name
     ? user.name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2)
     : user?.email?.slice(0, 2).toUpperCase() || "U"
-
-  // Lock body scroll when mobile menu is open
-  useEffect(() => {
-    if (mobileMenuOpen) {
-      document.body.style.overflow = "hidden"
-    } else {
-      document.body.style.overflow = ""
-    }
-    return () => {
-      document.body.style.overflow = ""
-    }
-  }, [mobileMenuOpen])
-
-  // Close on route change
-  useEffect(() => {
-    setMobileMenuOpen(false)
-  }, [pathname])
 
   return (
     <>
@@ -189,174 +164,33 @@ export function AppHeader() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Mobile menu toggle */}
+            {/* Mobile: theme toggle + Settings shortcut in place of the old menu toggle */}
             <Button
               variant="ghost"
               size="icon"
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
               className="h-8 w-8 md:hidden"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label="Toggle theme"
             >
-              <AnimatePresence mode="wait" initial={false}>
-                {mobileMenuOpen ? (
-                  <motion.div
-                    key="close"
-                    initial={{ rotate: -90, opacity: 0 }}
-                    animate={{ rotate: 0, opacity: 1 }}
-                    exit={{ rotate: 90, opacity: 0 }}
-                    transition={{ duration: 0.15 }}
-                  >
-                    <X className="h-4.5 w-4.5" />
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="open"
-                    initial={{ rotate: 90, opacity: 0 }}
-                    animate={{ rotate: 0, opacity: 1 }}
-                    exit={{ rotate: -90, opacity: 0 }}
-                    transition={{ duration: 0.15 }}
-                  >
-                    <Menu className="h-4.5 w-4.5" />
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+              <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
             </Button>
+            <Link
+              href="/settings"
+              className={cn(
+                "flex h-8 w-8 items-center justify-center rounded-md transition-colors md:hidden",
+                pathname.startsWith("/settings")
+                  ? "bg-primary/10 text-primary"
+                  : "text-foreground hover:bg-accent",
+              )}
+              aria-label="Settings"
+            >
+              <Settings className="h-4.5 w-4.5" />
+            </Link>
           </div>
         </div>
       </header>
 
-      {/* Mobile menu — full overlay, above everything */}
-      <AnimatePresence>
-        {mobileMenuOpen && (
-          <>
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm md:hidden"
-              onClick={() => setMobileMenuOpen(false)}
-            />
-
-            {/* Panel — slides down from top */}
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ type: "spring", stiffness: 400, damping: 30 }}
-              className="fixed left-0 right-0 top-14 z-[70] mx-3 overflow-hidden rounded-2xl border border-border/50 bg-background/95 shadow-2xl backdrop-blur-xl md:hidden"
-            >
-              {/* Search */}
-              <div className="p-4 pb-2">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Search..."
-                    className="h-10 rounded-xl bg-muted/50 pl-9 text-sm"
-                  />
-                </div>
-              </div>
-
-              {/* Nav items */}
-              <nav className="px-2 pb-2">
-                {navItems.map((item, i) => {
-                  const isActive =
-                    pathname === item.href || pathname.startsWith(item.href + "/")
-                  return (
-                    <motion.div
-                      key={item.href}
-                      initial={{ opacity: 0, x: -12 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.04 }}
-                    >
-                      <Link
-                        href={item.href}
-                        onClick={() => setMobileMenuOpen(false)}
-                        className={cn(
-                          "flex items-center gap-3.5 rounded-xl px-3.5 py-3 transition-all active:scale-[0.98]",
-                          isActive
-                            ? "bg-primary/10"
-                            : "hover:bg-accent/60"
-                        )}
-                      >
-                        <div
-                          className={cn(
-                            "flex h-10 w-10 items-center justify-center rounded-xl transition-colors",
-                            isActive
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-muted text-muted-foreground"
-                          )}
-                        >
-                          <item.icon className="h-[18px] w-[18px]" />
-                        </div>
-                        <div className="flex-1">
-                          <p
-                            className={cn(
-                              "text-sm font-semibold",
-                              isActive ? "text-primary" : "text-foreground"
-                            )}
-                          >
-                            {item.label}
-                          </p>
-                          <p className="text-[11px] text-muted-foreground">
-                            {item.description}
-                          </p>
-                        </div>
-                        <ChevronRight
-                          className={cn(
-                            "h-4 w-4",
-                            isActive ? "text-primary" : "text-muted-foreground/40"
-                          )}
-                        />
-                      </Link>
-                    </motion.div>
-                  )
-                })}
-              </nav>
-
-              <div className="mx-4 my-1">
-                <Separator />
-              </div>
-
-              {/* Bottom section: user + theme */}
-              <div className="flex items-center justify-between p-4 pt-3">
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-9 w-9">
-                    <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
-                      {initials}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="text-sm font-semibold">{user?.name || user?.email || "User"}</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {user?.email || ""}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-9 w-9 rounded-xl"
-                    onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                  >
-                    <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                    <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-9 w-9 rounded-xl text-muted-foreground"
-                    onClick={handleLogout}
-                  >
-                    <LogOut className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
     </>
   )
 }
