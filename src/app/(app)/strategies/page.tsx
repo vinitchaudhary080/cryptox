@@ -295,11 +295,11 @@ export default function StrategiesPage() {
                 </Card>
               </DialogTrigger>
 
-              {/* Strategy Detail Dialog */}
-              <DialogContent className="max-w-lg">
+              {/* Strategy Detail Dialog — mobile-friendly: scrollable, tall tap targets */}
+              <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto p-5 sm:p-6">
                 <DialogHeader>
-                  <DialogTitle className="flex items-center gap-3">
-                    {strategy.name}
+                  <DialogTitle className="flex flex-wrap items-center gap-2 pr-8 text-base sm:text-lg">
+                    <span>{strategy.name}</span>
                     <Badge
                       variant="outline"
                       className={riskColors[strategy.risk]}
@@ -309,13 +309,13 @@ export default function StrategiesPage() {
                   </DialogTitle>
                 </DialogHeader>
 
-                <div className="space-y-5">
+                <div className="space-y-4 sm:space-y-5">
                   <p className="text-sm text-muted-foreground">
                     {strategy.description}
                   </p>
 
-                  {/* Performance Chart */}
-                  <div className="h-48">
+                  {/* Performance Chart — shorter on mobile to leave room for stats + actions */}
+                  <div className="h-36 sm:h-48">
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={strategy.performance}>
                         <defs>
@@ -336,18 +336,18 @@ export default function StrategiesPage() {
                   </div>
 
                   {/* Stats Grid */}
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-2 sm:gap-3">
                     {[
                       { label: "30D Return", value: `+${strategy.returnRate}%`, icon: TrendingUp },
                       { label: "Win Rate", value: `${strategy.winRate}%`, icon: BarChart3 },
                       { label: "Total Trades", value: strategy.trades.toLocaleString(), icon: Zap },
                       { label: "Subscribers", value: strategy.subscribers.toLocaleString(), icon: Users },
                     ].map((stat) => (
-                      <div key={stat.label} className="flex items-center gap-3 rounded-lg border border-border/50 bg-muted/30 p-3">
-                        <stat.icon className="h-4 w-4 text-primary" />
-                        <div>
-                          <p className="text-[10px] text-muted-foreground">{stat.label}</p>
-                          <p className="text-sm font-semibold">{stat.value}</p>
+                      <div key={stat.label} className="flex items-center gap-2.5 rounded-lg border border-border/50 bg-muted/30 p-2.5 sm:gap-3 sm:p-3">
+                        <stat.icon className="h-4 w-4 shrink-0 text-primary" />
+                        <div className="min-w-0">
+                          <p className="truncate text-[10px] text-muted-foreground">{stat.label}</p>
+                          <p className="truncate text-sm font-semibold">{stat.value}</p>
                         </div>
                       </div>
                     ))}
@@ -406,11 +406,11 @@ export default function StrategiesPage() {
                     )
                   })()}
 
-                  {/* Action buttons */}
-                  <div className="flex flex-col gap-2 sm:flex-row">
+                  {/* Action buttons — bigger tap targets on mobile (44px = Apple HIG min) */}
+                  <div className="flex flex-col gap-2.5 sm:flex-row">
                     <Button
                       variant="outline"
-                      className="flex-1"
+                      className="h-11 flex-1 text-sm sm:h-10"
                       onClick={() => {
                         const apiMatch = apiStrategies.find((a) => a.name === strategy.name)
                         router.push(`/strategies/${apiMatch?.id || strategy.id}/backtest`)
@@ -420,7 +420,7 @@ export default function StrategiesPage() {
                       View Backtest Report
                     </Button>
                     <Button
-                      className="flex-1"
+                      className="h-11 flex-1 text-sm sm:h-10"
                       onClick={() => {
                         const apiMatch = apiStrategies.find((a) => a.name === strategy.name)
                         setDeployTarget({
