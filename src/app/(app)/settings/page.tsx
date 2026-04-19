@@ -24,6 +24,7 @@ import {
   Clock,
   Edit3,
   Save,
+  LogOut,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -137,7 +138,13 @@ export default function SettingsPage() {
     }
     setPushBusy(false)
   }
-  const { user: authUser } = useAuthStore()
+  const { user: authUser, logout } = useAuthStore()
+
+  const handleLogout = async () => {
+    if (!confirm("Sign out of AlgoPulse?")) return
+    await logout()
+    window.location.href = "/login"
+  }
 
   // Form fields
   const [name, setName] = useState("")
@@ -668,6 +675,36 @@ export default function SettingsPage() {
           </motion.div>
         </TabsContent>
       </Tabs>
+
+      {/* Account — sign-out section, visible on both mobile and desktop. On
+          desktop the nav dropdown also has Log out; this surface keeps it
+          obvious to users who only ever use the app from their phone. */}
+      <motion.div variants={fadeUp}>
+        <Card className="border-border/50 bg-card/80">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <LogOut className="h-4 w-4 text-loss" /> Sign out
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Signed in as {authUser?.email ?? "—"}</p>
+              <p className="text-xs text-muted-foreground">
+                You'll need to log in again to access your strategies and
+                deployments.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              className="h-11 gap-2 border-loss/40 text-loss hover:bg-loss/10 hover:text-loss sm:h-10"
+              onClick={handleLogout}
+            >
+              <LogOut className="h-4 w-4" />
+              Log out
+            </Button>
+          </CardContent>
+        </Card>
+      </motion.div>
     </motion.div>
   )
 }
