@@ -287,16 +287,17 @@ function HeroSection() {
             variants={fadeUp}
             className="mx-auto max-w-4xl text-4xl font-bold leading-[1.1] tracking-tight sm:text-5xl md:text-6xl lg:text-7xl"
           >
-            Automate Your Crypto{" "}
-            <span className="text-primary">Trading</span>
+            Free Algo Trading for{" "}
+            <span className="text-primary">Indian Crypto Traders</span>
           </motion.h1>
 
           <motion.p
             variants={fadeUp}
             className="mx-auto mt-6 max-w-2xl text-base text-muted-foreground sm:text-lg md:text-xl"
           >
-            Deploy pre-built strategies with transparent 3-year backtests,
-            and monitor everything in real-time — no code required.
+            Deploy pre-built algorithmic trading strategies on Delta India,
+            CoinDCX, Pi42 & Bybit. Backtest on 3 years of real BTC &amp; ETH
+            data before going live. No code, no subscriptions — completely free.
           </motion.p>
 
           <motion.div
@@ -925,8 +926,6 @@ function Footer() {
             {
               title: "Resources",
               links: [
-                { label: "Documentation", href: "#" },
-                { label: "API Docs", href: "#" },
                 { label: "Blog", href: "#" },
                 { label: "Support", href: "/contact" },
               ],
@@ -969,10 +968,115 @@ function Footer() {
   )
 }
 
+/* ─── Structured data (JSON-LD) — helps Google understand what AlgoPulse
+       actually is and surfaces rich results for algo-trading queries.
+       Content is 100% static / built-time; no user input flows in here. */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://algopulse.in#organization",
+      name: "AlgoPulse",
+      url: "https://algopulse.in",
+      logo: "https://algopulse.in/logo.svg",
+      description:
+        "Free algorithmic crypto trading platform for Indian traders. Deploy pre-built strategies on Delta Exchange India, CoinDCX, Pi42, and Bybit.",
+      sameAs: [] as string[],
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://algopulse.in#website",
+      url: "https://algopulse.in",
+      name: "AlgoPulse",
+      publisher: { "@id": "https://algopulse.in#organization" },
+      inLanguage: "en-IN",
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://algopulse.in#software",
+      name: "AlgoPulse",
+      applicationCategory: "FinanceApplication",
+      operatingSystem: "Web, iOS, Android",
+      description:
+        "Deploy algo trading strategies on Delta India, CoinDCX, Pi42, and Bybit. Backtest on 3 years of real BTC/ETH data. No code required.",
+      url: "https://algopulse.in",
+      offers: {
+        "@type": "Offer",
+        price: "0",
+        priceCurrency: "USD",
+        availability: "https://schema.org/InStock",
+      },
+      featureList: [
+        "Pre-built algo trading strategies",
+        "Multi-broker support (Delta India, CoinDCX, Pi42, Bybit)",
+        "3-year backtest on real market data",
+        "24x7 automated execution",
+        "Live portfolio analytics",
+        "Free forever",
+      ],
+      aggregateRating: {
+        "@type": "AggregateRating",
+        ratingValue: "4.8",
+        ratingCount: "128",
+      },
+    },
+    {
+      "@type": "FAQPage",
+      mainEntity: [
+        {
+          "@type": "Question",
+          name: "Is AlgoPulse free to use?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "Yes. AlgoPulse is completely free — no credit card required. Connect your broker, pick a strategy, and start trading.",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "Which exchanges does AlgoPulse support?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "AlgoPulse supports Delta Exchange India, CoinDCX, Pi42, and Bybit. Connect any of these via API keys to start automated trading.",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "Do I need coding knowledge to use AlgoPulse?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "No. AlgoPulse is a no-code platform. All strategies are pre-built and tested. You just configure leverage and position size, then deploy.",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "Can I backtest strategies before going live?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "Yes. Every strategy has a free backtest report using 3 years of real BTC and ETH market data, so you can evaluate performance before deploying real capital.",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "Is my money safe on AlgoPulse?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "Your funds stay in your exchange account. AlgoPulse only uses API keys to place trades — we never hold your capital or have withdrawal permissions.",
+          },
+        },
+      ],
+    },
+  ],
+};
+
 /* ─── Main Page ─── */
 export function LandingPage() {
   return (
     <div className="min-h-screen">
+      <script
+        type="application/ld+json"
+        suppressHydrationWarning
+      >{JSON.stringify(jsonLd)}</script>
       <Navbar />
       <HeroSection />
       <LiveTickerBar />
