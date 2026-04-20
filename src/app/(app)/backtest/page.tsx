@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
+import { formatISTDate } from "@/lib/time-ist"
 import {
   FlaskConical,
   Clock,
@@ -264,8 +265,8 @@ export default function BacktestPage() {
                             </div>
                             <p className="text-xs text-muted-foreground">
                               {run.strategyName} &middot;{" "}
-                              {new Date(run.startDate).toLocaleDateString()} →{" "}
-                              {new Date(run.endDate).toLocaleDateString()}
+                              {formatISTDate(run.startDate)} →{" "}
+                              {formatISTDate(run.endDate)}
                             </p>
                           </div>
 

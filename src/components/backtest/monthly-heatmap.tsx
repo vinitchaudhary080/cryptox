@@ -1,5 +1,7 @@
 "use client"
 
+import { getISTDayKey } from "@/lib/time-ist"
+
 import { useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
@@ -38,7 +40,7 @@ function buildMonthlyData(trades: Trade[], startDate: string, endDate: string): 
 
   for (const t of trades) {
     if (t.status !== "CLOSED" || !t.exitTime) continue
-    const day = new Date(t.exitTime).toISOString().slice(0, 10)
+    const day = getISTDayKey(t.exitTime)
     const existing = dayMap.get(day) || { wins: 0, losses: 0, pnl: 0 }
     if (t.pnl > 0) existing.wins++
     else existing.losses++
@@ -68,7 +70,7 @@ function buildMonthlyData(trades: Trade[], startDate: string, endDate: string): 
       const dateObj = new Date(year, month, d)
       if (dateObj > end) break
 
-      const dateStr = dateObj.toISOString().slice(0, 10)
+      const dateStr = getISTDayKey(dateObj)
       const dayOfWeek = dateObj.getDay() // 0=Sun
       const firstDayOfWeek = new Date(year, month, 1).getDay()
       const weekIndex = Math.floor((d - 1 + firstDayOfWeek) / 7)

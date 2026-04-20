@@ -1,5 +1,7 @@
 "use client"
 
+import { formatISTAxisShort, getISTDayKey } from "@/lib/time-ist"
+
 import { useMemo, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -21,7 +23,7 @@ type RangeKey = "1M" | "3M" | "6M" | "YTD" | "1Y" | "3Y" | "5Y" | "ALL" | "CUSTO
 const PRESET_RANGES: Exclude<RangeKey, "CUSTOM">[] = ["1M", "3M", "6M", "YTD", "1Y", "3Y", "5Y", "ALL"]
 
 function toDateInput(ms: number): string {
-  return new Date(ms).toISOString().slice(0, 10) // YYYY-MM-DD
+  return getISTDayKey(ms) // YYYY-MM-DD
 }
 
 function rangeStartMs(range: Exclude<RangeKey, "CUSTOM" | "ALL">, latest: number): number {
@@ -81,11 +83,7 @@ export function DrawdownChart({ data }: { data: DrawdownPoint[] }) {
     const sampled = effective.filter((_, i) => i % step === 0 || i === effective.length - 1)
 
     const rows = sampled.map((d, i) => ({
-      time: new Date(d.time).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "2-digit",
-      }),
+      time: formatISTAxisShort(d.time),
       idx: i,
       raw: d.time,
       dd: Number((-d.drawdownPct).toFixed(2)),

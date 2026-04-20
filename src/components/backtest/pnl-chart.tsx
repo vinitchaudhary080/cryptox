@@ -1,5 +1,6 @@
 "use client"
 
+import { formatISTAxisShort } from "@/lib/time-ist"
 import {
   BarChart,
   Bar,
@@ -23,7 +24,7 @@ export function PnlChart({ trades }: { trades: Trade[] }) {
     index: i + 1,
     pnl: Number(t.pnl.toFixed(2)),
     side: t.side,
-    date: new Date(t.entryTime).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    date: formatISTAxisShort(t.entryTime),
   }))
 
   return (

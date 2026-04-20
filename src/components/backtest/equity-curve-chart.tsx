@@ -1,5 +1,6 @@
 "use client"
 
+import { formatISTAxisShort } from "@/lib/time-ist"
 import {
   AreaChart,
   Area,
@@ -18,7 +19,7 @@ interface EquityPoint {
 
 export function EquityCurveChart({ data, initialCapital }: { data: EquityPoint[]; initialCapital: number }) {
   const chartData = data.map((d) => ({
-    time: new Date(d.time).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    time: formatISTAxisShort(d.time),
     equity: Number(d.equity.toFixed(2)),
     timestamp: d.time,
   }))

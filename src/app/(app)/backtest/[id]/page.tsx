@@ -20,6 +20,7 @@ import { TopTradesTable } from "@/components/backtest/top-trades-table"
 import { downloadBacktestReport } from "@/lib/backtest-report-export"
 import { FeatureRunButton } from "@/components/backtest/feature-run-button"
 
+import { formatISTDate } from "@/lib/time-ist"
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0 },
@@ -206,7 +207,7 @@ export default function BacktestDetailPage() {
             <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <Calendar className="h-3 w-3" />
-                {new Date(run.startDate).toLocaleDateString()} → {new Date(run.endDate).toLocaleDateString()}
+                {formatISTDate(run.startDate)} → {formatISTDate(run.endDate)}
               </span>
               <span className="flex items-center gap-1">
                 <Clock className="h-3 w-3" />

@@ -1,5 +1,7 @@
 "use client"
 
+import { formatISTAxisMonthYear } from "@/lib/time-ist"
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Area,
@@ -34,7 +36,7 @@ export function CumulativePnlChart({ data }: { data: CumulativePnlPoint[] }) {
   const sampled = data.filter((_, i) => i % step === 0 || i === data.length - 1)
 
   const formatted = sampled.map((d, i) => ({
-    time: new Date(d.time).toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
+    time: formatISTAxisMonthYear(d.time),
     idx: i,
     pnl: Number(d.pnl.toFixed(2)),
   }))

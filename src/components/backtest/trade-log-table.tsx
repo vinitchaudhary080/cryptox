@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Download } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { formatISTDateTime, formatISTCsv } from "@/lib/time-ist"
 
 interface Trade {
   id: string
@@ -23,28 +24,23 @@ interface Trade {
   status: string
 }
 
+/** All times displayed + exported in IST (Asia/Kolkata). */
 function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  })
+  return formatISTDateTime(dateStr)
 }
 
 function downloadCSV(trades: Trade[], filename: string) {
-  const headers = ["#", "Entry Time", "Entry Price", "Qty", "Side", "Leverage", "SL", "TP", "Exit Time", "Exit Price", "PnL", "Fee", "Exit Reason"]
+  const headers = ["#", "Entry Time (IST)", "Entry Price", "Qty", "Side", "Leverage", "SL", "TP", "Exit Time (IST)", "Exit Price", "PnL", "Fee", "Exit Reason"]
   const rows = trades.map((t, i) => [
     i + 1,
-    t.entryTime,
+    formatISTCsv(t.entryTime),
     t.entryPrice.toFixed(2),
     t.qty.toFixed(6),
     t.side,
     t.leverage,
     t.sl?.toFixed(2) ?? "",
     t.tp?.toFixed(2) ?? "",
-    t.exitTime ?? "",
+    t.exitTime ? formatISTCsv(t.exitTime) : "",
     t.exitPrice?.toFixed(2) ?? "",
     t.pnl.toFixed(2),
     t.fee.toFixed(4),

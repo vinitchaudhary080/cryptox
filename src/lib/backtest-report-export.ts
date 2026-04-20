@@ -88,11 +88,11 @@ function row(...cells: unknown[]): string {
   return cells.map(csvEscape).join(",");
 }
 
+import { formatISTCsv } from "./time-ist";
+
 function formatTime(ms: number | string | null | undefined): string {
   if (!ms) return "";
-  const d = typeof ms === "number" ? new Date(ms) : new Date(ms);
-  if (isNaN(d.getTime())) return String(ms);
-  return d.toISOString().replace("T", " ").slice(0, 19);
+  return formatISTCsv(ms);
 }
 
 export function downloadBacktestReport(run: RunLike, trades: TradeLike[], ext: ExtendedLike): void {
@@ -177,7 +177,7 @@ export function downloadBacktestReport(run: RunLike, trades: TradeLike[], ext: E
     lines.push("");
     lines.push("=== TOP WINNING TRADES ===");
     lines.push("");
-    lines.push(row("#", "Entry Time", "Exit Time", "Side", "PnL ($)"));
+    lines.push(row("#", "Entry Time (IST)", "Exit Time (IST)", "Side", "PnL ($)"));
     wins.forEach((t, i) => {
       lines.push(row(i + 1, formatTime(t.entry_time), formatTime(t.exit_time), t.side ?? "", (t.pnl ?? 0).toFixed(2)));
     });
@@ -189,7 +189,7 @@ export function downloadBacktestReport(run: RunLike, trades: TradeLike[], ext: E
     lines.push("");
     lines.push("=== TOP LOSING TRADES ===");
     lines.push("");
-    lines.push(row("#", "Entry Time", "Exit Time", "Side", "PnL ($)"));
+    lines.push(row("#", "Entry Time (IST)", "Exit Time (IST)", "Side", "PnL ($)"));
     losses.forEach((t, i) => {
       lines.push(row(i + 1, formatTime(t.entry_time), formatTime(t.exit_time), t.side ?? "", (t.pnl ?? 0).toFixed(2)));
     });
@@ -202,14 +202,14 @@ export function downloadBacktestReport(run: RunLike, trades: TradeLike[], ext: E
   lines.push(
     row(
       "#",
-      "Entry Time",
+      "Entry Time (IST)",
       "Entry Price",
       "Qty",
       "Side",
       "Leverage",
       "SL",
       "TP",
-      "Exit Time",
+      "Exit Time (IST)",
       "Exit Price",
       "PnL",
       "Fee",
@@ -220,14 +220,14 @@ export function downloadBacktestReport(run: RunLike, trades: TradeLike[], ext: E
     lines.push(
       row(
         i + 1,
-        t.entryTime,
+        formatTime(t.entryTime),
         t.entryPrice.toFixed(2),
         t.qty.toFixed(6),
         t.side,
         t.leverage,
         t.sl?.toFixed(2) ?? "",
         t.tp?.toFixed(2) ?? "",
-        t.exitTime ?? "",
+        t.exitTime ? formatTime(t.exitTime) : "",
         t.exitPrice?.toFixed(2) ?? "",
         t.pnl.toFixed(2),
         t.fee.toFixed(4),

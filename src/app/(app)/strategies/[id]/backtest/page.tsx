@@ -1,5 +1,7 @@
 "use client";
 
+import { formatISTDate } from "@/lib/time-ist";
+
 /**
  * Public 'View Backtest Report' page for a strategy. Shows pre-run featured
  * backtests for a strategy, grouped by coin × period. Reuses the same report
@@ -338,8 +340,8 @@ export default function StrategyBacktestReportPage() {
 
         {selectedRun && (
           <div className="text-xs text-muted-foreground">
-            {new Date(selectedRun.startDate).toLocaleDateString()} →{" "}
-            {new Date(selectedRun.endDate).toLocaleDateString()} · Capital $
+            {formatISTDate(selectedRun.startDate)} →{" "}
+            {formatISTDate(selectedRun.endDate)} · Capital $
             {selectedRun.initialCapital.toLocaleString()}
           </div>
         )}
