@@ -19,6 +19,7 @@ let precomputed: {
   map15m: Int32Array;
   ind5m: IndicatorValues;
   ind15m: IndicatorValues;
+  candles5m: Candle[];
 } | null = null;
 
 /** Call before backtest loop starts to pre-compute all multi-TF data */
@@ -55,7 +56,7 @@ export function precomputeMeriStrategy(allCandles: Candle[]): void {
     map15m[i] = j15;
   }
 
-  precomputed = { map5m, map15m, ind5m, ind15m };
+  precomputed = { map5m, map15m, ind5m, ind15m, candles5m };
 }
 
 /** Reset pre-computed data */
@@ -80,7 +81,7 @@ export const meriStrategy: BacktestStrategy = {
 
     if (!precomputed || index < 100) return signals;
 
-    const { map5m, map15m, ind5m, ind15m } = precomputed;
+    const { map5m, map15m, ind5m, ind15m, candles5m } = precomputed;
 
     // Get current and previous 5m indicator indices
     const idx5 = map5m[index];
@@ -116,7 +117,12 @@ export const meriStrategy: BacktestStrategy = {
     const tpPct = Number(config.tpPercent ?? 4) / 100;
     const sizePct = Number(config.positionSizePercent ?? 10) / 100;
     const leverage = Number(config.leverage ?? 1);
-    const qty = (equity * sizePct) / candle.close;
+    // Execute at the JUST-CLOSED 5m bar close, not the 1m tick — matches
+    // what the user sees on the chart for the decision bar.
+    const execPrice = prevIdx5 >= 0 && candles5m[prevIdx5]
+      ? candles5m[prevIdx5].close
+      : candle.close;
+    const qty = (equity * sizePct) / execPrice;
 
     const goldenCross5m = prevEma9_5 <= prevEma21_5 && currEma9_5 > currEma21_5;
     const deathCross5m = prevEma9_5 >= prevEma21_5 && currEma9_5 < currEma21_5;
@@ -143,8 +149,9 @@ export const meriStrategy: BacktestStrategy = {
         action: "BUY",
         qty,
         leverage,
-        sl: candle.close * (1 - slPct),
-        tp: candle.close * (1 + tpPct),
+        entryPrice: execPrice,
+        sl: execPrice * (1 - slPct),
+        tp: execPrice * (1 + tpPct),
         reason: `5m golden cross + RSI(${currRsi.toFixed(1)}) > 60 + 15m bullish`,
       });
     }
@@ -155,8 +162,9 @@ export const meriStrategy: BacktestStrategy = {
         action: "SELL",
         qty,
         leverage,
-        sl: candle.close * (1 + slPct),
-        tp: candle.close * (1 - tpPct),
+        entryPrice: execPrice,
+        sl: execPrice * (1 + slPct),
+        tp: execPrice * (1 - tpPct),
         reason: `5m death cross + RSI(${currRsi.toFixed(1)}) < 40 + 15m bearish`,
       });
     }

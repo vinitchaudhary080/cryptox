@@ -291,7 +291,7 @@ export const srBreakoutStrategy: BacktestStrategy = {
         trailingWithKama = true;
       }
       if (trailingWithKama && !isNaN(k) && close < k) {
-        signals.push({ action: "CLOSE_LONG", reason: `KAMA trail: close ${close.toFixed(2)} < KAMA ${k.toFixed(2)}` });
+        signals.push({ action: "CLOSE_LONG", entryPrice: close, reason: `KAMA trail: close ${close.toFixed(2)} < KAMA ${k.toFixed(2)}` });
         trailingWithKama = false;
       }
     }
@@ -301,7 +301,7 @@ export const srBreakoutStrategy: BacktestStrategy = {
         trailingWithKama = true;
       }
       if (trailingWithKama && !isNaN(k) && close > k) {
-        signals.push({ action: "CLOSE_SHORT", reason: `KAMA trail: close ${close.toFixed(2)} > KAMA ${k.toFixed(2)}` });
+        signals.push({ action: "CLOSE_SHORT", entryPrice: close, reason: `KAMA trail: close ${close.toFixed(2)} > KAMA ${k.toFixed(2)}` });
         trailingWithKama = false;
       }
     }
@@ -328,6 +328,7 @@ export const srBreakoutStrategy: BacktestStrategy = {
             leverage,
             sl,
             tp: undefined,
+            entryPrice: close,
             reason: `Break Res: close ${close.toFixed(2)} > top ${breakRes.top.toFixed(2)} (pivot ${breakRes.bottom.toFixed(2)})`,
           });
           trailingWithKama = false;
@@ -341,6 +342,7 @@ export const srBreakoutStrategy: BacktestStrategy = {
             leverage,
             sl,
             tp: undefined,
+            entryPrice: close,
             reason: `Break Sup: close ${close.toFixed(2)} < bottom ${breakSup.bottom.toFixed(2)} (pivot ${breakSup.top.toFixed(2)})`,
           });
           trailingWithKama = false;

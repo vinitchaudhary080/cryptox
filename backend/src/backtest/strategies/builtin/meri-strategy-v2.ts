@@ -24,6 +24,7 @@ let precomputed: {
   map15m: Int32Array;
   ind5m: IndicatorValues;
   ind15m: IndicatorValues;
+  candles5m: Candle[];
 } | null = null;
 
 export function precomputeMeriV2Strategy(allCandles: Candle[]): void {
@@ -55,7 +56,7 @@ export function precomputeMeriV2Strategy(allCandles: Candle[]): void {
     map15m[i] = j15;
   }
 
-  precomputed = { map5m, map15m, ind5m, ind15m };
+  precomputed = { map5m, map15m, ind5m, ind15m, candles5m };
 }
 
 export function resetMeriV2StrategyCache(): void {
@@ -79,7 +80,7 @@ export const meriStrategyV2: BacktestStrategy = {
 
     if (!precomputed || index < 100) return signals;
 
-    const { map5m, map15m, ind5m, ind15m } = precomputed;
+    const { map5m, map15m, ind5m, ind15m, candles5m } = precomputed;
 
     const idx5 = map5m[index];
     const prevIdx5 = idx5 > 0 ? idx5 - 1 : -1;
@@ -117,8 +118,13 @@ export const meriStrategyV2: BacktestStrategy = {
     const leverage = Number(config.leverage ?? 1);
 
     // ⚡ V2 rule — position size always 50% of CURRENT equity (compounds).
+    // Execute at the JUST-CLOSED 5m bar's close (what the strategy reasoned
+    // about and what the user sees on the chart), not the random 1m tick.
+    const execPrice = prevIdx5 >= 0 && candles5m[prevIdx5]
+      ? candles5m[prevIdx5].close
+      : candle.close;
     const capitalDeployed = equity * FIXED_EQUITY_PERCENT;
-    const qty = capitalDeployed / candle.close;
+    const qty = capitalDeployed / execPrice;
 
     const goldenCross5m = prevEma9_5 <= prevEma21_5 && currEma9_5 > currEma21_5;
     const deathCross5m = prevEma9_5 >= prevEma21_5 && currEma9_5 < currEma21_5;
@@ -132,12 +138,14 @@ export const meriStrategyV2: BacktestStrategy = {
     if (deathCross5m && hasLong) {
       signals.push({
         action: "CLOSE_LONG",
+        entryPrice: execPrice,
         reason: `5m death cross — EMA9(${currEma9_5.toFixed(0)}) < EMA21(${currEma21_5.toFixed(0)})`,
       });
     }
     if (goldenCross5m && hasShort) {
       signals.push({
         action: "CLOSE_SHORT",
+        entryPrice: execPrice,
         reason: `5m golden cross — EMA9(${currEma9_5.toFixed(0)}) > EMA21(${currEma21_5.toFixed(0)})`,
       });
     }
@@ -148,8 +156,9 @@ export const meriStrategyV2: BacktestStrategy = {
         action: "BUY",
         qty,
         leverage,
-        sl: candle.close * (1 - slPct),
-        tp: candle.close * (1 + tpPct),
+        entryPrice: execPrice,
+        sl: execPrice * (1 - slPct),
+        tp: execPrice * (1 + tpPct),
         reason: `[50% equity = $${capitalDeployed.toFixed(2)}] 5m golden cross + RSI(${currRsi.toFixed(1)}) > 60 + 15m bullish`,
       });
     }
@@ -160,8 +169,9 @@ export const meriStrategyV2: BacktestStrategy = {
         action: "SELL",
         qty,
         leverage,
-        sl: candle.close * (1 + slPct),
-        tp: candle.close * (1 - tpPct),
+        entryPrice: execPrice,
+        sl: execPrice * (1 + slPct),
+        tp: execPrice * (1 - tpPct),
         reason: `[50% equity = $${capitalDeployed.toFixed(2)}] 5m death cross + RSI(${currRsi.toFixed(1)}) < 40 + 15m bearish`,
       });
     }

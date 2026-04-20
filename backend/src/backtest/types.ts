@@ -41,6 +41,15 @@ export interface Signal {
   tp?: number;
   leverage?: number;
   reason?: string;
+  /**
+   * Optional explicit execution price. Multi-timeframe strategies make
+   * decisions off the just-closed HTF bar (e.g., the 5m or 15m close)
+   * but the engine iterates at 1m granularity. Without this field the
+   * engine falls back to the current 1m candle close, which drifts from
+   * the HTF close users see on their charts. Strategies that care about
+   * matching chart prices should set this to the HTF bar's close.
+   */
+  entryPrice?: number;
 }
 
 export interface CandleContext {

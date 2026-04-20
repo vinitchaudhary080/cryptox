@@ -45,7 +45,7 @@ export const gannMatrixMomentumV3: BacktestStrategy = {
     if (!precomputed) return [];
 
     const { candle, index, positions, equity, config } = ctx;
-    const { map15m, ema20, ema50, gannAtCandle } = precomputed;
+    const { map15m, ema20, ema50, gannAtCandle, candles15m } = precomputed;
 
     // Fire only when we transition into a new 15m bucket — gap-resilient.
     // Evaluate against the bucket that just CLOSED to avoid look-ahead bias.
@@ -53,6 +53,10 @@ export const gannMatrixMomentumV3: BacktestStrategy = {
 
     const idx15m = map15m[index] - 1;
     if (idx15m < 51) return [];
+    // Use the JUST-CLOSED 15m bar's close — matches what the user sees on
+    // the chart and what the indicators were computed on. Avoids the 1m
+    // close at bucket boundary (which is actually close-to-open of new bar).
+    const execPrice = candles15m[idx15m]?.close ?? candle.close;
 
     const currEma20 = ema20[idx15m];
     const prevEma20 = ema20[idx15m - 1];
@@ -69,7 +73,7 @@ export const gannMatrixMomentumV3: BacktestStrategy = {
     const gann = gannAtCandle[index];
     if (!gann) return [];
 
-    const price = candle.close;
+    const price = execPrice;
     const inLongZone = price > gann.pivot && price < gann.r180;
     const inShortZone = price < gann.pivot && price > gann.s180;
 
@@ -86,6 +90,7 @@ export const gannMatrixMomentumV3: BacktestStrategy = {
       const tp = price * (1 + TP_PCT);
       signals.push({
         action: "BUY",
+        entryPrice: execPrice,
         qty,
         leverage,
         sl,
@@ -99,6 +104,7 @@ export const gannMatrixMomentumV3: BacktestStrategy = {
       const tp = price * (1 - TP_PCT);
       signals.push({
         action: "SELL",
+        entryPrice: execPrice,
         qty,
         leverage,
         sl,

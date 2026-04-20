@@ -23,6 +23,7 @@ export interface PrecomputedGann {
   ema20: number[];
   ema50: number[];
   gannAtCandle: GannLevels[];
+  candles15m: Candle[];
 }
 
 export function kryptecPrice(c: { high: number; low: number; close: number }): number {
@@ -122,5 +123,5 @@ export function computeGannPrecompute(allCandles: Candle[]): PrecomputedGann {
     gannAtCandle[i] = currentGann;
   }
 
-  return { map15m, ema20, ema50, gannAtCandle };
+  return { map15m, ema20, ema50, gannAtCandle, candles15m };
 }

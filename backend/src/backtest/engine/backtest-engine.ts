@@ -175,26 +175,36 @@ function executeSignal(
   equity: number,
   config: BacktestConfig,
 ): void {
+  // If the strategy provides an explicit execution price (e.g. the just-closed
+  // HTF bar close), the engine uses it instead of the current 1m candle close.
+  // We fake a Candle with that price so PositionManager.openPosition /
+  // closePositions* still receive the timestamp from the current bar but the
+  // entry/exit price from the HTF close the strategy actually acted on.
+  const execCandle =
+    signal.entryPrice != null && Number.isFinite(signal.entryPrice)
+      ? { ...candle, close: signal.entryPrice }
+      : candle;
+
   switch (signal.action) {
     case "BUY":
     case "SELL": {
       const leverage = signal.leverage ?? 1;
-      const qty = signal.qty ?? (equity * 0.1) / candle.close; // default 10% of equity
+      const qty = signal.qty ?? (equity * 0.1) / execCandle.close; // default 10% of equity
       const sl = signal.sl ?? null;
       const tp = signal.tp ?? null;
-      pm.openPosition(candle, signal.action, qty, leverage, sl, tp);
+      pm.openPosition(execCandle, signal.action, qty, leverage, sl, tp);
       break;
     }
     case "CLOSE_LONG": {
-      pm.closePositionsBySide("BUY", candle);
+      pm.closePositionsBySide("BUY", execCandle);
       break;
     }
     case "CLOSE_SHORT": {
-      pm.closePositionsBySide("SELL", candle);
+      pm.closePositionsBySide("SELL", execCandle);
       break;
     }
     case "CLOSE_ALL": {
-      pm.closeAllPositions(candle);
+      pm.closeAllPositions(execCandle);
       break;
     }
   }
