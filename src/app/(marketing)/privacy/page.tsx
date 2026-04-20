@@ -101,7 +101,7 @@ export default function PrivacyPage() {
             </motion.p>
             <motion.p variants={fadeUp} className="mt-6 leading-relaxed text-muted-foreground">
               At AlgoPulse, your privacy is fundamental to how we build and operate. This policy explains
-              what data we collect, how we use it, and how we protect it. We believe in transparency —
+              what data we collect, how we use it, and how we protect it. We believe in transparency,
               no legalese, no hidden clauses.
             </motion.p>
           </motion.div>
@@ -112,7 +112,7 @@ export default function PrivacyPage() {
               <h2 className="mb-4 text-xl font-semibold">1. Information We Collect</h2>
               <div className="space-y-3 text-muted-foreground leading-relaxed">
                 <p><Strong>Account Information</Strong>: When you sign up, we collect your name, email address, and password. If you use Google OAuth, we receive your Google profile information (name, email, and profile picture).</p>
-                <p><Strong>Exchange API Keys</Strong>: When you connect a broker, we store your API key and secret in encrypted form. We only request trade-only permissions — we never have access to withdraw your funds.</p>
+                <p><Strong>Exchange API Keys</Strong>: When you connect a broker, we store your API key and secret in encrypted form. We only request trade-only permissions, we never have access to withdraw your funds.</p>
                 <p><Strong>Usage Data</Strong>: We collect information about how you use AlgoPulse, including strategies deployed, backtests run, and features accessed. This helps us improve the platform.</p>
                 <p><Strong>Device Information</Strong>: We automatically collect browser type, operating system, and IP address for security and analytics purposes.</p>
               </div>

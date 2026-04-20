@@ -164,7 +164,7 @@ export function BacktestConfigForm({
               <SelectContent>
                 {COINS.map((c) => (
                   <SelectItem key={c.short} value={c.short}>
-                    {c.short} — {c.name}
+                    {c.short}, {c.name}
                   </SelectItem>
                 ))}
               </SelectContent>

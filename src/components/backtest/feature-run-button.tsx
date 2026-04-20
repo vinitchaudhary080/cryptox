@@ -258,10 +258,10 @@ export function FeatureRunButton({
         ) : (
           <StarOff className="h-4 w-4" />
         )}
-        Featured ({coin} · {periodLabel}) — Unfeature
+        Featured ({coin} · {periodLabel}), Unfeature
       </Button>
 
-      {/* Live sync button — only if live sync is configured locally */}
+      {/* Live sync button, only if live sync is configured locally */}
       {liveSyncEnabled && (
         <Button
           variant="outline"
@@ -289,7 +289,7 @@ export function FeatureRunButton({
           ) : liveSyncStatus === "synced" ? (
             <>
               <CheckCircle2 className="h-4 w-4" />
-              Live synced — Re-push
+              Live synced, Re-push
             </>
           ) : liveSyncStatus === "error" ? (
             <>

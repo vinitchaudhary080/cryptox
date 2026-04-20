@@ -86,7 +86,7 @@ export async function GET(
           fontFamily: '"Inter", system-ui, -apple-system, "Segoe UI", sans-serif',
         }}
       >
-        {/* Subtle grid pattern — adds texture without being loud */}
+        {/* Subtle grid pattern, adds texture without being loud */}
         <div
           style={{
             position: "absolute",
@@ -219,7 +219,7 @@ export async function GET(
             zIndex: 1,
           }}
         >
-          {/* Soft brand-tinted halo behind the main coin — no more dark tint */}
+          {/* Soft brand-tinted halo behind the main coin, no more dark tint */}
           <div
             style={{
               position: "absolute",
@@ -230,7 +230,7 @@ export async function GET(
             }}
           />
 
-          {/* Satellite coins — decorative only, no symbols so we avoid
+          {/* Satellite coins, decorative only, no symbols so we avoid
               satori missing-glyph tofu boxes for Ξ / ◎ / ✕ etc. All
               gradients pulled from the brand blue family. */}
           <div
@@ -290,7 +290,7 @@ export async function GET(
             }}
           />
 
-          {/* Main hero coin — category emoji front-and-center, brand blue */}
+          {/* Main hero coin, category emoji front-and-center, brand blue */}
           <div
             style={{
               display: "flex",

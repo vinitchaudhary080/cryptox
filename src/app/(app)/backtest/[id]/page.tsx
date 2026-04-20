@@ -190,7 +190,7 @@ export default function BacktestDetailPage() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-bold tracking-tight">
-                {run.coin} — {run.strategyName}
+                {run.coin}, {run.strategyName}
               </h1>
               <Badge
                 variant="outline"

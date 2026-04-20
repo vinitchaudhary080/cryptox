@@ -119,7 +119,7 @@ export default async function BlogPostPage({
           <ArrowLeft className="h-3 w-3" /> All articles
         </Link>
 
-        {/* Hero image — same programmatic OG asset used in social shares */}
+        {/* Hero image, same programmatic OG asset used in social shares */}
         <div className="mb-8 aspect-[1200/630] overflow-hidden rounded-2xl border border-border/50 bg-muted/30">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -177,7 +177,7 @@ export default async function BlogPostPage({
             Ready to try it yourself?
           </h3>
           <p className="mt-2 text-sm text-muted-foreground">
-            AlgoPulse is free — no credit card, no subscription. Connect your
+            AlgoPulse is free, no credit card, no subscription. Connect your
             broker and deploy a strategy in 15 minutes.
           </p>
           <Link

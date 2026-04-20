@@ -191,12 +191,12 @@ export default function BacktestPage() {
       )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-        {/* Config Form — Left Side */}
+        {/* Config Form, Left Side */}
         <motion.div variants={fadeUp} className="lg:col-span-2">
           <BacktestConfigForm onRunStarted={handleRunStarted} />
         </motion.div>
 
-        {/* Results List — Right Side */}
+        {/* Results List, Right Side */}
         <motion.div variants={fadeUp} className="lg:col-span-3">
           <Card className="border-border/50">
             <CardHeader className="pb-3">

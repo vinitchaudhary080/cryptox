@@ -162,7 +162,7 @@ export default function AboutPage() {
             <motion.p variants={fadeUp} className="mt-6 text-lg leading-relaxed text-muted-foreground">
               AlgoPulse was born from a simple frustration: algorithmic trading tools were either too
               complex for regular traders or too basic to be useful. We set out to build something
-              different — a platform where anyone can deploy proven strategies without writing code.
+              different, a platform where anyone can deploy proven strategies without writing code.
             </motion.p>
           </motion.div>
         </div>
@@ -186,11 +186,11 @@ export default function AboutPage() {
             </div>
             <div className="space-y-6">
               <motion.p variants={fadeUp} className="leading-relaxed text-muted-foreground">
-                In early 2024, three friends — all crypto traders — were tired of watching charts at 3 AM
+                In early 2024, three friends, all crypto traders, were tired of watching charts at 3 AM
                 and manually executing the same strategies over and over. We knew there had to be a better way.
               </motion.p>
               <motion.p variants={fadeUp} className="leading-relaxed text-muted-foreground">
-                We started building AlgoPulse as a side project — a simple tool to automate our own Grid
+                We started building AlgoPulse as a side project, a simple tool to automate our own Grid
                 Trading and DCA strategies on Delta Exchange. Word spread. Friends wanted in. Then their
                 friends. Before we knew it, we had a platform.
               </motion.p>

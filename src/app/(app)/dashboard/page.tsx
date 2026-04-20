@@ -278,10 +278,10 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Charts Row — only show if user has data */}
+      {/* Charts Row, only show if user has data */}
       {!isNewUser && (pnlHistory.length > 0 || allocation.length > 0) && (
         <div className="grid gap-4 lg:grid-cols-3">
-          {/* Portfolio Performance — Cumulative PnL */}
+          {/* Portfolio Performance, Cumulative PnL */}
           <motion.div variants={fadeUp} className={allocation.length > 0 ? "lg:col-span-2" : "lg:col-span-3"}>
             <Card className="border-border/50 bg-card/80">
               <CardHeader className="pb-2">
@@ -311,14 +311,14 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
-                    No PnL history yet — deploy a strategy to start tracking
+                    No PnL history yet, deploy a strategy to start tracking
                   </div>
                 )}
               </CardContent>
             </Card>
           </motion.div>
 
-          {/* Asset Allocation — by coin */}
+          {/* Asset Allocation, by coin */}
           {allocation.length > 0 && (
             <motion.div variants={fadeUp}>
               <Card className="border-border/50 bg-card/80">

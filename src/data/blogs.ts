@@ -40,7 +40,7 @@ const AUTHOR = "AlgoPulse Team";
 
 /* ─────────────────────────────────────────────────────────────
    10 posts, dates fall between 2026-04-01 and 2026-04-19.
-   Sort happens at render time — data order is just for readability.
+   Sort happens at render time, data order is just for readability.
    ───────────────────────────────────────────────────────────── */
 export const blogs: Blog[] = [
   {

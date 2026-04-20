@@ -132,7 +132,7 @@ export default function BlogListPage() {
             <motion.div variants={fadeUp}>
               <Link href={`/blog/${latest.slug}`}>
                 <Card className="group overflow-hidden border-border/60 transition-all hover:border-primary/40 hover:shadow-lg md:grid md:grid-cols-2">
-                  {/* Thumbnail — uses the programmatic /og/[slug] route */}
+                  {/* Thumbnail, uses the programmatic /og/[slug] route */}
                   <div className="relative aspect-[1200/630] overflow-hidden bg-muted/30 md:aspect-auto md:h-full md:min-h-[280px]">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img

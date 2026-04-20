@@ -36,7 +36,7 @@ import { marketApi } from "@/lib/api"
 
 /* ─── Animations ─── */
 /* Tuned for mobile-first snappiness: shorter travel, faster duration, lighter
-   stagger.  Desktop still looks smooth — users there just won't notice the
+   stagger.  Desktop still looks smooth, users there just won't notice the
    40% speedup.  On mobile the page no longer feels blank during scroll. */
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -297,7 +297,7 @@ function HeroSection() {
           >
             Deploy pre-built algorithmic trading strategies on Delta India,
             CoinDCX, Pi42 & Bybit. Backtest on 3 years of real BTC &amp; ETH
-            data before going live. No code, no subscriptions — completely free.
+            data before going live. No code, no subscriptions, completely free.
           </motion.p>
 
           <motion.div
@@ -624,7 +624,7 @@ function BacktestShowcase() {
               variants={fadeUp}
               className="mt-4 max-w-md text-muted-foreground"
             >
-              Every pre-built strategy comes with a 3-year backtest report — run on 1-minute
+              Every pre-built strategy comes with a 3-year backtest report, run on 1-minute
               candles across 18 major cryptocurrencies. No assumptions, no cherry-picked dates.
             </motion.p>
 
@@ -839,7 +839,7 @@ function ExchangesSection() {
             Connect your favorite exchange
           </motion.h2>
           <motion.p variants={fadeUp} className="mx-auto mt-4 max-w-lg text-muted-foreground">
-            Secure, trade-only API connections. Your funds stay on the exchange — we never have withdrawal access.
+            Secure, trade-only API connections. Your funds stay on the exchange, we never have withdrawal access.
           </motion.p>
         </motion.div>
 
@@ -887,7 +887,7 @@ function CtaSection() {
               Ready to automate your trading?
             </h2>
             <p className="mx-auto mt-4 max-w-md text-muted-foreground">
-              Join traders who are already running strategies 24/7. Start with our free plan — no credit card required.
+              Join traders who are already running strategies 24/7. Start with our free plan, no credit card required.
             </p>
             <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
               <Link href="/signup" className={buttonVariants({ size: "lg", className: "h-12 px-8 text-base" })}>

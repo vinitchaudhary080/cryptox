@@ -314,7 +314,7 @@ export function AuthPage({ defaultTab = "login" }: { defaultTab?: "login" | "sig
       <div className="absolute left-1/4 top-1/3 h-[500px] w-[500px] rounded-full bg-primary/5 blur-[120px]" />
       <div className="absolute bottom-1/4 right-1/3 h-[400px] w-[400px] rounded-full bg-chart-4/5 blur-[120px]" />
 
-      {/* Left — Branding panel (desktop only) */}
+      {/* Left, Branding panel (desktop only) */}
       <div className="relative hidden w-[480px] shrink-0 flex-col justify-between overflow-hidden border-r border-border/50 bg-card/30 p-10 lg:flex xl:w-[540px]">
         <div>
           <Link href="/" className="flex items-center">
@@ -329,7 +329,7 @@ export function AuthPage({ defaultTab = "login" }: { defaultTab?: "login" | "sig
           </h2>
           <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
             Deploy pre-built strategies, track real-time performance, and manage
-            your portfolio across multiple exchanges — all in one place.
+            your portfolio across multiple exchanges, all in one place.
           </p>
 
           {/* Stats */}
@@ -352,7 +352,7 @@ export function AuthPage({ defaultTab = "login" }: { defaultTab?: "login" | "sig
         </p>
       </div>
 
-      {/* Right — Auth form */}
+      {/* Right, Auth form */}
       <div className="relative flex flex-1 flex-col">
         {/* Top bar */}
         <div className="flex items-center justify-between p-4 sm:p-6">

@@ -295,7 +295,7 @@ export default function StrategiesPage() {
                 </Card>
               </DialogTrigger>
 
-              {/* Strategy Detail Dialog — bottom-sheet on mobile, centered card on desktop */}
+              {/* Strategy Detail Dialog, bottom-sheet on mobile, centered card on desktop */}
               <DialogContent className="
                 !fixed !bottom-0 !left-0 !top-auto
                 !max-h-[85vh] !w-full !max-w-none
@@ -308,7 +308,7 @@ export default function StrategiesPage() {
                 sm:!rounded-2xl sm:p-6
                 sm:data-open:slide-in-from-bottom-0 sm:data-open:zoom-in-95
               ">
-                {/* Drag indicator — only visible on mobile bottom-sheet */}
+                {/* Drag indicator, only visible on mobile bottom-sheet */}
                 <div className="mx-auto -mt-2 mb-2 h-1 w-10 rounded-full bg-muted-foreground/30 sm:hidden" />
                 <DialogHeader>
                   <DialogTitle className="flex flex-wrap items-center gap-2 pr-8 text-base sm:text-lg">
@@ -327,7 +327,7 @@ export default function StrategiesPage() {
                     {strategy.description}
                   </p>
 
-                  {/* Performance Chart — shorter on mobile to leave room for stats + actions */}
+                  {/* Performance Chart, shorter on mobile to leave room for stats + actions */}
                   <div className="h-36 sm:h-48">
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={strategy.performance}>
@@ -419,7 +419,7 @@ export default function StrategiesPage() {
                     )
                   })()}
 
-                  {/* Action buttons — bigger tap targets on mobile (44px = Apple HIG min) */}
+                  {/* Action buttons, bigger tap targets on mobile (44px = Apple HIG min) */}
                   <div className="flex flex-col gap-2.5 sm:flex-row">
                     <Button
                       variant="outline"

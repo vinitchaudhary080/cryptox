@@ -313,7 +313,7 @@ export default function BrokersPage() {
                         </p>
                       ) : (
                         <p className="mt-0.5 text-xs text-muted-foreground">
-                          Not connected — click Connect to set up
+                          Not connected, click Connect to set up
                         </p>
                       )}
                     </div>
@@ -385,7 +385,7 @@ export default function BrokersPage() {
             <div>
               <p className="text-sm font-medium">Your keys are safe</p>
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                We only request <strong>trade-only</strong> API permissions. Your funds stay on the exchange — AlgoPulse never has withdrawal access.
+                We only request <strong>trade-only</strong> API permissions. Your funds stay on the exchange, AlgoPulse never has withdrawal access.
                 All API keys are encrypted at rest with AES-256 and transmitted over TLS 1.3. We recommend enabling IP whitelisting on your exchange for added security.
               </p>
             </div>

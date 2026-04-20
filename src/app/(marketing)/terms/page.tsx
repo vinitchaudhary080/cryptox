@@ -134,7 +134,7 @@ export default function TermsPage() {
             <motion.div variants={fadeUp}>
               <h2 className="mb-4 text-xl font-semibold">4. Trading Risks</h2>
               <div className="space-y-3 text-muted-foreground leading-relaxed">
-                <p><Strong>Cryptocurrency trading involves substantial risk of loss.</Strong> Past performance of any strategy — whether in backtesting or live trading — does not guarantee future results.</p>
+                <p><Strong>Cryptocurrency trading involves substantial risk of loss.</Strong> Past performance of any strategy, whether in backtesting or live trading, does not guarantee future results.</p>
                 <p>Algorithmic trading strategies can and do lose money. Market conditions change, and strategies that performed well historically may underperform in different conditions.</p>
                 <p>You acknowledge that you are solely responsible for your trading decisions and any resulting gains or losses. AlgoPulse provides tools, not financial advice.</p>
                 <p>Backtesting results are based on historical data and do not account for slippage, exchange downtime, API failures, or real-time market impact. Actual trading results may differ significantly.</p>

@@ -503,11 +503,11 @@ export default function SettingsPage() {
                       <li>
                         Scroll and tap <strong>&quot;Add to Home Screen&quot;</strong>
                       </li>
-                      <li>Tap <strong>Add</strong> — AlgoPulse icon will appear on your Home Screen</li>
+                      <li>Tap <strong>Add</strong>, AlgoPulse icon will appear on your Home Screen</li>
                       <li>
                         Open AlgoPulse <strong>from the Home Screen icon</strong> (not Safari) and return to this page
                       </li>
-                      <li>The toggle will activate — tap it to enable push</li>
+                      <li>The toggle will activate, tap it to enable push</li>
                     </ol>
                     <p className="mt-3 text-[11px] text-muted-foreground/80">
                       iOS requires apps be added to Home Screen for push notifications to work.
@@ -676,7 +676,7 @@ export default function SettingsPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Account — sign-out section, visible on both mobile and desktop. On
+      {/* Account, sign-out section, visible on both mobile and desktop. On
           desktop the nav dropdown also has Log out; this surface keeps it
           obvious to users who only ever use the app from their phone. */}
       <motion.div variants={fadeUp}>
