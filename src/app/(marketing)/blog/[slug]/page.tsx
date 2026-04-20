@@ -23,6 +23,7 @@ export async function generateMetadata({
   const blog = getBlogBySlug(slug);
   if (!blog) return {};
   const url = `https://algopulse.in/blog/${blog.slug}`;
+  const ogImage = `https://algopulse.in/og/${blog.slug}`;
   return {
     title: blog.title,
     description: blog.description,
@@ -37,11 +38,13 @@ export async function generateMetadata({
       publishedTime: blog.publishedAt,
       authors: [blog.author],
       tags: blog.tags,
+      images: [{ url: ogImage, width: 1200, height: 630, alt: blog.title }],
     },
     twitter: {
       card: "summary_large_image",
       title: blog.title,
       description: blog.description,
+      images: [ogImage],
     },
   };
 }
@@ -115,6 +118,16 @@ export default async function BlogPostPage({
         >
           <ArrowLeft className="h-3 w-3" /> All articles
         </Link>
+
+        {/* Hero image — same programmatic OG asset used in social shares */}
+        <div className="mb-8 aspect-[1200/630] overflow-hidden rounded-2xl border border-border/50 bg-muted/30">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={`/og/${blog.slug}`}
+            alt={blog.title}
+            className="h-full w-full object-cover"
+          />
+        </div>
 
         <Badge
           variant="secondary"
@@ -190,7 +203,15 @@ export default async function BlogPostPage({
                   href={`/blog/${r.slug}`}
                   className="group block h-full"
                 >
-                  <Card className="h-full border-border/60 transition-all group-hover:border-primary/40">
+                  <Card className="h-full overflow-hidden border-border/60 transition-all group-hover:border-primary/40">
+                    <div className="aspect-[1200/630] overflow-hidden bg-muted/30">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={`/og/${r.slug}`}
+                        alt={r.title}
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                      />
+                    </div>
                     <CardContent className="p-5">
                       <h3 className="mb-2 line-clamp-2 text-base font-semibold leading-snug">
                         {r.title}

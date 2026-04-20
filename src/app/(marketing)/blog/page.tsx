@@ -131,7 +131,16 @@ export default function BlogListPage() {
             </motion.p>
             <motion.div variants={fadeUp}>
               <Link href={`/blog/${latest.slug}`}>
-                <Card className="group overflow-hidden border-border/60 transition-all hover:border-primary/40 hover:shadow-lg">
+                <Card className="group overflow-hidden border-border/60 transition-all hover:border-primary/40 hover:shadow-lg md:grid md:grid-cols-2">
+                  {/* Thumbnail — uses the programmatic /og/[slug] route */}
+                  <div className="relative aspect-[1200/630] overflow-hidden bg-muted/30 md:aspect-auto md:h-full md:min-h-[280px]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`/og/${latest.slug}`}
+                      alt={latest.title}
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                    />
+                  </div>
                   <CardContent className="p-6 sm:p-8">
                     <div className="mb-3 flex items-center gap-2">
                       <Badge
@@ -193,7 +202,16 @@ export default function BlogListPage() {
               {rest.map((blog) => (
                 <motion.div key={blog.slug} variants={fadeUp}>
                   <Link href={`/blog/${blog.slug}`} className="group block h-full">
-                    <Card className="h-full border-border/60 transition-all group-hover:-translate-y-0.5 group-hover:border-primary/40 group-hover:shadow-md">
+                    <Card className="h-full overflow-hidden border-border/60 transition-all group-hover:-translate-y-0.5 group-hover:border-primary/40 group-hover:shadow-md">
+                      {/* Thumbnail */}
+                      <div className="aspect-[1200/630] overflow-hidden bg-muted/30">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={`/og/${blog.slug}`}
+                          alt={blog.title}
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                        />
+                      </div>
                       <CardContent className="flex h-full flex-col p-5">
                         <Badge
                           variant="secondary"
