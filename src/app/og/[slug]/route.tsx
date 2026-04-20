@@ -322,7 +322,11 @@ export async function GET(
     {
       ...size,
       headers: {
-        "Cache-Control": "public, immutable, no-transform, max-age=31536000",
+        // Browser: no aggressive caching (so design tweaks land fast).
+        // CDN: cache for 1h, serve-stale for up to 24h while revalidating.
+        // A ?v= version param on the <img> src busts this when needed.
+        "Cache-Control":
+          "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400",
       },
     },
   );

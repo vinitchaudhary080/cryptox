@@ -23,7 +23,7 @@ export async function generateMetadata({
   const blog = getBlogBySlug(slug);
   if (!blog) return {};
   const url = `https://algopulse.in/blog/${blog.slug}`;
-  const ogImage = `https://algopulse.in/og/${blog.slug}`;
+  const ogImage = `https://algopulse.in/og/${blog.slug}?v=2`;
   return {
     title: blog.title,
     description: blog.description,
@@ -123,7 +123,7 @@ export default async function BlogPostPage({
         <div className="mb-8 aspect-[1200/630] overflow-hidden rounded-2xl border border-border/50 bg-muted/30">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={`/og/${blog.slug}`}
+            src={`/og/${blog.slug}?v=2`}
             alt={blog.title}
             className="h-full w-full object-cover"
           />
@@ -207,7 +207,7 @@ export default async function BlogPostPage({
                     <div className="aspect-[1200/630] overflow-hidden bg-muted/30">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={`/og/${r.slug}`}
+                        src={`/og/${r.slug}?v=2`}
                         alt={r.title}
                         className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
                       />
