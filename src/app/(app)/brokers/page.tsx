@@ -325,7 +325,7 @@ export default function BrokersPage() {
                       <div className="hidden gap-6 sm:flex">
                         <div className="text-right">
                           <p className="text-[10px] text-muted-foreground">Balance</p>
-                          <p className="text-sm font-semibold">{broker.balance != null ? `$${broker.balance.toLocaleString()}` : "—"}</p>
+                          <p className="text-sm font-semibold">{broker.balance != null ? `$${broker.balance.toLocaleString()}` : "-"}</p>
                         </div>
                         <div className="text-right">
                           <p className="text-[10px] text-muted-foreground">Strategies</p>
@@ -363,7 +363,7 @@ export default function BrokersPage() {
                   <div className="mt-3 grid grid-cols-3 gap-3 border-t border-border/50 pt-3 sm:hidden">
                     <div>
                       <p className="text-[10px] text-muted-foreground">Balance</p>
-                      <p className="text-sm font-semibold">{broker.balance != null ? `$${broker.balance.toLocaleString()}` : "—"}</p>
+                      <p className="text-sm font-semibold">{broker.balance != null ? `$${broker.balance.toLocaleString()}` : "-"}</p>
                     </div>
                     <div>
                       <p className="text-[10px] text-muted-foreground">Strategies</p>

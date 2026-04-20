@@ -188,7 +188,7 @@ export function DeployDialog({
     })
   }, [selectedBrokerId, selectedPair])
 
-  // Live min-validation math — effective notional = invested × position% × leverage.
+  // Live min-validation math, effective notional = invested × position% × leverage.
   // This mirrors exactly what the live executor trades per entry, so the
   // deploy-time check won't lie to the user.
   const amountNum = parseFloat(amount) || 0
@@ -606,7 +606,7 @@ export function DeployDialog({
                     />
                     <p className="mt-1 text-[10px] text-muted-foreground">
                       {positionSizeLocked
-                        ? "This strategy's code sets its own position size — cannot be overridden."
+                        ? "This strategy's code sets its own position size, cannot be overridden."
                         : "Fraction of your investment deployed per entry."}
                     </p>
                   </div>

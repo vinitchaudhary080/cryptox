@@ -429,7 +429,7 @@ export default function SettingsPage() {
                 <div className="flex flex-wrap gap-6 text-xs text-muted-foreground">
                   <div className="flex items-center gap-1.5">
                     <Calendar className="h-3 w-3" />
-                    Member since {profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString("en-US", { month: "long", year: "numeric" }) : "—"}
+                    Member since {profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString("en-US", { month: "long", year: "numeric" }) : "-"}
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Plug className="h-3 w-3" />
@@ -437,7 +437,7 @@ export default function SettingsPage() {
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Clock className="h-3 w-3" />
-                    Last updated {profile?.updatedAt ? new Date(profile.updatedAt).toLocaleDateString() : "—"}
+                    Last updated {profile?.updatedAt ? new Date(profile.updatedAt).toLocaleDateString() : "-"}
                   </div>
                 </div>
               </CardContent>
@@ -462,15 +462,15 @@ export default function SettingsPage() {
                       <p className="font-medium">Push notifications</p>
                       <p className="text-xs text-muted-foreground">
                         {needsPWA
-                          ? "On iOS — add AlgoPulse to your Home Screen first (see steps below)"
+                          ? "On iOS, add AlgoPulse to your Home Screen first (see steps below)"
                           : iosDevice && standalone && !pushSupported
                             ? "Update iOS to 16.4 or later to enable push"
                             : !pushSupported
                               ? "This browser does not support web push"
                               : pushPermission === "denied"
-                                ? "Blocked in browser settings — unblock notifications for this site"
+                                ? "Blocked in browser settings, unblock notifications for this site"
                                 : pushEnabled
-                                  ? "Enabled on this device — trades & strategy events will push live"
+                                  ? "Enabled on this device, trades & strategy events will push live"
                                   : "Get live alerts on trades, strategy state and admin messages"}
                       </p>
                       {pushError && <p className="mt-1 text-xs text-red-500">{pushError}</p>}
@@ -688,7 +688,7 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
-              <p className="text-sm font-medium">Signed in as {authUser?.email ?? "—"}</p>
+              <p className="text-sm font-medium">Signed in as {authUser?.email ?? "-"}</p>
               <p className="text-xs text-muted-foreground">
                 You'll need to log in again to access your strategies and
                 deployments.

@@ -45,7 +45,7 @@ const AUTHOR = "AlgoPulse Team";
 export const blogs: Blog[] = [
   {
     slug: "getting-started-algopulse",
-    title: "Getting Started with AlgoPulse — From Sign-Up to Your First Live Trade",
+    title: "Getting Started with AlgoPulse: From Sign-Up to Your First Live Trade",
     description:
       "A complete walkthrough of your first 15 minutes on AlgoPulse: creating an account, connecting a broker, picking a pre-built strategy, and deploying it on a live market.",
     category: "Getting Started",
@@ -58,12 +58,12 @@ export const blogs: Blog[] = [
         type: "p",
         text: "AlgoPulse is a free, no-code algorithmic trading platform built for Indian crypto traders. This guide takes you from signing up to your first live strategy in under 15 minutes.",
       },
-      { type: "h2", text: "Step 1 — Create your account" },
+      { type: "h2", text: "Step 1, Create your account" },
       {
         type: "p",
-        text: "Head to algopulse.in and click Sign Up. Use your email or continue with Google. You'll land on the Dashboard — empty for now, but that changes in the next 3 steps.",
+        text: "Head to algopulse.in and click Sign Up. Use your email or continue with Google. You'll land on the Dashboard, empty for now, but that changes in the next 3 steps.",
       },
-      { type: "h2", text: "Step 2 — Connect a broker" },
+      { type: "h2", text: "Step 2, Connect a broker" },
       {
         type: "p",
         text: "AlgoPulse doesn't hold your money. Instead, it connects to your existing exchange account via API keys and places trades on your behalf. Supported exchanges:",
@@ -71,15 +71,15 @@ export const blogs: Blog[] = [
       {
         type: "ul",
         items: [
-          "Delta Exchange India — USD-M perpetual futures",
-          "CoinDCX — USDT perpetual futures",
-          "Pi42 — INR-settled futures (India-compliant)",
-          "Bybit — USDT-M perpetual futures",
+          "Delta Exchange India, USD-M perpetual futures",
+          "CoinDCX, USDT perpetual futures",
+          "Pi42, INR-settled futures (India-compliant)",
+          "Bybit, USDT-M perpetual futures",
         ],
       },
       {
         type: "p",
-        text: "Go to Brokers → Add Broker. Pick your exchange, paste your API key and secret (generated from the exchange dashboard), and give the connection a nickname like 'main-delta'. Trade-only API keys are strongly recommended — disable withdrawal permissions.",
+        text: "Go to Brokers → Add Broker. Pick your exchange, paste your API key and secret (generated from the exchange dashboard), and give the connection a nickname like 'main-delta'. Trade-only API keys are strongly recommended, disable withdrawal permissions.",
       },
       {
         type: "callout",
@@ -87,7 +87,7 @@ export const blogs: Blog[] = [
         title: "Security tip",
         text: "Always create a trade-only API key (read + trade, withdrawal OFF). This way even if your key leaks, no one can pull your funds.",
       },
-      { type: "h2", text: "Step 3 — Pick a strategy" },
+      { type: "h2", text: "Step 3, Pick a strategy" },
       {
         type: "p",
         text: "Click Strategies in the top nav. You'll see 6 pre-built strategies, each with its own backtest report and risk profile. A few to start with:",
@@ -95,16 +95,16 @@ export const blogs: Blog[] = [
       {
         type: "ul",
         items: [
-          "Meri Strategy — 5m EMA(9/21) crossover + RSI + 15m trend confirmation. Medium risk.",
-          "Supertrend Strategy — 15m SuperTrend + ADX filter + EMA(50) alignment. Medium risk.",
-          "Support/Resistance Breakout — Volume-confirmed pivot zone breakouts with KAMA trail. Medium risk.",
+          "Meri Strategy, 5m EMA(9/21) crossover + RSI + 15m trend confirmation. Medium risk.",
+          "Supertrend Strategy, 15m SuperTrend + ADX filter + EMA(50) alignment. Medium risk.",
+          "Support/Resistance Breakout, Volume-confirmed pivot zone breakouts with KAMA trail. Medium risk.",
         ],
       },
       {
         type: "p",
         text: "Click View Backtest Report to see how the strategy performed on 3 years of real BTC/ETH data. Compare win rate, max drawdown, Sharpe ratio, and trade frequency before committing real capital.",
       },
-      { type: "h2", text: "Step 4 — Deploy it" },
+      { type: "h2", text: "Step 4, Deploy it" },
       {
         type: "p",
         text: "Hit Deploy Strategy, pick your broker, choose a pair (e.g. ETH/USD), set investment ($50+ recommended for Delta India to meet minimum contract size), and confirm leverage + position size. The dialog validates in real-time that your configuration will produce executable trades.",
@@ -115,7 +115,7 @@ export const blogs: Blog[] = [
         title: "Minimum amount matters",
         text: "Delta India requires a minimum 0.01 ETH contract (~$23 notional). At 10x leverage and 50% position size, that works out to $50 minimum investment. AlgoPulse tells you this upfront in the deploy dialog.",
       },
-      { type: "h2", text: "Step 5 — Watch it trade" },
+      { type: "h2", text: "Step 5, Watch it trade" },
       {
         type: "p",
         text: "Go to Deployed. Your strategy is now polling the broker every minute. When entry conditions match, it places a market order with your configured leverage. You'll see trades appear in real time, along with PnL, win rate, and equity curve.",
@@ -131,14 +131,14 @@ export const blogs: Blog[] = [
       },
       {
         type: "p",
-        text: "That's it — you're live. AlgoPulse costs nothing, so experiment freely. Start small, learn what works, then scale up.",
+        text: "That's it, you're live. AlgoPulse costs nothing, so experiment freely. Start small, learn what works, then scale up.",
       },
     ],
   },
 
   {
     slug: "deploy-first-strategy-walkthrough",
-    title: "Deploying Your First Strategy — A Step-by-Step Walkthrough",
+    title: "Deploying Your First Strategy: A Step-by-Step Walkthrough",
     description:
       "What every field in the deploy dialog actually does: amount, leverage, position size, and why the 'meets minimum' check matters.",
     category: "Getting Started",
@@ -149,13 +149,13 @@ export const blogs: Blog[] = [
     content: [
       {
         type: "p",
-        text: "The deploy dialog looks simple — 4 fields — but each one has a precise impact on how much you'll risk per trade. This post explains the math so you can configure with confidence.",
+        text: "The deploy dialog looks simple, 4 fields, but each one has a precise impact on how much you'll risk per trade. This post explains the math so you can configure with confidence.",
       },
       { type: "h2", text: "The 4 fields that matter" },
       { type: "h3", text: "Investment Amount" },
       {
         type: "p",
-        text: "The total capital you're committing to this deployment. This is NOT the per-trade amount — it's the pool the strategy draws from. A $100 investment with 10% position size means each trade uses $10 of margin.",
+        text: "The total capital you're committing to this deployment. This is NOT the per-trade amount, it's the pool the strategy draws from. A $100 investment with 10% position size means each trade uses $10 of margin.",
       },
       { type: "h3", text: "Leverage" },
       {
@@ -176,12 +176,12 @@ export const blogs: Blog[] = [
       { type: "h3", text: "Pair" },
       {
         type: "p",
-        text: "The trading pair — typically ETH/USD or BTC/USD on Delta India. The deploy dialog shows the instrument's minimum notional and max leverage for the pair you pick.",
+        text: "The trading pair, typically ETH/USD or BTC/USD on Delta India. The deploy dialog shows the instrument's minimum notional and max leverage for the pair you pick.",
       },
       { type: "h2", text: "The 'meets minimum' check" },
       {
         type: "p",
-        text: "Every exchange has a minimum order size. For Delta India ETH futures it's 0.01 ETH (≈ $23 at current prices). If your per-trade notional is below this, orders will fail — so AlgoPulse validates before you deploy.",
+        text: "Every exchange has a minimum order size. For Delta India ETH futures it's 0.01 ETH (≈ $23 at current prices). If your per-trade notional is below this, orders will fail, so AlgoPulse validates before you deploy.",
       },
       { type: "h3", text: "The formula" },
       {
@@ -212,7 +212,7 @@ export const blogs: Blog[] = [
 
   {
     slug: "understanding-backtest-report",
-    title: "Understanding Your Backtest Report — 15 Metrics Explained",
+    title: "Understanding Your Backtest Report: 15 Metrics Explained",
     description:
       "Win rate is not enough. A complete guide to reading every number on your AlgoPulse backtest report and what it really says about a strategy.",
     category: "Backtesting",
@@ -223,13 +223,13 @@ export const blogs: Blog[] = [
     content: [
       {
         type: "p",
-        text: "Every AlgoPulse strategy comes with a 3-year backtest report. The numbers can look intimidating — here's what each one actually means and which ones you should weight most heavily.",
+        text: "Every AlgoPulse strategy comes with a 3-year backtest report. The numbers can look intimidating, here's what each one actually means and which ones you should weight most heavily.",
       },
       { type: "h2", text: "Core performance metrics" },
       { type: "h3", text: "Net PnL" },
       {
         type: "p",
-        text: "Total profit after fees and slippage. This is the real number — what you'd actually have in your account. Gross PnL before fees is misleading because crypto fees compound quickly on high-frequency strategies.",
+        text: "Total profit after fees and slippage. This is the real number, what you'd actually have in your account. Gross PnL before fees is misleading because crypto fees compound quickly on high-frequency strategies.",
       },
       { type: "h3", text: "ROI %" },
       {
@@ -239,7 +239,7 @@ export const blogs: Blog[] = [
       { type: "h3", text: "Win Rate" },
       {
         type: "p",
-        text: "Percentage of trades that closed profitable. A 40% win rate with 2:1 reward:risk is better than a 70% win rate with 1:3 — don't look at this in isolation.",
+        text: "Percentage of trades that closed profitable. A 40% win rate with 2:1 reward:risk is better than a 70% win rate with 1:3, don't look at this in isolation.",
       },
       { type: "h3", text: "Profit Factor" },
       {
@@ -266,22 +266,22 @@ export const blogs: Blog[] = [
       {
         type: "ul",
         items: [
-          "Avg Win / Avg Loss — ratio tells you about reward:risk symmetry",
-          "Best Trade / Worst Trade — outlier detection, are results driven by one lucky trade?",
-          "Avg Days Winning / Losing — how long your money is tied up per trade",
-          "Account Blowouts — times equity hit ≤1% of initial (would you have quit?)",
-          "Account Doubles — times equity crossed 2× initial (winners you'd have taken off?)",
+          "Avg Win / Avg Loss, ratio tells you about reward:risk symmetry",
+          "Best Trade / Worst Trade, outlier detection, are results driven by one lucky trade?",
+          "Avg Days Winning / Losing, how long your money is tied up per trade",
+          "Account Blowouts, times equity hit ≤1% of initial (would you have quit?)",
+          "Account Doubles, times equity crossed 2× initial (winners you'd have taken off?)",
         ],
       },
       { type: "h2", text: "What to weight most" },
       {
         type: "ol",
         items: [
-          "Max Drawdown — can you emotionally survive this?",
-          "Profit Factor — is the math even positive?",
-          "MDD Recovery Days — how long underwater?",
-          "Sharpe Ratio — risk-adjusted return",
-          "Win Rate × Avg W:L — actual expectancy",
+          "Max Drawdown, can you emotionally survive this?",
+          "Profit Factor, is the math even positive?",
+          "MDD Recovery Days, how long underwater?",
+          "Sharpe Ratio, risk-adjusted return",
+          "Win Rate × Avg W:L, actual expectancy",
         ],
       },
       {
@@ -297,7 +297,7 @@ export const blogs: Blog[] = [
     slug: "connect-bybit-to-algopulse",
     title: "How to Connect Bybit to AlgoPulse",
     description:
-      "Step-by-step guide to generating a Bybit USDT perpetual API key and pasting it into AlgoPulse — safely.",
+      "Step-by-step guide to generating a Bybit USDT perpetual API key and pasting it into AlgoPulse, safely.",
     category: "Broker Setup",
     author: AUTHOR,
     publishedAt: "2026-04-13T10:15:00.000Z",
@@ -316,14 +316,14 @@ export const blogs: Blog[] = [
           "Select 'System-generated API Keys' and 'API Transaction'",
           "Permissions: check 'Contract - Orders' and 'Contract - Positions'. LEAVE WITHDRAWAL UNCHECKED.",
           "IP restriction: optional but recommended. For AlgoPulse production IP, contact support.",
-          "Copy the API Key and API Secret — you won't see the secret again.",
+          "Copy the API Key and API Secret, you won't see the secret again.",
         ],
       },
       {
         type: "callout",
         kind: "warn",
         title: "Withdrawal stays OFF",
-        text: "AlgoPulse only needs read + trade permissions. Never enable withdrawal on an API key used by a bot — it's not needed and massively increases your risk.",
+        text: "AlgoPulse only needs read + trade permissions. Never enable withdrawal on an API key used by a bot, it's not needed and massively increases your risk.",
       },
       { type: "h2", text: "2. Add the broker in AlgoPulse" },
       {
@@ -349,9 +349,9 @@ export const blogs: Blog[] = [
       {
         type: "ul",
         items: [
-          "'Invalid API key' — you copied a testnet key instead of mainnet. Make sure you generated it on bybit.com, not testnet.bybit.com.",
-          "'Permission denied' — the key doesn't have Contract permission enabled. Edit the key and add it.",
-          "'IP not allowed' — you set an IP restriction but didn't include AlgoPulse's IP. Either remove the restriction or contact support.",
+          "'Invalid API key', you copied a testnet key instead of mainnet. Make sure you generated it on bybit.com, not testnet.bybit.com.",
+          "'Permission denied', the key doesn't have Contract permission enabled. Edit the key and add it.",
+          "'IP not allowed', you set an IP restriction but didn't include AlgoPulse's IP. Either remove the restriction or contact support.",
         ],
       },
     ],
@@ -370,20 +370,20 @@ export const blogs: Blog[] = [
     content: [
       {
         type: "p",
-        text: "Meri Strategy V2 looks identical to V1 at first glance — same 5m EMA crossover, same RSI filter, same 15m trend confirmation. The one difference is position sizing, and it's bigger than it sounds.",
+        text: "Meri Strategy V2 looks identical to V1 at first glance, same 5m EMA crossover, same RSI filter, same 15m trend confirmation. The one difference is position sizing, and it's bigger than it sounds.",
       },
       { type: "h2", text: "V1 vs V2 in one line" },
       {
         type: "ul",
         items: [
-          "V1 — Fixed 10% of your INITIAL investment per trade",
-          "V2 — 50% of your CURRENT equity per trade (position size grows with wins, shrinks with losses)",
+          "V1, Fixed 10% of your INITIAL investment per trade",
+          "V2, 50% of your CURRENT equity per trade (position size grows with wins, shrinks with losses)",
         ],
       },
       { type: "h2", text: "Why compounding matters" },
       {
         type: "p",
-        text: "Imagine $100 starting capital. V1 risks $10 per trade regardless of how the account has done. If you've grown to $200, V1 is still risking $10 — but that's only 5% now. It's getting less aggressive as you succeed.",
+        text: "Imagine $100 starting capital. V1 risks $10 per trade regardless of how the account has done. If you've grown to $200, V1 is still risking $10, but that's only 5% now. It's getting less aggressive as you succeed.",
       },
       {
         type: "p",
@@ -396,7 +396,7 @@ export const blogs: Blog[] = [
       { type: "h2", text: "The math over 100 trades" },
       {
         type: "p",
-        text: "With a 40% win rate and 2:1 reward:risk, both V1 and V2 are profitable. But V2's equity curve is steeper — it took the same signals and turned them into larger and larger trades as the account grew.",
+        text: "With a 40% win rate and 2:1 reward:risk, both V1 and V2 are profitable. But V2's equity curve is steeper, it took the same signals and turned them into larger and larger trades as the account grew.",
       },
       {
         type: "callout",
@@ -407,7 +407,7 @@ export const blogs: Blog[] = [
       { type: "h2", text: "Why position size is locked in V2" },
       {
         type: "p",
-        text: "V2's magic comes from the 50% equity sizing. Letting users dial this down to 10% would defeat the purpose — you'd get V1 with a confusing name. So the deploy dialog locks it at 50% and tells you clearly.",
+        text: "V2's magic comes from the 50% equity sizing. Letting users dial this down to 10% would defeat the purpose, you'd get V1 with a confusing name. So the deploy dialog locks it at 50% and tells you clearly.",
       },
       { type: "h2", text: "When to pick V2 over V1" },
       {
@@ -447,7 +447,7 @@ export const blogs: Blog[] = [
           "Log in to pi42.com. Go to Profile → API Management → Create Key",
           "Name it 'AlgoPulse' so you can identify it later",
           "Permissions: enable Trading. Leave Withdrawals OFF.",
-          "Copy the API Key and Secret immediately — the Secret is shown only once",
+          "Copy the API Key and Secret immediately, the Secret is shown only once",
         ],
       },
       { type: "h2", text: "2. Add it in AlgoPulse" },
@@ -468,8 +468,8 @@ export const blogs: Blog[] = [
       {
         type: "ul",
         items: [
-          "Settlement currency is INR — AlgoPulse will show PnL in INR in deploy reports",
-          "Minimum lot sizes can differ from USD exchanges — the deploy dialog uses Pi42's live rules",
+          "Settlement currency is INR, AlgoPulse will show PnL in INR in deploy reports",
+          "Minimum lot sizes can differ from USD exchanges, the deploy dialog uses Pi42's live rules",
           "1% TDS is withheld automatically by Pi42 on profits (Indian tax compliance)",
           "KYC is required before API trading is enabled",
         ],
@@ -478,7 +478,7 @@ export const blogs: Blog[] = [
         type: "callout",
         kind: "tip",
         title: "Why Pi42 if you're Indian",
-        text: "Profits settle straight to your INR bank account via Pi42's integrated UPI withdrawal — no USDT → INR conversion headaches, no P2P risk.",
+        text: "Profits settle straight to your INR bank account via Pi42's integrated UPI withdrawal, no USDT → INR conversion headaches, no P2P risk.",
       },
       { type: "h2", text: "What strategies work best on Pi42?" },
       {
@@ -490,7 +490,7 @@ export const blogs: Blog[] = [
 
   {
     slug: "position-sizing-leverage-money-math",
-    title: "Position Sizing, Leverage & Minimum Notional — The Money Math",
+    title: "Position Sizing, Leverage & Minimum Notional: The Money Math",
     description:
       "The single most important thing to understand about algo trading: how much money is actually at stake per trade. A plain-English breakdown.",
     category: "Risk & Safety",
@@ -527,7 +527,7 @@ export const blogs: Blog[] = [
       },
       {
         type: "p",
-        text: "The notional is what actually matters. It has to clear the exchange's minimum (e.g., $23 for Delta India ETH). And every 1% move in the underlying asset moves your notional by 1% — meaning your margin moves by leverage × 1%.",
+        text: "The notional is what actually matters. It has to clear the exchange's minimum (e.g., $23 for Delta India ETH). And every 1% move in the underlying asset moves your notional by 1%, meaning your margin moves by leverage × 1%.",
       },
       { type: "h2", text: "A worked example" },
       {
@@ -541,7 +541,7 @@ export const blogs: Blog[] = [
           "Notional: $10 × 10x = $100",
           "Quantity: $100 / $2300 = 0.0435 ETH",
           "If ETH drops 5%: $100 × 5% = $5 loss on $10 margin = 50% of margin gone",
-          "If ETH drops 10%: margin is wiped out — position liquidated",
+          "If ETH drops 10%: margin is wiped out, position liquidated",
         ],
       },
       {
@@ -561,7 +561,7 @@ export const blogs: Blog[] = [
       },
       {
         type: "p",
-        text: "Every field in AlgoPulse's deploy dialog is designed so you see these numbers BEFORE you confirm. The 'meets minimum' check is your safety net — not a warning to bypass.",
+        text: "Every field in AlgoPulse's deploy dialog is designed so you see these numbers BEFORE you confirm. The 'meets minimum' check is your safety net, not a warning to bypass.",
       },
     ],
   },
@@ -589,7 +589,7 @@ export const blogs: Blog[] = [
           "Click Create API Key. Name it 'AlgoPulse'.",
           "Permissions: Read + Trade ON. Withdraw OFF.",
           "IP whitelist: enter AlgoPulse IP if you want extra safety (see FAQ)",
-          "Save the API Key + API Secret. The Secret appears ONCE — copy it now.",
+          "Save the API Key + API Secret. The Secret appears ONCE, copy it now.",
         ],
       },
       {
@@ -606,7 +606,7 @@ export const blogs: Blog[] = [
           "Select CoinDCX",
           "Nickname: 'coindcx-futures'",
           "Paste API Key and Secret",
-          "Click Connect — AlgoPulse probes balance for confirmation",
+          "Click Connect, AlgoPulse probes balance for confirmation",
         ],
       },
       { type: "h2", text: "3. Minimum order sizes (important)" },
@@ -630,9 +630,9 @@ export const blogs: Blog[] = [
       {
         type: "ul",
         items: [
-          "'Insufficient funds' — your CoinDCX Futures wallet is empty. Transfer from spot to futures wallet inside CoinDCX first.",
-          "'Quantity should be divisible by 0.001' — AlgoPulse auto-rounds, but if you see this the instrument step size is unusual. Switch pair or contact support.",
-          "'IP not allowed' — you added an IP restriction without AlgoPulse's IP. Remove it or add the correct IP.",
+          "'Insufficient funds', your CoinDCX Futures wallet is empty. Transfer from spot to futures wallet inside CoinDCX first.",
+          "'Quantity should be divisible by 0.001', AlgoPulse auto-rounds, but if you see this the instrument step size is unusual. Switch pair or contact support.",
+          "'IP not allowed', you added an IP restriction without AlgoPulse's IP. Remove it or add the correct IP.",
         ],
       },
     ],
@@ -651,7 +651,7 @@ export const blogs: Blog[] = [
     content: [
       {
         type: "p",
-        text: "Delta Exchange India (DEI) supports BTC, ETH, SOL, XRP, DOGE, SUI perpetual futures — plus a compliance-first Indian setup. This is the fastest 3-minute walk-through.",
+        text: "Delta Exchange India (DEI) supports BTC, ETH, SOL, XRP, DOGE, SUI perpetual futures, plus a compliance-first Indian setup. This is the fastest 3-minute walk-through.",
       },
       { type: "h2", text: "1. API key on Delta India" },
       {
@@ -683,28 +683,28 @@ export const blogs: Blog[] = [
       {
         type: "ul",
         items: [
-          "ETH/USD:USD — minimum 0.01 ETH (~$23 notional)",
-          "BTC/USD:USD — minimum 0.001 BTC (~$65 notional)",
-          "SOL/USD:USD — minimum 1 SOL (~$150 notional)",
+          "ETH/USD:USD, minimum 0.01 ETH (~$23 notional)",
+          "BTC/USD:USD, minimum 0.001 BTC (~$65 notional)",
+          "SOL/USD:USD, minimum 1 SOL (~$150 notional)",
         ],
       },
       {
         type: "p",
-        text: "AlgoPulse's deploy dialog shows these live — if your config produces a trade below the minimum, it won't let you deploy.",
+        text: "AlgoPulse's deploy dialog shows these live, if your config produces a trade below the minimum, it won't let you deploy.",
       },
       {
         type: "callout",
         kind: "tip",
         title: "Fastest way to start",
-        text: "Investment $50, Leverage 10x, Position Size 50%, Pair ETH/USD:USD. That produces $250 notional trades — comfortably above Delta's 0.01 ETH minimum.",
+        text: "Investment $50, Leverage 10x, Position Size 50%, Pair ETH/USD:USD. That produces $250 notional trades, comfortably above Delta's 0.01 ETH minimum.",
       },
       { type: "h2", text: "What can go wrong" },
       {
         type: "ul",
         items: [
-          "'Signature invalid' — you copied the API Key into the Secret field (or vice versa). Double-check.",
-          "'Permission denied' — the key wasn't given Trade permission. Regenerate with Trade checked.",
-          "'Rate limit exceeded' — too many deploys in quick succession. Wait 30 seconds and retry.",
+          "'Signature invalid', you copied the API Key into the Secret field (or vice versa). Double-check.",
+          "'Permission denied', the key wasn't given Trade permission. Regenerate with Trade checked.",
+          "'Rate limit exceeded', too many deploys in quick succession. Wait 30 seconds and retry.",
         ],
       },
     ],
@@ -725,44 +725,44 @@ export const blogs: Blog[] = [
         type: "p",
         text: "We've watched hundreds of deployments over the last few months. These are the 5 mistakes that show up again and again.",
       },
-      { type: "h2", text: "Mistake 1 — Going straight to max leverage" },
+      { type: "h2", text: "Mistake 1, Going straight to max leverage" },
       {
         type: "p",
-        text: "New traders see 100x leverage on the exchange and assume that's the interesting setting. It isn't — it's the liquidation setting. A 1% adverse move at 100x wipes out your margin. Professional algos run 2x–5x.",
+        text: "New traders see 100x leverage on the exchange and assume that's the interesting setting. It isn't, it's the liquidation setting. A 1% adverse move at 100x wipes out your margin. Professional algos run 2x–5x.",
       },
       {
         type: "callout",
         kind: "tip",
         text: "Start at 5x. Watch how the strategy behaves for a week. If drawdowns feel manageable, try 10x. Don't go higher without a reason.",
       },
-      { type: "h2", text: "Mistake 2 — Ignoring the backtest report" },
+      { type: "h2", text: "Mistake 2, Ignoring the backtest report" },
       {
         type: "p",
-        text: "A flashy ROI number doesn't mean a strategy is safe. The backtest report also shows max drawdown, Sharpe ratio, and MDD recovery days — those are the numbers that predict whether you'll stick with the strategy when it has a losing week.",
+        text: "A flashy ROI number doesn't mean a strategy is safe. The backtest report also shows max drawdown, Sharpe ratio, and MDD recovery days, those are the numbers that predict whether you'll stick with the strategy when it has a losing week.",
       },
-      { type: "h2", text: "Mistake 3 — Deploying the minimum amount to 'test it'" },
+      { type: "h2", text: "Mistake 3, Deploying the minimum amount to 'test it'" },
       {
         type: "p",
-        text: "Counter-intuitive, but: deploying $5 on Delta India with the default 10% position size produces $0.50 trades — which fail because they're below the broker's minimum contract. The strategy looks broken but isn't. Start with at least $50.",
+        text: "Counter-intuitive, but: deploying $5 on Delta India with the default 10% position size produces $0.50 trades, which fail because they're below the broker's minimum contract. The strategy looks broken but isn't. Start with at least $50.",
       },
       {
         type: "callout",
         kind: "info",
-        text: "AlgoPulse's deploy dialog now warns you upfront when the math produces a sub-minimum trade — the green/red badge is not cosmetic.",
+        text: "AlgoPulse's deploy dialog now warns you upfront when the math produces a sub-minimum trade, the green/red badge is not cosmetic.",
       },
-      { type: "h2", text: "Mistake 4 — Running 6 strategies on the same pair" },
+      { type: "h2", text: "Mistake 4, Running 6 strategies on the same pair" },
       {
         type: "p",
         text: "Two strategies on ETH that both go long on crossovers will open at nearly the same time, eating the same market move twice and doubling your exposure without doubling your edge. Diversify across pairs, not strategies on one pair.",
       },
-      { type: "h2", text: "Mistake 5 — Pulling the plug during the first drawdown" },
+      { type: "h2", text: "Mistake 5, Pulling the plug during the first drawdown" },
       {
         type: "p",
-        text: "Even a 60% win rate strategy will have losing streaks. If the backtest says max drawdown is 20%, seeing your account down 18% in week 3 is expected — not a bug. Stop only if current drawdown exceeds historical max by 1.5×.",
+        text: "Even a 60% win rate strategy will have losing streaks. If the backtest says max drawdown is 20%, seeing your account down 18% in week 3 is expected, not a bug. Stop only if current drawdown exceeds historical max by 1.5×.",
       },
       {
         type: "quote",
-        text: "The biggest edge in algo trading isn't the strategy — it's the discipline to leave it alone.",
+        text: "The biggest edge in algo trading isn't the strategy, it's the discipline to leave it alone.",
       },
       { type: "h2", text: "Bonus: the one thing experienced traders do" },
       {

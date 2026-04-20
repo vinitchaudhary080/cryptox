@@ -2,9 +2,9 @@ import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 
 export const metadata: Metadata = {
-  title: "About AlgoPulse — Free Algo Trading Platform for Indian Crypto Traders",
+  title: "About AlgoPulse, Free Algo Trading Platform for Indian Crypto Traders",
   description:
-    "Learn why AlgoPulse was built: to give Indian retail crypto traders access to institutional-grade algo trading on Delta India, CoinDCX, Pi42, and Bybit — completely free.",
+    "Learn why AlgoPulse was built: to give Indian retail crypto traders access to institutional-grade algo trading on Delta India, CoinDCX, Pi42, and Bybit, completely free.",
   alternates: { canonical: "https://algopulse.in/about" },
   openGraph: {
     title: "About AlgoPulse",

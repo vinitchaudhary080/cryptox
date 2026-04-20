@@ -205,7 +205,7 @@ export const strategies = [
   {
     id: "meri-strategy-v2",
     name: "Meri Strategy V2",
-    description: "Same 5m EMA(9/21) + RSI logic as V1, sized at 50% of current equity per entry — so position size compounds with account growth.",
+    description: "Same 5m EMA(9/21) + RSI logic as V1, sized at 50% of current equity per entry, so position size compounds with account growth.",
     category: "Meri Strategy",
     risk: "medium" as const,
     returnRate: 34.8,

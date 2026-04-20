@@ -316,10 +316,10 @@ function StrategyDetail({ strategy, onBack }: { strategy: StrategyReport; onBack
                         </Badge>
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono text-xs">${t.entryPrice.toFixed(2)}</td>
-                      <td className="px-4 py-2.5 text-right font-mono text-xs">{t.exitPrice ? `$${t.exitPrice.toFixed(2)}` : "—"}</td>
+                      <td className="px-4 py-2.5 text-right font-mono text-xs">{t.exitPrice ? `$${t.exitPrice.toFixed(2)}` : "-"}</td>
                       <td className="px-4 py-2.5 text-right font-mono text-xs">{t.quantity.toFixed(4)}</td>
                       <td className={`px-4 py-2.5 text-right font-mono text-xs font-medium ${t.pnl >= 0 ? "text-profit" : "text-loss"}`}>
-                        {t.status === "CLOSED" ? `${t.pnl >= 0 ? "+" : ""}$${t.pnl.toFixed(2)}` : "—"}
+                        {t.status === "CLOSED" ? `${t.pnl >= 0 ? "+" : ""}$${t.pnl.toFixed(2)}` : "-"}
                       </td>
                       <td className="px-4 py-2.5 text-center">
                         <Badge variant="outline" className={`text-[10px] ${t.status === "OPEN" ? "border-primary/30 bg-primary/10 text-primary" : ""}`}>

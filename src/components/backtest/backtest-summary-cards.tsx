@@ -155,7 +155,7 @@ export function BacktestSummaryCards({
           ? `${ext.avgDaysWinning.toFixed(2)}d`
           : ext.avgBarsWinning != null
             ? `${(ext.avgBarsWinning / 1440).toFixed(2)}d`
-            : "—",
+            : "-",
       sub: "Days per winning trade",
       icon: Clock,
       color: "text-profit",
@@ -168,7 +168,7 @@ export function BacktestSummaryCards({
           ? `${ext.avgDaysLosing.toFixed(2)}d`
           : ext.avgBarsLosing != null
             ? `${(ext.avgBarsLosing / 1440).toFixed(2)}d`
-            : "—",
+            : "-",
       sub: "Days per losing trade",
       icon: Clock,
       color: "text-loss",
@@ -176,7 +176,7 @@ export function BacktestSummaryCards({
     },
     {
       label: "MDD Recovery",
-      value: ext.mddRecoveryDays != null ? `${ext.mddRecoveryDays}d` : "—",
+      value: ext.mddRecoveryDays != null ? `${ext.mddRecoveryDays}d` : "-",
       sub: "Days to recover from max drawdown",
       icon: CalendarDays,
       color: "text-warning",
@@ -184,7 +184,7 @@ export function BacktestSummaryCards({
     },
     {
       label: "Account Blowouts",
-      value: ext.equityBlowoutCount != null ? `${ext.equityBlowoutCount}` : "—",
+      value: ext.equityBlowoutCount != null ? `${ext.equityBlowoutCount}` : "-",
       sub: "Times equity hit ≤1% of initial",
       icon: Skull,
       color: "text-loss",
@@ -192,7 +192,7 @@ export function BacktestSummaryCards({
     },
     {
       label: "Account Doubled",
-      value: ext.equityDoubleCount != null ? `${ext.equityDoubleCount}` : "—",
+      value: ext.equityDoubleCount != null ? `${ext.equityDoubleCount}` : "-",
       sub: "Times equity crossed 2× initial",
       icon: Award,
       color: "text-profit",
@@ -200,7 +200,7 @@ export function BacktestSummaryCards({
     },
     {
       label: "Trade 100% Loss",
-      value: ext.tradeBlowoutCount != null ? `${ext.tradeBlowoutCount}` : "—",
+      value: ext.tradeBlowoutCount != null ? `${ext.tradeBlowoutCount}` : "-",
       sub: "Trades that lost deployed capital fully",
       icon: AlertTriangle,
       color: "text-loss",
@@ -208,7 +208,7 @@ export function BacktestSummaryCards({
     },
     {
       label: "Trade 100% Gain",
-      value: ext.tradeDoubleCount != null ? `${ext.tradeDoubleCount}` : "—",
+      value: ext.tradeDoubleCount != null ? `${ext.tradeDoubleCount}` : "-",
       sub: "Trades that doubled deployed capital",
       icon: Rocket,
       color: "text-profit",
@@ -216,7 +216,7 @@ export function BacktestSummaryCards({
     },
     {
       label: "Peak Equity",
-      value: ext.peakEquity != null ? `$${ext.peakEquity.toFixed(2)}` : "—",
+      value: ext.peakEquity != null ? `$${ext.peakEquity.toFixed(2)}` : "-",
       sub: "Highest equity reached in run",
       icon: ArrowUpRight,
       color: "text-profit",
@@ -224,7 +224,7 @@ export function BacktestSummaryCards({
     },
     {
       label: "Lowest Equity",
-      value: ext.lowestEquity != null ? `$${ext.lowestEquity.toFixed(2)}` : "—",
+      value: ext.lowestEquity != null ? `$${ext.lowestEquity.toFixed(2)}` : "-",
       sub: "Lowest equity reached in run",
       icon: ArrowDownRight,
       color: "text-loss",

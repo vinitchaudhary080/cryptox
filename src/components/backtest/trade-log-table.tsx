@@ -199,16 +199,16 @@ export function TradeLogTable({
                     {trade.leverage}x
                   </td>
                   <td className="px-4 py-2.5 text-right font-mono text-xs text-muted-foreground">
-                    {trade.sl ? `$${trade.sl.toFixed(2)}` : "—"}
+                    {trade.sl ? `$${trade.sl.toFixed(2)}` : "-"}
                   </td>
                   <td className="px-4 py-2.5 text-right font-mono text-xs text-muted-foreground">
-                    {trade.tp ? `$${trade.tp.toFixed(2)}` : "—"}
+                    {trade.tp ? `$${trade.tp.toFixed(2)}` : "-"}
                   </td>
                   <td className="px-4 py-2.5 text-xs">
-                    {trade.exitTime ? formatDate(trade.exitTime) : "—"}
+                    {trade.exitTime ? formatDate(trade.exitTime) : "-"}
                   </td>
                   <td className="px-4 py-2.5 text-right font-mono text-xs">
-                    {trade.exitPrice ? `$${trade.exitPrice.toFixed(2)}` : "—"}
+                    {trade.exitPrice ? `$${trade.exitPrice.toFixed(2)}` : "-"}
                   </td>
                   <td
                     className={`px-4 py-2.5 text-right font-mono text-xs font-medium ${
@@ -222,7 +222,7 @@ export function TradeLogTable({
                   </td>
                   <td className="px-4 py-2.5 text-center">
                     <Badge variant="outline" className="text-[10px]">
-                      {trade.exitReason ?? "—"}
+                      {trade.exitReason ?? "-"}
                     </Badge>
                   </td>
                 </tr>

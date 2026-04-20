@@ -19,12 +19,12 @@ const SITE_URL = "https://algopulse.in"
 const SITE_NAME = "AlgoPulse"
 const SITE_TAGLINE = "Free Algorithmic Crypto Trading for Delta India, CoinDCX, Pi42 & Bybit"
 const SITE_DESCRIPTION =
-  "Deploy pre-built algo trading strategies on BTC, ETH, SOL and 20+ coins — free. Connect Delta Exchange India, CoinDCX, Pi42 or Bybit, pick a strategy, and let AlgoPulse trade 24/7. Backtest on 3 years of real market data before going live. No code required."
+  "Deploy pre-built algo trading strategies on BTC, ETH, SOL and 20+ coins, free. Connect Delta Exchange India, CoinDCX, Pi42 or Bybit, pick a strategy, and let AlgoPulse trade 24/7. Backtest on 3 years of real market data before going live. No code required."
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: `${SITE_NAME} — ${SITE_TAGLINE}`,
+    default: `${SITE_NAME}: ${SITE_TAGLINE}`,
     template: `%s · ${SITE_NAME}`,
   },
   description: SITE_DESCRIPTION,
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
     type: "website",
     url: SITE_URL,
     siteName: SITE_NAME,
-    title: `${SITE_NAME} — ${SITE_TAGLINE}`,
+    title: `${SITE_NAME}: ${SITE_TAGLINE}`,
     description: SITE_DESCRIPTION,
     locale: "en_IN",
     images: [
@@ -67,13 +67,13 @@ export const metadata: Metadata = {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: `${SITE_NAME} — free algo trading for Indian crypto traders`,
+        alt: `${SITE_NAME}, free algo trading for Indian crypto traders`,
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: `${SITE_NAME} — ${SITE_TAGLINE}`,
+    title: `${SITE_NAME}: ${SITE_TAGLINE}`,
     description: SITE_DESCRIPTION,
     images: ["/og-image.png"],
   },

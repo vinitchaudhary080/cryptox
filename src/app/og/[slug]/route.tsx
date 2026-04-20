@@ -15,7 +15,7 @@ export const runtime = "edge";
 export const contentType = "image/png";
 export const size = { width: 1200, height: 630 };
 
-/* ─── Palette — tuned to the brand logo (#0089FF accent on light bg) ─── */
+/* ─── Palette, tuned to the brand logo (#0089FF accent on light bg) ─── */
 const INK = "#0A2540"; // deep navy for title text, readable on light bg
 const INK_SOFT = "#5B7A99"; // muted blue-gray for meta text
 const BRAND = "#0089FF"; // primary brand blue (matches lightlogo.svg 'P')
@@ -25,7 +25,7 @@ const PILL_BG = "#E0F0FF"; // very light brand-tinted blue for category pill
 const BG_FROM = "#FFFFFF"; // pure white top-left
 const BG_TO = "#D9ECFF"; // soft brand-tinted blue bottom-right
 
-/* ─── Per-category hero visual + halo tint — picks the decorative
+/* ─── Per-category hero visual + halo tint, picks the decorative
        element on the right of the image so each category looks distinct
        at a glance in search/WhatsApp previews. Halo now uses the brand
        accent so nothing feels muddy or dark. ─── */

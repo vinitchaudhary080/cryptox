@@ -210,7 +210,7 @@ export default function BacktestDetailPage() {
               </span>
               <span className="flex items-center gap-1">
                 <Clock className="h-3 w-3" />
-                {run.duration ? `${(run.duration / 1000).toFixed(1)}s` : "—"}
+                {run.duration ? `${(run.duration / 1000).toFixed(1)}s` : "-"}
               </span>
               <span>Capital: ${run.initialCapital.toLocaleString()}</span>
             </div>

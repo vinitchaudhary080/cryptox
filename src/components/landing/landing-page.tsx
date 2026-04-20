@@ -439,7 +439,7 @@ function FeaturesSection() {
     {
       icon: Wallet,
       title: "Multi-Broker Support",
-      description: "Connect CoinDCX, Delta Exchange India, Pi42, and Bybit. Trade-only API keys — zero withdrawal access.",
+      description: "Connect CoinDCX, Delta Exchange India, Pi42, and Bybit. Trade-only API keys, zero withdrawal access.",
       tag: "4 exchanges",
     },
     {
@@ -527,13 +527,13 @@ function HowItWorks() {
     {
       step: "01",
       title: "Connect Your Exchange",
-      description: "Link CoinDCX, Delta Exchange India, Pi42, or Bybit with a trade-only API key. Your funds stay on the exchange — we never have withdrawal access.",
+      description: "Link CoinDCX, Delta Exchange India, Pi42, or Bybit with a trade-only API key. Your funds stay on the exchange, we never have withdrawal access.",
       icon: Wallet,
     },
     {
       step: "02",
       title: "Review Strategy Backtests",
-      description: "Each pre-built strategy ships with a transparent 3-year backtest — see win rate, drawdown, and returns on real historical data before you commit.",
+      description: "Each pre-built strategy ships with a transparent 3-year backtest, see win rate, drawdown, and returns on real historical data before you commit.",
       icon: LineChart,
     },
     {
@@ -1029,7 +1029,7 @@ const jsonLd = {
           name: "Is AlgoPulse free to use?",
           acceptedAnswer: {
             "@type": "Answer",
-            text: "Yes. AlgoPulse is completely free — no credit card required. Connect your broker, pick a strategy, and start trading.",
+            text: "Yes. AlgoPulse is completely free, no credit card required. Connect your broker, pick a strategy, and start trading.",
           },
         },
         {
@@ -1061,7 +1061,7 @@ const jsonLd = {
           name: "Is my money safe on AlgoPulse?",
           acceptedAnswer: {
             "@type": "Answer",
-            text: "Your funds stay in your exchange account. AlgoPulse only uses API keys to place trades — we never hold your capital or have withdrawal permissions.",
+            text: "Your funds stay in your exchange account. AlgoPulse only uses API keys to place trades, we never hold your capital or have withdrawal permissions.",
           },
         },
       ],

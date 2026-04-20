@@ -105,7 +105,7 @@ const faqs = [
   },
   {
     q: "Is my money safe?",
-    a: "Yes. We only use trade-only API keys — we never have access to withdraw your funds. Your money stays on your exchange at all times. API keys are encrypted with AES-256.",
+    a: "Yes. We only use trade-only API keys, we never have access to withdraw your funds. Your money stays on your exchange at all times. API keys are encrypted with AES-256.",
   },
   {
     q: "Can I lose money with algo trading?",

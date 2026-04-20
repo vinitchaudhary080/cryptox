@@ -406,7 +406,7 @@ export function AuthPage({ defaultTab = "login" }: { defaultTab?: "login" | "sig
                   {forgotStep === "otp" && (
                     <>We sent a code to <span className="font-medium text-foreground">{forgotEmail}</span></>
                   )}
-                  {forgotStep === "reset" && "Choose a new password — your other sessions will be signed out."}
+                  {forgotStep === "reset" && "Choose a new password, your other sessions will be signed out."}
                   {forgotStep === "done" && "Your password has been reset. Sign in with the new one."}
                 </p>
               </motion.div>

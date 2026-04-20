@@ -416,7 +416,7 @@ export default function DashboardPage() {
                           <td className="py-3 font-mono text-xs">${trade.entryPrice.toLocaleString()}</td>
                           <td className="py-3 font-mono text-xs">{trade.quantity.toFixed(4)}</td>
                           <td className={`py-3 font-medium ${trade.pnl >= 0 ? "text-profit" : "text-loss"}`}>
-                            {trade.status === "CLOSED" ? `${trade.pnl >= 0 ? "+" : ""}$${trade.pnl.toFixed(2)}` : "—"}
+                            {trade.status === "CLOSED" ? `${trade.pnl >= 0 ? "+" : ""}$${trade.pnl.toFixed(2)}` : "-"}
                           </td>
                           <td className="py-3">
                             <Badge variant="secondary" className="text-xs">{stratName}</Badge>

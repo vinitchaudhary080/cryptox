@@ -160,9 +160,9 @@ export function downloadBacktestReport(run: RunLike, trades: TradeLike[], ext: E
     if (ext.equityDoubleCount != null)
       lines.push(row("Account Doubled (equity ≥2× initial)", ext.equityDoubleCount));
     if (ext.tradeBlowoutCount != null)
-      lines.push(row("Trades — 100% capital loss", ext.tradeBlowoutCount));
+      lines.push(row("Trades, 100% capital loss", ext.tradeBlowoutCount));
     if (ext.tradeDoubleCount != null)
-      lines.push(row("Trades — 100% capital gain", ext.tradeDoubleCount));
+      lines.push(row("Trades, 100% capital gain", ext.tradeDoubleCount));
     if (ext.avgDaysWinning != null)
       lines.push(row("Avg Days (Winning Trade)", ext.avgDaysWinning.toFixed(2)));
     if (ext.avgDaysLosing != null)

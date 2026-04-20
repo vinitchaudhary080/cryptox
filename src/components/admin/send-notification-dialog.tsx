@@ -157,7 +157,7 @@ export function SendNotificationDialog({ trigger }: Props) {
             </Label>
             <Input
               id="nx-title"
-              placeholder="Heads up — maintenance at 3 AM"
+              placeholder="Heads up, maintenance at 3 AM"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               maxLength={100}

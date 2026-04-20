@@ -130,7 +130,7 @@ const values = [
   {
     icon: Shield,
     title: "Security Always",
-    description: "Trade-only API keys, encrypted storage, zero withdrawal access. Your funds stay on your exchange — we never touch them.",
+    description: "Trade-only API keys, encrypted storage, zero withdrawal access. Your funds stay on your exchange, we never touch them.",
   },
   {
     icon: Rocket,
@@ -140,7 +140,7 @@ const values = [
   {
     icon: Users,
     title: "Trader-Centric",
-    description: "Built by traders, for traders. Every decision — from strategy design to analytics — is informed by real trading experience.",
+    description: "Built by traders, for traders. Every decision, from strategy design to analytics, is informed by real trading experience.",
   },
 ]
 

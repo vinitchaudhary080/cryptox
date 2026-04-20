@@ -136,7 +136,7 @@ export default function BlogListPage() {
                   <div className="relative aspect-[1200/630] overflow-hidden bg-muted/30 md:aspect-auto md:h-full md:min-h-[280px]">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={`/og/${latest.slug}?v=2`}
+                      src={`/og/${latest.slug}?v=3`}
                       alt={latest.title}
                       className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
                     />
@@ -207,7 +207,7 @@ export default function BlogListPage() {
                       <div className="aspect-[1200/630] overflow-hidden bg-muted/30">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={`/og/${blog.slug}?v=2`}
+                          src={`/og/${blog.slug}?v=3`}
                           alt={blog.title}
                           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
                         />
