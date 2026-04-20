@@ -271,7 +271,12 @@ export const srBreakoutStrategy: BacktestStrategy = {
     if (idx15 < ATR_PERIOD + LOOKBACK) return []; // wait for ATR + pivot confirmation warmup
 
     const bar = candles15m[idx15];
-    const close = bar.close;
+    // Asymmetric execution model:
+    //   Entry = NEXT bar's OPEN (order placed after signal confirms).
+    //   Exit  = SIGNAL bar's CLOSE (the close that triggered the exit).
+    const signalBarClose = bar.close;
+    const nextBarOpen    = candles15m[idx15 + 1]?.open ?? signalBarClose;
+    const close = signalBarClose;
     const k = kama[idx15];
 
     const leverage = Number(config.leverage ?? 1);
@@ -291,7 +296,7 @@ export const srBreakoutStrategy: BacktestStrategy = {
         trailingWithKama = true;
       }
       if (trailingWithKama && !isNaN(k) && close < k) {
-        signals.push({ action: "CLOSE_LONG", entryPrice: close, reason: `KAMA trail: close ${close.toFixed(2)} < KAMA ${k.toFixed(2)}` });
+        signals.push({ action: "CLOSE_LONG", entryPrice: signalBarClose, reason: `KAMA trail: close ${close.toFixed(2)} < KAMA ${k.toFixed(2)}` });
         trailingWithKama = false;
       }
     }
@@ -301,7 +306,7 @@ export const srBreakoutStrategy: BacktestStrategy = {
         trailingWithKama = true;
       }
       if (trailingWithKama && !isNaN(k) && close > k) {
-        signals.push({ action: "CLOSE_SHORT", entryPrice: close, reason: `KAMA trail: close ${close.toFixed(2)} > KAMA ${k.toFixed(2)}` });
+        signals.push({ action: "CLOSE_SHORT", entryPrice: signalBarClose, reason: `KAMA trail: close ${close.toFixed(2)} > KAMA ${k.toFixed(2)}` });
         trailingWithKama = false;
       }
     }
@@ -321,28 +326,28 @@ export const srBreakoutStrategy: BacktestStrategy = {
         if (breakRes) {
           // BUY — hard SL at bottom of resistance box (= pivot high price)
           const sl = breakRes.bottom;
-          const qty = (equity * sizePct) / close;
+          const qty = (equity * sizePct) / nextBarOpen;
           signals.push({
             action: "BUY",
             qty,
             leverage,
             sl,
             tp: undefined,
-            entryPrice: close,
+            entryPrice: nextBarOpen,
             reason: `Break Res: close ${close.toFixed(2)} > top ${breakRes.top.toFixed(2)} (pivot ${breakRes.bottom.toFixed(2)})`,
           });
           trailingWithKama = false;
         } else if (breakSup) {
           // SELL — hard SL at top of support box (= pivot low price)
           const sl = breakSup.top;
-          const qty = (equity * sizePct) / close;
+          const qty = (equity * sizePct) / nextBarOpen;
           signals.push({
             action: "SELL",
             qty,
             leverage,
             sl,
             tp: undefined,
-            entryPrice: close,
+            entryPrice: nextBarOpen,
             reason: `Break Sup: close ${close.toFixed(2)} < bottom ${breakSup.bottom.toFixed(2)} (pivot ${breakSup.top.toFixed(2)})`,
           });
           trailingWithKama = false;

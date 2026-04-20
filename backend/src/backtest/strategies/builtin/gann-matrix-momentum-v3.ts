@@ -53,10 +53,10 @@ export const gannMatrixMomentumV3: BacktestStrategy = {
 
     const idx15m = map15m[index] - 1;
     if (idx15m < 51) return [];
-    // Use the JUST-CLOSED 15m bar's close — matches what the user sees on
-    // the chart and what the indicators were computed on. Avoids the 1m
-    // close at bucket boundary (which is actually close-to-open of new bar).
-    const execPrice = candles15m[idx15m]?.close ?? candle.close;
+    // Asymmetric execution model (matches broker/live behaviour):
+    //   Entry = NEXT bar's OPEN,  Exit = SIGNAL bar's CLOSE
+    const signalBarClose = candles15m[idx15m]?.close ?? candle.close;
+    const nextBarOpen    = candles15m[idx15m + 1]?.open ?? signalBarClose;
 
     const currEma20 = ema20[idx15m];
     const prevEma20 = ema20[idx15m - 1];
@@ -73,13 +73,13 @@ export const gannMatrixMomentumV3: BacktestStrategy = {
     const gann = gannAtCandle[index];
     if (!gann) return [];
 
-    const price = execPrice;
+    const price = signalBarClose;
     const inLongZone = price > gann.pivot && price < gann.r180;
     const inShortZone = price < gann.pivot && price > gann.s180;
 
     const leverage = Number(config.leverage ?? 5);
     const capitalPct = leverageToCapitalPct(leverage);
-    const qty = (equity * capitalPct) / price;
+    const qty = (equity * capitalPct) / nextBarOpen;
 
     const signals: Signal[] = [];
     const hasLong = positions.some((p) => p.side === "BUY");
@@ -90,7 +90,7 @@ export const gannMatrixMomentumV3: BacktestStrategy = {
       const tp = price * (1 + TP_PCT);
       signals.push({
         action: "BUY",
-        entryPrice: execPrice,
+        entryPrice: nextBarOpen,
         qty,
         leverage,
         sl,
@@ -104,7 +104,7 @@ export const gannMatrixMomentumV3: BacktestStrategy = {
       const tp = price * (1 - TP_PCT);
       signals.push({
         action: "SELL",
-        entryPrice: execPrice,
+        entryPrice: nextBarOpen,
         qty,
         leverage,
         sl,
