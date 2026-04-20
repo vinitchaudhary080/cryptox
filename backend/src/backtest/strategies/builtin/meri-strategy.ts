@@ -83,34 +83,39 @@ export const meriStrategy: BacktestStrategy = {
 
     const { map5m, map15m, ind5m, ind15m, candles5m } = precomputed;
 
-    // Get current and previous 5m indicator indices
-    const idx5 = map5m[index];
-    const prevIdx5 = idx5 > 0 ? idx5 - 1 : -1;
-    if (prevIdx5 < 0) return signals;
+    // Fire only on 5m bucket transitions (first 1m of a new bucket).
+    if (map5m[index] === map5m[index - 1]) return signals;
 
-    // 5m indicators
-    const currEma9_5 = ind5m.ema?.[9]?.[idx5];
-    const currEma21_5 = ind5m.ema?.[21]?.[idx5];
-    const prevEma9_5 = ind5m.ema?.[9]?.[prevIdx5];
-    const prevEma21_5 = ind5m.ema?.[21]?.[prevIdx5];
-    const currRsi = ind5m.rsi?.[idx5];
+    // At transition from bucket N to N+1:
+    //   idx5           = N+1 = CURRENT (still forming) 5m bucket
+    //   signalIdx5     = N   = just-CLOSED bucket (SIGNAL BAR)
+    //   prevSignalIdx5 = N-1 = bar before signal bar
+    // All indicator reads are from signalIdx5 and earlier — zero look-ahead.
+    const idx5 = map5m[index];
+    const signalIdx5 = idx5 - 1;
+    const prevSignalIdx5 = idx5 - 2;
+    if (prevSignalIdx5 < 0) return signals;
+
+    const currEma9_5 = ind5m.ema?.[9]?.[signalIdx5];
+    const currEma21_5 = ind5m.ema?.[21]?.[signalIdx5];
+    const prevEma9_5 = ind5m.ema?.[9]?.[prevSignalIdx5];
+    const prevEma21_5 = ind5m.ema?.[21]?.[prevSignalIdx5];
+    const currRsi = ind5m.rsi?.[signalIdx5];
 
     if (currEma9_5 === undefined || currEma21_5 === undefined ||
         prevEma9_5 === undefined || prevEma21_5 === undefined ||
         currRsi === undefined) return signals;
-
     if ([currEma9_5, currEma21_5, prevEma9_5, prevEma21_5, currRsi].some(isNaN)) return signals;
 
-    // 15m indicators
+    // 15m indicators — read from the most recently CLOSED 15m bucket.
     const idx15 = map15m[index];
-    const currEma9_15 = ind15m.ema?.[9]?.[idx15];
-    const currEma21_15 = ind15m.ema?.[21]?.[idx15];
+    const signalIdx15 = idx15 > 0 ? idx15 - 1 : -1;
+    if (signalIdx15 < 0) return signals;
+    const currEma9_15 = ind15m.ema?.[9]?.[signalIdx15];
+    const currEma21_15 = ind15m.ema?.[21]?.[signalIdx15];
 
     if (currEma9_15 === undefined || currEma21_15 === undefined) return signals;
     if (isNaN(currEma9_15) || isNaN(currEma21_15)) return signals;
-
-    // Only trigger on 5m boundary (every 5th 1m candle) to avoid duplicate signals
-    if (map5m[index] === map5m[index - 1]) return signals;
 
     // Strategy params
     const slPct = Number(config.slPercent ?? 2) / 100;
@@ -119,7 +124,7 @@ export const meriStrategy: BacktestStrategy = {
     const leverage = Number(config.leverage ?? 1);
     // Asymmetric execution model (matches broker/live behaviour):
     //   Entry = NEXT bar's OPEN,  Exit = SIGNAL bar's CLOSE
-    const signalBarClose = candles5m[prevIdx5]?.close ?? candle.close;
+    const signalBarClose = candles5m[signalIdx5]?.close ?? candle.close;
     const nextBarOpen    = candles5m[idx5]?.open     ?? signalBarClose;
     const qty = (equity * sizePct) / nextBarOpen;
 
