@@ -21,6 +21,7 @@ import { resetGannStrategyCache, precomputeGannStrategy } from "../strategies/bu
 import { resetGannV2StrategyCache, precomputeGannV2Strategy } from "../strategies/builtin/gann-matrix-momentum-v2.js";
 import { resetGannV3StrategyCache, precomputeGannV3Strategy } from "../strategies/builtin/gann-matrix-momentum-v3.js";
 import { resetSRBreakoutCache, precomputeSRBreakout } from "../strategies/builtin/sr-breakout.js";
+import { resetMacdSwingCache, precomputeMacdSwing } from "../strategies/builtin/macd-swing.js";
 import { evaluateUIRules } from "../strategies/strategy-runner.js";
 
 const EQUITY_SAMPLE_INTERVAL = 60; // sample equity every 60 candles (1 hour)
@@ -35,6 +36,7 @@ export async function runBacktest(config: BacktestConfig): Promise<BacktestResul
   resetGannV2StrategyCache();
   resetGannV3StrategyCache();
   resetSRBreakoutCache();
+  resetMacdSwingCache();
 
   const startMs = Date.now();
 
@@ -89,6 +91,8 @@ export async function runBacktest(config: BacktestConfig): Promise<BacktestResul
     precomputeGannV3Strategy(candles);
   } else if (config.strategyName === "sr-breakout") {
     precomputeSRBreakout(candles);
+  } else if (config.strategyName === "macd-crossover-swing") {
+    precomputeMacdSwing(candles);
   }
 
   // Run simulation

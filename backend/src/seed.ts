@@ -63,6 +63,16 @@ const systemStrategies = [
     defaultPositionSize: 25,
     positionSizeLocked: false,
   },
+  {
+    name: "MACD Crossover Swing",
+    description:
+      "15m MACD(12,26,9) crossover swing with rising/falling histogram confirmation, EMA(50) trend filter, and RSI(14) zone filter. SL at the signal candle's low (BUY) or high (SELL), 2x ATR target, and automatic breakeven stop move once profit reaches 1x ATR. Exits on MACD reversal, SL, or TP.",
+    category: "Momentum",
+    riskLevel: "MEDIUM" as const,
+    config: { leverage: 1 },
+    defaultPositionSize: 25,
+    positionSizeLocked: false,
+  },
 ];
 
 async function seed() {

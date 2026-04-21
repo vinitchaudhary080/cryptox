@@ -18,6 +18,7 @@ import { supertrendStrategy } from "./builtin/supertrend-strategy.js";
 import { raviStrategy } from "./builtin/ravi-strategy.js";
 import { gannMatrixMomentum } from "./builtin/gann-matrix-momentum.js";
 import { srBreakoutStrategy } from "./builtin/sr-breakout.js";
+import { macdSwingStrategy } from "./builtin/macd-swing.js";
 
 const BUILTIN_STRATEGIES: Record<string, BacktestStrategy> = {
   "meri-strategy": meriStrategy,
@@ -26,6 +27,7 @@ const BUILTIN_STRATEGIES: Record<string, BacktestStrategy> = {
   "ravi-strategy": raviStrategy,
   "gann-matrix-momentum": gannMatrixMomentum,
   "sr-breakout": srBreakoutStrategy,
+  "macd-crossover-swing": macdSwingStrategy,
 };
 
 export function getStrategyByName(name: string): BacktestStrategy | null {

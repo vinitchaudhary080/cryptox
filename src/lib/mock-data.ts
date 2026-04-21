@@ -247,6 +247,21 @@ export const strategies = [
     performance: Array.from({ length: 30 }, (_, i) => ({ day: i + 1, value: 100 + i * 0.8 + Math.sin(i * 0.6) * 3.5 })),
     tags: ["Breakout", "KAMA Trail"],
   },
+  {
+    id: "macd-crossover-swing",
+    name: "MACD Crossover Swing",
+    description: "15m MACD(12,26,9) crossover swing with histogram momentum, EMA(50) trend filter, RSI zone filter, ATR-based target, and automatic breakeven stop.",
+    category: "Momentum",
+    risk: "medium" as const,
+    returnRate: 24.6,
+    winRate: 48,
+    trades: 326,
+    subscribers: 760,
+    minInvestment: 500,
+    pairs: ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
+    performance: Array.from({ length: 30 }, (_, i) => ({ day: i + 1, value: 100 + i * 0.7 + Math.cos(i * 0.5) * 3 })),
+    tags: ["MACD", "Swing"],
+  },
 ]
 
 export const modelPortfolios = [
