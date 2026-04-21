@@ -138,53 +138,45 @@ export default function PrivacyPage() {
               </div>
             </motion.div>
 
+
             {/* 4 */}
             <motion.div variants={fadeUp}>
-              <h2 className="mb-4 text-xl font-semibold">4. Data Sharing</h2>
-              <div className="space-y-3 text-muted-foreground leading-relaxed">
-                <p><Strong>We do not sell your data.</Strong> We do not share your personal information with third parties for marketing purposes.</p>
-                <p>We may share data with: (a) exchange partners solely to execute your trades via API, (b) service providers who help us operate AlgoPulse (hosting, email), under strict data protection agreements, and (c) law enforcement when legally required.</p>
-              </div>
-            </motion.div>
-
-            {/* 5 */}
-            <motion.div variants={fadeUp}>
-              <h2 className="mb-4 text-xl font-semibold">5. Data Retention</h2>
+              <h2 className="mb-4 text-xl font-semibold">4. Data Retention</h2>
               <div className="space-y-3 text-muted-foreground leading-relaxed">
                 <p>We retain your account data for as long as your account is active. Trade history and backtest results are stored indefinitely for your reference.</p>
                 <p>If you delete your account, we will remove your personal data within 30 days. Encrypted API keys are deleted immediately upon broker disconnection or account deletion.</p>
               </div>
             </motion.div>
 
-            {/* 6 */}
+            {/* 5 */}
             <motion.div variants={fadeUp}>
-              <h2 className="mb-4 text-xl font-semibold">6. Your Rights</h2>
+              <h2 className="mb-4 text-xl font-semibold">5. Your Rights</h2>
               <div className="space-y-3 text-muted-foreground leading-relaxed">
                 <p>You have the right to: (a) access your personal data, (b) correct inaccurate data, (c) delete your account and associated data, (d) export your trade history and backtest results, and (e) withdraw consent for optional data processing.</p>
                 <p>To exercise any of these rights, contact us via WhatsApp or through our <Link href="/contact" className="text-primary hover:underline">contact page</Link>.</p>
               </div>
             </motion.div>
 
-            {/* 7 */}
+            {/* 6 */}
             <motion.div variants={fadeUp}>
-              <h2 className="mb-4 text-xl font-semibold">7. Cookies</h2>
+              <h2 className="mb-4 text-xl font-semibold">6. Cookies</h2>
               <div className="space-y-3 text-muted-foreground leading-relaxed">
                 <p>We use essential cookies for authentication and session management. We do not use third-party tracking cookies or advertising cookies.</p>
                 <p>You can disable cookies in your browser settings, but this may affect your ability to use AlgoPulse.</p>
               </div>
             </motion.div>
 
-            {/* 8 */}
+            {/* 7 */}
             <motion.div variants={fadeUp}>
-              <h2 className="mb-4 text-xl font-semibold">8. Changes to This Policy</h2>
+              <h2 className="mb-4 text-xl font-semibold">7. Changes to This Policy</h2>
               <div className="space-y-3 text-muted-foreground leading-relaxed">
                 <p>We may update this privacy policy from time to time. We will notify you of significant changes via email or an in-app notification. Your continued use of AlgoPulse after changes constitutes acceptance of the updated policy.</p>
               </div>
             </motion.div>
 
-            {/* 9 */}
+            {/* 8 */}
             <motion.div variants={fadeUp}>
-              <h2 className="mb-4 text-xl font-semibold">9. Contact Us</h2>
+              <h2 className="mb-4 text-xl font-semibold">8. Contact Us</h2>
               <div className="space-y-3 text-muted-foreground leading-relaxed">
                 <p>If you have questions about this privacy policy or your data, reach out to us through our <Link href="/contact" className="text-primary hover:underline">contact page</Link> or via WhatsApp at +91 9876543211.</p>
               </div>
