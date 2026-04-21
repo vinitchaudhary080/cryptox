@@ -114,7 +114,6 @@ export default function PrivacyPage() {
                 <p><Strong>Account Information</Strong>: When you sign up, we collect your name and email address. If you use Google OAuth, we receive your Google profile information (name, email, and profile picture).</p>
                 <p><Strong>Exchange API Keys</Strong>: When you connect a broker, we store your API key and secret in encrypted form. We only request trade-only permissions, we never have access to withdraw your funds.</p>
                 <p><Strong>Usage Data</Strong>: We collect information about how you use AlgoPulse, including strategies deployed, backtests run, and features accessed. This helps us improve the platform.</p>
-                <p><Strong>Device Information</Strong>: We automatically collect browser type, operating system, and IP address for security and analytics purposes.</p>
               </div>
             </motion.div>
 
