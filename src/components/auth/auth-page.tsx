@@ -308,7 +308,7 @@ export function AuthPage({ defaultTab = "login" }: { defaultTab?: "login" | "sig
   }
 
   return (
-    <div className="relative flex min-h-screen">
+    <div className="relative flex min-h-screen overflow-x-hidden">
       {/* Background effects */}
       <div className="grid-pattern absolute inset-0" />
       <div className="absolute left-1/4 top-1/3 h-[500px] w-[500px] rounded-full bg-primary/5 blur-[120px]" />

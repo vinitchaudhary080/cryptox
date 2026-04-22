@@ -2,6 +2,9 @@ import { randomUUID } from "crypto";
 import type { Position, BacktestTrade, Candle } from "../types.js";
 import { applySlippage, calculateFee, calculatePnl } from "./fee-model.js";
 
+/** Platform-wide minimum margin per trade (USD). */
+export const MIN_MARGIN_USD = 50;
+
 interface PositionManagerConfig {
   makerFee: number;     // 0.0005 = 0.05%
   slippage: number;     // 0.0001 = 0.01%
@@ -147,6 +150,41 @@ export class PositionManager {
       }
     }
     return trades;
+  }
+
+  /**
+   * Record a trade attempt that was skipped because the per-trade margin
+   * (qty × entry) fell below the platform minimum. Produces a phantom trade
+   * row with status=MARGIN_CALL so the trades table + metrics can surface it.
+   */
+  recordMarginCall(
+    candle: Candle,
+    side: "BUY" | "SELL",
+    attemptedQty: number,
+    attemptedPrice: number,
+    leverage: number,
+  ): BacktestTrade {
+    const margin = attemptedQty * attemptedPrice;
+    const trade: BacktestTrade = {
+      entry_id: randomUUID(),
+      entry_time: candle.timestamp,
+      entry_price: attemptedPrice,
+      qty: attemptedQty,
+      side,
+      leverage,
+      sl: null,
+      tp: null,
+      exit_id: randomUUID(),
+      exit_time: candle.timestamp,
+      exit_price: attemptedPrice,
+      pnl: 0,
+      fee: 0,
+      exit_reason: "MARGIN_CALL",
+      status: "MARGIN_CALL",
+      attempted_margin: margin,
+    };
+    this.closedTrades.push(trade);
+    return trade;
   }
 
   /** Get unrealized PnL for all open positions */

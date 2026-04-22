@@ -6,7 +6,6 @@ import { motion } from "framer-motion"
 import {
   Search,
   TrendingUp,
-  Users,
   BarChart3,
   Zap,
   ArrowRight,
@@ -151,7 +150,6 @@ export default function StrategiesPage() {
           returnRate: 0,
           winRate: 0,
           risk: (api.riskLevel === "HIGH" ? "high" : api.riskLevel === "LOW" ? "low" : "medium") as "high" | "low" | "medium",
-          subscribers: 0,
           trades: 0,
           minInvestment: 10,
           pairs: ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
@@ -284,10 +282,10 @@ export default function StrategiesPage() {
                       </div>
                       <div>
                         <p className="text-[10px] text-muted-foreground">
-                          Users
+                          Trades
                         </p>
                         <p className="text-sm font-semibold">
-                          {(strategy.subscribers / 1000).toFixed(1)}k
+                          {strategy.trades.toLocaleString()}
                         </p>
                       </div>
                     </div>
@@ -349,12 +347,11 @@ export default function StrategiesPage() {
                   </div>
 
                   {/* Stats Grid */}
-                  <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
                     {[
                       { label: "30D Return", value: `+${strategy.returnRate}%`, icon: TrendingUp },
                       { label: "Win Rate", value: `${strategy.winRate}%`, icon: BarChart3 },
                       { label: "Total Trades", value: strategy.trades.toLocaleString(), icon: Zap },
-                      { label: "Subscribers", value: strategy.subscribers.toLocaleString(), icon: Users },
                     ].map((stat) => (
                       <div key={stat.label} className="flex items-center gap-2.5 rounded-lg border border-border/50 bg-muted/30 p-2.5 sm:gap-3 sm:p-3">
                         <stat.icon className="h-4 w-4 shrink-0 text-primary" />

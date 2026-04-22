@@ -64,6 +64,7 @@ const TYPE_CONFIG: Record<string, { icon: typeof Bell; color: string; bg: string
   strategy_stop: { icon: Square, color: "text-loss", bg: "bg-loss/10" },
   strategy_resume: { icon: Play, color: "text-profit", bg: "bg-profit/10" },
   admin_broadcast: { icon: Megaphone, color: "text-primary", bg: "bg-primary/10" },
+  margin_call: { icon: AlertTriangle, color: "text-warning", bg: "bg-warning/10" },
 }
 
 function timeAgo(date: string): string {
@@ -303,15 +304,7 @@ export function NotificationPanel() {
                       key={n.id}
                       notification={n}
                       onRead={markAsRead}
-                      onClick={() => {
-                        const link = deepLinkForNotification(n)
-                        if (link) {
-                          setOpen(false)
-                          router.push(link)
-                        } else {
-                          setViewing(n)
-                        }
-                      }}
+                      onClick={() => setViewing(n)}
                     />
                   ))}
                 </div>
@@ -351,25 +344,36 @@ export function NotificationPanel() {
                   {viewing.message}
                 </p>
 
-                {typeof viewing.data?.url === "string" && viewing.data.url.length > 0 ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => {
-                      const url = viewing.data!.url as string
-                      setViewing(null)
-                      setOpen(false)
-                      if (url.startsWith("http")) {
-                        window.open(url, "_blank", "noopener,noreferrer")
-                      } else {
-                        router.push(url)
-                      }
-                    }}
-                  >
-                    Open link
-                  </Button>
-                ) : null}
+                {(() => {
+                  const deepLink = deepLinkForNotification(viewing)
+                  const dataUrl =
+                    typeof viewing.data?.url === "string" && viewing.data.url.length > 0
+                      ? (viewing.data.url as string)
+                      : null
+                  const targetUrl = dataUrl ?? deepLink
+                  if (!targetUrl) return null
+                  const label = deepLink
+                    ? "Go to deployed strategies"
+                    : "Open link"
+                  return (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => {
+                        setViewing(null)
+                        setOpen(false)
+                        if (targetUrl.startsWith("http")) {
+                          window.open(targetUrl, "_blank", "noopener,noreferrer")
+                        } else {
+                          router.push(targetUrl)
+                        }
+                      }}
+                    >
+                      {label}
+                    </Button>
+                  )
+                })()}
               </div>
             </>
           )}

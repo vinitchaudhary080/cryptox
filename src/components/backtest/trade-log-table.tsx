@@ -162,10 +162,16 @@ export function TradeLogTable({
               </tr>
             </thead>
             <tbody>
-              {filteredTrades.map((trade, idx) => (
+              {filteredTrades.map((trade, idx) => {
+                const isMarginCall = trade.status === "MARGIN_CALL"
+                return (
                 <tr
                   key={trade.id}
-                  className="border-b border-border/20 transition-colors hover:bg-muted/30"
+                  className={`border-b border-border/20 transition-colors ${
+                    isMarginCall
+                      ? "bg-warning/5 hover:bg-warning/10"
+                      : "hover:bg-muted/30"
+                  }`}
                 >
                   <td className="px-4 py-2.5 text-xs text-muted-foreground">
                     {(page - 1) * limit + idx + 1}
@@ -217,12 +223,18 @@ export function TradeLogTable({
                     ${trade.fee.toFixed(2)}
                   </td>
                   <td className="px-4 py-2.5 text-center">
-                    <Badge variant="outline" className="text-[10px]">
-                      {trade.exitReason ?? "-"}
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] ${
+                        isMarginCall ? "border-warning/40 bg-warning/10 text-warning" : ""
+                      }`}
+                    >
+                      {isMarginCall ? "MARGIN CALL" : (trade.exitReason ?? "-")}
                     </Badge>
                   </td>
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
         </div>

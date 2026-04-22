@@ -190,13 +190,35 @@ export function BacktestConfigForm({
 
         {/* Initial Capital */}
         <div className="space-y-2">
-          <Label>Initial Capital (USD)</Label>
+          <Label className="flex items-center justify-between">
+            <span>Initial Capital (USD)</span>
+            <span className="text-[10px] text-muted-foreground">multiples of $50, min $50</span>
+          </Label>
           <Input
             type="number"
             value={initialCapital}
             onChange={(e) => setInitialCapital(Number(e.target.value))}
-            min={100}
+            onBlur={(e) => {
+              const raw = Number(e.target.value) || 50;
+              // Snap to nearest multiple of 50 (round up), clamp min 50
+              const snapped = Math.max(50, Math.round(raw / 50) * 50);
+              setInitialCapital(snapped);
+            }}
+            min={50}
+            step={50}
           />
+          {(() => {
+            const sizePct = Number((strategyConfig as Record<string, unknown>).positionSizePercent);
+            if (!Number.isFinite(sizePct) || sizePct <= 0) return null;
+            const margin = (initialCapital * sizePct) / 100;
+            const insufficient = margin < 50;
+            return (
+              <p className={`text-xs ${insufficient ? "text-loss" : "text-muted-foreground"}`}>
+                Per-trade margin: <span className="font-semibold">${margin.toFixed(2)}</span>
+                {insufficient && <span> — below $50 minimum, trades will be skipped (margin call).</span>}
+              </p>
+            );
+          })()}
         </div>
 
         {/* Commission & Slippage */}

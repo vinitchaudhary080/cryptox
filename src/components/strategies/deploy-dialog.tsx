@@ -102,7 +102,7 @@ export function DeployDialog({
   // Form state
   const [selectedBrokerId, setSelectedBrokerId] = useState("")
   const [selectedPair, setSelectedPair] = useState("")
-  const [amount, setAmount] = useState("5")
+  const [amount, setAmount] = useState("50")
   const [leverage, setLeverage] = useState("10")
   const [positionSize, setPositionSize] = useState(String(defaultPositionSize))
 
@@ -490,21 +490,28 @@ export function DeployDialog({
 
                   {/* Investment amount */}
                   <div>
-                    <Label className="text-xs text-muted-foreground">Investment Amount</Label>
+                    <Label className="text-xs text-muted-foreground">
+                      Investment Amount <span className="text-[10px]">(multiples of $50, min $50)</span>
+                    </Label>
                     <div className="relative mt-1.5">
                       <DollarSign className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
                         type="number"
                         value={amount}
                         onChange={(e) => setAmount(e.target.value)}
+                        onBlur={(e) => {
+                          const raw = Number(e.target.value) || 50
+                          const snapped = Math.max(50, Math.round(raw / 50) * 50)
+                          setAmount(String(snapped))
+                        }}
                         className="bg-muted/30 pl-9"
-                        placeholder="5"
-                        min="0"
-                        step="any"
+                        placeholder="50"
+                        min="50"
+                        step="50"
                       />
                     </div>
                     <div className="mt-1.5 flex gap-1.5">
-                      {["1", "5", "10", "50", "100"].map((v) => (
+                      {["50", "100", "150", "250", "500"].map((v) => (
                         <button
                           key={v}
                           onClick={() => setAmount(v)}
@@ -609,6 +616,17 @@ export function DeployDialog({
                         ? "This strategy's code sets its own position size, cannot be overridden."
                         : "Fraction of your investment deployed per entry."}
                     </p>
+                    {/* Per-trade margin check — must be >= $50 */}
+                    {(() => {
+                      const perTrade = amountNum * positionSizeFraction
+                      const ok = perTrade >= 50
+                      return (
+                        <p className={cn("mt-1.5 text-[11px]", ok ? "text-muted-foreground" : "text-loss")}>
+                          Per-trade margin: <span className="font-semibold">${perTrade.toFixed(2)}</span>
+                          {!ok && " — below $50 minimum, trades will be skipped with a margin-call notification."}
+                        </p>
+                      )
+                    })()}
                   </div>
 
                   {/* Live min-notional readout */}
@@ -656,7 +674,8 @@ export function DeployDialog({
                       className="flex-1"
                       onClick={() => setStep("confirm")}
                       disabled={
-                        !selectedPair || !amount || amountNum <= 0 || !meetsMin || leverageOverMax
+                        !selectedPair || !amount || amountNum < 50 || !meetsMin || leverageOverMax ||
+                        (amountNum * positionSizeFraction) < 50
                       }
                     >
                       Next <ChevronRight className="ml-1.5 h-4 w-4" />

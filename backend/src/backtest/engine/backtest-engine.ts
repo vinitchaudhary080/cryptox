@@ -10,7 +10,7 @@ import type {
 } from "../types.js";
 import { loadCandles } from "../data/csv-manager.js";
 import { computeIndicators } from "../indicators/index.js";
-import { PositionManager } from "./position-manager.js";
+import { PositionManager, MIN_MARGIN_USD } from "./position-manager.js";
 import { computeMetrics } from "./metrics.js";
 import { getStrategyByName } from "../strategies/strategy-runner.js";
 import { resetMeriStrategyCache, precomputeMeriStrategy } from "../strategies/builtin/meri-strategy.js";
@@ -22,6 +22,7 @@ import { resetGannV2StrategyCache, precomputeGannV2Strategy } from "../strategie
 import { resetGannV3StrategyCache, precomputeGannV3Strategy } from "../strategies/builtin/gann-matrix-momentum-v3.js";
 import { resetSRBreakoutCache, precomputeSRBreakout } from "../strategies/builtin/sr-breakout.js";
 import { resetMacdSwingCache, precomputeMacdSwing } from "../strategies/builtin/macd-swing.js";
+import { resetWeeklyMomentumCache, precomputeWeeklyMomentum } from "../strategies/builtin/weekly-momentum.js";
 import { evaluateUIRules } from "../strategies/strategy-runner.js";
 
 const EQUITY_SAMPLE_INTERVAL = 60; // sample equity every 60 candles (1 hour)
@@ -37,6 +38,7 @@ export async function runBacktest(config: BacktestConfig): Promise<BacktestResul
   resetGannV3StrategyCache();
   resetSRBreakoutCache();
   resetMacdSwingCache();
+  resetWeeklyMomentumCache();
 
   const startMs = Date.now();
 
@@ -93,6 +95,8 @@ export async function runBacktest(config: BacktestConfig): Promise<BacktestResul
     precomputeSRBreakout(candles);
   } else if (config.strategyName === "macd-crossover-swing") {
     precomputeMacdSwing(candles);
+  } else if (config.strategyName === "weekly-momentum") {
+    precomputeWeeklyMomentum(candles);
   }
 
   // Run simulation
@@ -196,6 +200,15 @@ function executeSignal(
       const qty = signal.qty ?? (equity * 0.1) / execCandle.close; // default 10% of equity
       const sl = signal.sl ?? null;
       const tp = signal.tp ?? null;
+      // Platform rule: per-trade margin (qty × entry) must be ≥ $50.
+      // If not, record a margin-call skip so the trade appears in the report
+      // without consuming capital. The engine is the single chokepoint that
+      // enforces this — strategies keep their equity×sizePct math as before.
+      const margin = qty * execCandle.close;
+      if (margin < MIN_MARGIN_USD) {
+        pm.recordMarginCall(execCandle, signal.action, qty, execCandle.close, leverage);
+        break;
+      }
       pm.openPosition(execCandle, signal.action, qty, leverage, sl, tp);
       break;
     }

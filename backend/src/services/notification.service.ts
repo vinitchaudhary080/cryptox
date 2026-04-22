@@ -12,7 +12,8 @@ export type NotificationType =
   | "strategy_pause"
   | "strategy_stop"
   | "strategy_resume"
-  | "admin_broadcast";
+  | "admin_broadcast"
+  | "margin_call";
 
 interface CreateNotificationParams {
   userId: string;
@@ -62,6 +63,7 @@ function urlFromType(type: NotificationType, _data?: Record<string, unknown>): s
     case "strategy_pause":
     case "strategy_stop":
     case "strategy_resume":
+    case "margin_call":
       return "/deployed";
     case "admin_broadcast":
       return "/dashboard";

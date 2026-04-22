@@ -63,7 +63,11 @@ export function computeMetrics(
     equityDoubleCount: 0,
     peakEquity: 0,
     lowestEquity: 0,
+    marginCallCount: 0,
   };
+
+  const marginCallCount = trades.filter((t) => t.status === "MARGIN_CALL").length;
+  empty.marginCallCount = marginCallCount;
 
   if (closedTrades.length === 0) return empty;
 
@@ -278,6 +282,7 @@ export function computeMetrics(
     equityDoubleCount,
     peakEquity,
     lowestEquity,
+    marginCallCount,
   };
 }
 

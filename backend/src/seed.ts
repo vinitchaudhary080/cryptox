@@ -73,6 +73,16 @@ const systemStrategies = [
     defaultPositionSize: 25,
     positionSizeLocked: false,
   },
+  {
+    name: "Weekly Momentum Swing",
+    description:
+      "Weekly long-only breakout swing. Fires when weekly close prints a fresh 8-week high of closes AND weekly EMA10>EMA30 stack is bullish. Exits on first weekly close below EMA10 (soft) or -2x ATR disaster stop. No fixed TP - designed to catch the full cyclic bull wave (weeks to months). Typically 3-10 trades across 3 years.",
+    category: "Momentum",
+    riskLevel: "MEDIUM" as const,
+    config: { leverage: 1 },
+    defaultPositionSize: 80,
+    positionSizeLocked: false,
+  },
 ];
 
 async function seed() {

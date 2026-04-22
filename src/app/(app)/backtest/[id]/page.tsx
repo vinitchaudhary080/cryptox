@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { motion } from "framer-motion"
-import { ArrowLeft, Loader2, Download, Clock, Calendar } from "lucide-react"
+import { ArrowLeft, Loader2, Download, Clock, Calendar, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
@@ -48,6 +48,7 @@ type ExtendedMetrics = {
   drawdownCurve?: { time: number; drawdownPct: number }[]
   cumulativePnlCurve?: { time: number; pnl: number }[]
   mddRecoveryDays?: number
+  marginCallCount?: number
 }
 
 interface BacktestRun {
@@ -240,6 +241,26 @@ export default function BacktestDetailPage() {
           </Button>
         </div>
       </motion.div>
+
+      {/* Margin-call banner (platform rule: per-trade margin ≥ $50) */}
+      {(ext.marginCallCount ?? 0) > 0 && (
+        <motion.div
+          variants={fadeUp}
+          className="rounded-xl border border-warning/40 bg-warning/5 px-4 py-3 text-sm"
+        >
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+            <div>
+              <p className="font-semibold text-warning">
+                {ext.marginCallCount} {ext.marginCallCount === 1 ? "trade" : "trades"} skipped — margin call
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Per-trade margin (equity × position-size %) dropped below the $50 platform minimum. Increase initial capital or position-size % to avoid this.
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* Summary Cards (existing 8 + new 3) */}
       <motion.div variants={fadeUp}>

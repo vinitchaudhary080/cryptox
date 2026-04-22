@@ -128,9 +128,19 @@ export interface BacktestTrade {
   exit_price: number;
   pnl: number;
   fee: number;
-  exit_reason: "TP" | "SL" | "SIGNAL" | "END";
-  status: "CLOSED";
+  exit_reason: "TP" | "SL" | "SIGNAL" | "END" | "MARGIN_CALL";
+  /**
+   * CLOSED = actual round-trip trade
+   * MARGIN_CALL = trade attempt skipped because per-trade margin (qty × entry)
+   *               was below the $50 platform minimum
+   */
+  status: "CLOSED" | "MARGIN_CALL";
+  /** Required margin at the time of the skipped attempt — only set for MARGIN_CALL */
+  attempted_margin?: number;
 }
+
+/** Platform-wide minimum margin per trade (USD). */
+export const MIN_MARGIN_USD = 50;
 
 // ── Backtest Config & Result Types ──────────────────────────────
 
@@ -207,6 +217,8 @@ export interface BacktestMetrics {
   equityDoubleCount: number;           // times total equity crossed above 2× initial
   peakEquity: number;                  // highest equity reached during backtest
   lowestEquity: number;                // lowest equity reached during backtest
+  // ── Margin-call counters ──────────────────────────────────────
+  marginCallCount: number;             // trades skipped because equity×sizePct < $50
 }
 
 export interface BacktestResult {

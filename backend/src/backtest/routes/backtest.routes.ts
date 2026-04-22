@@ -127,7 +127,7 @@ router.post("/run", async (req: Request, res: Response) => {
               pnl: t.pnl,
               fee: t.fee,
               exitReason: t.exit_reason,
-              status: "CLOSED",
+              status: t.status,
             })),
           });
         }
@@ -172,6 +172,7 @@ router.post("/run", async (req: Request, res: Response) => {
               peakEquity: result.metrics.peakEquity,
               lowestEquity: result.metrics.lowestEquity,
               maxDrawdownPercent: result.metrics.maxDrawdownPercent,
+              marginCallCount: result.metrics.marginCallCount,
             } as unknown as object,
             duration: result.duration,
           },

@@ -342,6 +342,60 @@ class StrategyWorker {
   ): Promise<Trade | null> {
     const mode = isPaperTrade ? "PAPER" : "LIVE";
 
+    // ── Platform rule: per-trade margin (qty × entry) must be ≥ $50 ──
+    // If equity has drained below the minimum viable position size for this
+    // strategy's sizing %, don't place the order. Instead surface a notification
+    // so the user can top up their invested amount.
+    const MIN_MARGIN_USD = 50;
+    const margin = price * quantity;
+    if (margin < MIN_MARGIN_USD) {
+      log(deployed.strategy.name, deployed.pair,
+        `[${mode}] MARGIN CALL: attempted ${side} with $${margin.toFixed(2)} margin < $${MIN_MARGIN_USD} min — trade skipped`);
+
+      // Rate-limit: only notify once per 6h per deployment to avoid spam on
+      // every signal bar while capital stays low.
+      try {
+        const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000);
+        const recent = await prisma.notification.findFirst({
+          where: {
+            userId: deployed.userId,
+            type: "margin_call",
+            createdAt: { gte: sixHoursAgo },
+            data: { path: ["deployedId"], equals: deployed.id } as never,
+          },
+          select: { id: true },
+        });
+        if (!recent) {
+          await createNotification({
+            userId: deployed.userId,
+            type: "margin_call",
+            title: `Insufficient capital — ${deployed.strategy.name}`,
+            message:
+              `${deployed.strategy.name} on ${deployed.pair} tried to open a ${side} trade, but the per-trade margin ` +
+              `($${margin.toFixed(2)}) is below the platform minimum of $${MIN_MARGIN_USD}. ` +
+              `Please add more capital to your deployed strategy to continue trading.`,
+            data: {
+              pair: deployed.pair,
+              side,
+              margin,
+              strategyName: deployed.strategy.name,
+              deployedId: deployed.id,
+            },
+          });
+        }
+      } catch (notifErr) {
+        console.error("[margin_call notification] failed:", notifErr);
+      }
+
+      emitTradeUpdate(deployed.userId, {
+        type: "ERROR",
+        error: `Skipped ${side}: margin $${margin.toFixed(2)} below $${MIN_MARGIN_USD} minimum. Add capital.`,
+        strategyName: deployed.strategy.name,
+        pair: deployed.pair,
+      });
+      return null;
+    }
+
     if (!isPaperTrade) {
       // ── Real trade: place order on exchange ──
       try {
