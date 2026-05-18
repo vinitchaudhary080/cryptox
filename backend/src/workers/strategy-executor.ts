@@ -5,9 +5,7 @@ import { createNotification } from "../services/notification.service.js";
 import type { Exchange, Ticker, OHLCV } from "ccxt";
 import { computeIndicators } from "../backtest/indicators/index.js";
 import { resampleCandles } from "../backtest/indicators/resample.js";
-import type { Candle, CandleContext, IndicatorConfig, IndicatorValues, Position, Signal } from "../backtest/types.js";
-import { getStrategyByName } from "../backtest/strategies/strategy-runner.js";
-import { getPrecomputeFn } from "../backtest/strategies/precompute-registry.js";
+import type { Candle, IndicatorConfig, IndicatorValues } from "../backtest/types.js";
 
 const prisma = new PrismaClient();
 
@@ -15,28 +13,7 @@ const prisma = new PrismaClient();
 // deployments created before the `mode` column existed. New deployments
 // set `mode` explicitly on the DeployedStrategy row.
 const LEGACY_PAPER_TRADE_EMAIL = "test@cryptox.com";
-const CANDLE_LOOKBACK = 100; // legacy category-based handlers — last 100 1m candles
-// Registered-strategy path needs much more history because strategy files
-// resample to 1H/4H and compute EMA200, ADX14, rolling-100 stdev etc. — 100
-// 1m candles = 1.7 hours of data, insufficient. 2000 1m candles = ~33 hours
-// of base data, which resamples to ~33 1H bars (still tight for EMA200) but
-// is the most we can fetch in a single exchange call. For strategies needing
-// deeper history, this is a known approximation — production-grade fix
-// would also pull from the historical CSV cache. (Logged as TODO.)
-const REGISTERED_LOOKBACK = 2000;
-
-/** Convert a display name ("07 Zscore Mean Reversion 1H") to its registry
- *  slug ("07-zscore-mean-reversion-1h"). Strategies registered in
- *  `BUILTIN_STRATEGIES` use this kebab-case key. For DB rows that don't
- *  slug cleanly (legacy display names), this returns a best-guess slug;
- *  callers must handle null lookups from `getStrategyByName` as
- *  "fall back to category-based handler". */
-function strategySlug(displayName: string): string {
-  return displayName
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
+const CANDLE_LOOKBACK = 100; // fetch last 100 candles for indicator computation
 
 function log(strategyName: string, pair: string, msg: string) {
   const time = new Date().toLocaleTimeString();
@@ -252,22 +229,6 @@ class StrategyWorker {
       // Check SL/TP on open positions first (all strategies)
       await this.checkStopLossAndTakeProfit(exchange, deployed, isPaperTrade, ticker);
 
-      // PRIMARY ROUTING: if the deployed strategy's name slugs to a key in
-      // `BUILTIN_STRATEGIES`, execute it via the same code path the backtest
-      // engine uses — strategy file is single source of truth for both
-      // backtest and live. The category-based handlers below remain ONLY as
-      // a fallback for strategies that don't have a registered code file.
-      const handledByRegistry = await this.executeRegisteredStrategy(
-        exchange,
-        deployed,
-        isPaperTrade,
-        ticker,
-      );
-      if (handledByRegistry) {
-        // updatePortfolioValue + emitPortfolioUpdate still need to run —
-        // jump to that block by falling through past the legacy routing.
-      } else {
-
       // Route to strategy logic
       const category = deployed.strategy.category.toLowerCase();
 
@@ -310,7 +271,6 @@ class StrategyWorker {
             log(deployed.strategy.name, deployed.pair, `No handler for category: ${category}`);
         }
       }
-      } // end of legacy routing else-branch (paired with `if (handledByRegistry)` above)
 
       // Update portfolio value
       await this.updatePortfolioValue(deployed, ticker);
@@ -323,238 +283,6 @@ class StrategyWorker {
       });
     } catch (err) {
       log(deployed.strategy.name, deployed.pair, `ERROR: ${(err as Error).message}`);
-    }
-  }
-
-  // ── Registry-based execution (preferred path) ───────────────
-  //
-  // Looks up the deployed strategy in the backtest strategy registry
-  // (`BUILTIN_STRATEGIES` in `strategy-runner.ts`) by slugifying the DB
-  // display name. If found, runs the strategy's actual `onCandle()` —
-  // same function the backtest engine calls — and converts the returned
-  // `Signal[]` into live trades via `openTrade()` / `closeTrade()`.
-  //
-  // This is THE fix for: "backtest avg-win was $4.33 per trade but live
-  // is $0.20 per trade". Backtest and live now run the same code.
-  //
-  // Returns:
-  //   true  → strategy was found in registry + executed (caller skips
-  //           category-based handler)
-  //   false → strategy not in registry (caller falls back to old
-  //           category-based generic handler — for legacy strategies
-  //           that don't have a registered code file yet)
-
-  private async executeRegisteredStrategy(
-    exchange: Exchange,
-    deployed: DeployedWithRelations,
-    isPaperTrade: boolean,
-    ticker: Ticker,
-  ): Promise<boolean> {
-    const slug = strategySlug(deployed.strategy.name);
-    const strategy = getStrategyByName(slug);
-    if (!strategy) return false;
-
-    const price = ticker.last ?? 0;
-    if (!price) return true; // claimed but couldn't act this tick
-
-    try {
-      // 1. Fetch a deeper candle window than the legacy path. Strategy
-      //    files resample to 1H/4H and need ≥ 200 bars of higher-TF data.
-      const ohlcv = await exchangeService.getCandles(
-        exchange,
-        deployed.pair,
-        "1m",
-        REGISTERED_LOOKBACK,
-      );
-      if (!ohlcv || ohlcv.length < 200) {
-        log(
-          deployed.strategy.name,
-          deployed.pair,
-          `[registry:${slug}] insufficient candles (${ohlcv?.length ?? 0}) — skipping tick`,
-        );
-        return true;
-      }
-      const candles = ohlcvToCandles(ohlcv);
-
-      // 2. Run the strategy's own precompute (if registered). Idempotent —
-      //    cheap to re-run every tick on a small window.
-      const precompute = getPrecomputeFn(slug);
-      if (precompute) precompute(candles);
-
-      // 3. Build the per-bar context. We always invoke onCandle on the
-      //    most recent (just-closed) candle. The strategy decides whether
-      //    to act based on its internal precomputed state + the candle.
-      const lastIdx = candles.length - 1;
-      const lastCandle = candles[lastIdx];
-
-      // Live currentValue (equity for sizing) — falls back to invested if
-      // currentValue hasn't been written yet.
-      const equity =
-        Number.isFinite(deployed.currentValue) && deployed.currentValue > 0
-          ? deployed.currentValue
-          : deployed.investedAmount;
-
-      // Merge strategy.defaultConfig with user's deploy overrides (same as
-      // backtest engine does — strategy defaults first, user values win).
-      const mergedConfig: Record<string, number | string> = {
-        ...strategy.defaultConfig,
-        ...((deployed.config ?? {}) as Record<string, number | string>),
-      };
-
-      // Translate currently-open trades to backtest-shape Positions so the
-      // strategy's onCandle sees what's actually open and can emit CLOSE_LONG
-      // / CLOSE_SHORT correctly.
-      const positions: Position[] = deployed.trades
-        .filter((t) => t.status === "OPEN")
-        .map((t) => ({
-          id: t.id,
-          entryTime: t.openedAt.getTime(),
-          entryPrice: t.entryPrice,
-          qty: t.quantity,
-          originalQty: t.quantity,
-          side: t.side as "BUY" | "SELL",
-          leverage: readLeverage(deployed.config),
-          sl: null,
-          tp: null,
-          tps: [],
-        }));
-
-      const ctx: CandleContext = {
-        candle: lastCandle,
-        index: lastIdx,
-        indicators: {} as IndicatorValues, // most registered strategies use precompute, not ctx.indicators
-        positions,
-        equity,
-        config: mergedConfig,
-      };
-      // Multi-timeframe strategies inspect `_allCandles` (backtest engine
-      // injects this too).
-      (ctx as unknown as { _allCandles: Candle[] })._allCandles = candles;
-
-      // 4. Run the strategy.
-      const signals = strategy.onCandle(ctx);
-
-      log(
-        deployed.strategy.name,
-        deployed.pair,
-        `[registry:${slug}] price=${price} candles=${candles.length} open=${positions.length} signals=${signals.length}`,
-      );
-
-      // 5. Execute signals.
-      for (const sig of signals) {
-        await this.executeRegisteredSignal(
-          exchange,
-          deployed,
-          isPaperTrade,
-          sig,
-          lastCandle,
-          equity,
-          mergedConfig,
-        );
-      }
-
-      return true;
-    } catch (err) {
-      log(
-        deployed.strategy.name,
-        deployed.pair,
-        `[registry:${slug}] ERROR: ${(err as Error).message}`,
-      );
-      return true; // we claimed it — don't double-execute via legacy
-    }
-  }
-
-  /** Translate a backtest `Signal` into a live trade open/close. Mirrors
-   *  the backtest engine's `executeSignal()` for percent-equity sizing. */
-  private async executeRegisteredSignal(
-    exchange: Exchange,
-    deployed: DeployedWithRelations,
-    isPaperTrade: boolean,
-    signal: Signal,
-    candle: Candle,
-    equity: number,
-    config: Record<string, number | string>,
-  ): Promise<void> {
-    // Honour the strategy's explicit entryPrice (used by multi-TF
-    // strategies that fire on the just-closed HTF bar, not the current
-    // 1m close) — same convention as the backtest engine.
-    const execPrice =
-      signal.entryPrice != null && Number.isFinite(signal.entryPrice)
-        ? signal.entryPrice
-        : candle.close;
-
-    switch (signal.action) {
-      case "BUY":
-      case "SELL": {
-        // Sizing — percent_equity formula. This is the bug fix for live:
-        // OLD code used `investedAmount * 0.1` (hardcoded 10%, ignored
-        // leverage and the user's positionSizePercent). NEW formula
-        // matches the backtest engine's `percent_equity` mode exactly.
-        const positionSizePct = Number(config.positionSizePercent ?? 10);
-        const leverage = Math.max(1, Number(config.leverage ?? 1));
-        const sizeFraction = Math.max(0, Math.min(100, positionSizePct)) / 100;
-        const qty =
-          signal.qty != null && Number.isFinite(signal.qty)
-            ? signal.qty // strategy specified its own qty — trust it
-            : (equity * sizeFraction * leverage) / execPrice;
-
-        await this.openTrade(
-          exchange,
-          deployed,
-          isPaperTrade,
-          signal.action,
-          execPrice,
-          qty,
-          signal.reason ?? `registry signal ${signal.action}`,
-        );
-        break;
-      }
-      case "CLOSE_LONG": {
-        const openLongs = deployed.trades.filter(
-          (t) => t.status === "OPEN" && t.side === "BUY",
-        );
-        for (const t of openLongs) {
-          await this.closeTrade(
-            exchange,
-            deployed,
-            isPaperTrade,
-            t,
-            execPrice,
-            signal.reason ?? "registry CLOSE_LONG",
-          );
-        }
-        break;
-      }
-      case "CLOSE_SHORT": {
-        const openShorts = deployed.trades.filter(
-          (t) => t.status === "OPEN" && t.side === "SELL",
-        );
-        for (const t of openShorts) {
-          await this.closeTrade(
-            exchange,
-            deployed,
-            isPaperTrade,
-            t,
-            execPrice,
-            signal.reason ?? "registry CLOSE_SHORT",
-          );
-        }
-        break;
-      }
-      case "CLOSE_ALL": {
-        const openAll = deployed.trades.filter((t) => t.status === "OPEN");
-        for (const t of openAll) {
-          await this.closeTrade(
-            exchange,
-            deployed,
-            isPaperTrade,
-            t,
-            execPrice,
-            signal.reason ?? "registry CLOSE_ALL",
-          );
-        }
-        break;
-      }
     }
   }
 
