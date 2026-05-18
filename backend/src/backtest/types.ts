@@ -9,6 +9,13 @@ export interface Candle {
   low: number;
   close: number;
   volume: number;
+  // Optional order-flow / futures extras (populated by the futures-extras
+  // backfill from Binance futures klines + funding/OI endpoints; merged
+  // into Candle by loadCandles when {COIN}_1m_extras.csv is present).
+  // Indicators that require these fields must check for undefined.
+  delta?: number;     // 2 × taker_buy_base − volume (per 1m kline)
+  oi?: number;        // open interest snapshot at bar close (5m granularity, ffill)
+  funding?: number;   // funding rate (8h cadence, ffill)
 }
 
 // ── Indicator Types ─────────────────────────────────────────────
@@ -34,11 +41,29 @@ export interface IndicatorValues {
 
 export type SignalAction = "BUY" | "SELL" | "CLOSE_LONG" | "CLOSE_SHORT" | "CLOSE_ALL";
 
+/** A single take-profit level for multi-TP partial-close strategies.
+ *  `portion` is the FRACTION of the original position qty to close when
+ *  this level is hit (0 < portion ≤ 1). The sum of portions across all
+ *  TPs in `Signal.tps` must be ≤ 1.0; remaining qty trails to SL or END.
+ */
+export interface TpLevel {
+  price: number;
+  portion: number;
+}
+
 export interface Signal {
   action: SignalAction;
   qty?: number;
   sl?: number;
+  /** Single-TP shortcut. Equivalent to tps:[{price: tp, portion: 1}]. */
   tp?: number;
+  /**
+   * Multi-TP ladder (mutually exclusive with `tp`). When provided, the
+   * engine partially closes `portion × originalQty` at each level in order.
+   * Levels MUST be ordered in the trade direction (long: ascending; short:
+   * descending). The engine ignores `tp` if `tps` is set.
+   */
+  tps?: TpLevel[];
   leverage?: number;
   reason?: string;
   /**
@@ -108,10 +133,15 @@ export interface Position {
   entryTime: number;
   entryPrice: number;
   qty: number;
+  /** Original qty at the time the position was opened. Stays constant as
+   *  partial closes shrink `qty`. Used to compute multi-TP portions. */
+  originalQty: number;
   side: "BUY" | "SELL";
   leverage: number;
   sl: number | null;
   tp: number | null;
+  /** Remaining (price, portion) levels not yet hit, in trigger order. */
+  tps: TpLevel[];
 }
 
 export interface BacktestTrade {
@@ -128,21 +158,47 @@ export interface BacktestTrade {
   exit_price: number;
   pnl: number;
   fee: number;
-  exit_reason: "TP" | "SL" | "SIGNAL" | "END" | "MARGIN_CALL";
+  exit_reason: "TP" | "SL" | "SIGNAL" | "END" | "MARGIN_CALL" | "LIQUIDATED";
+  /** For multi-TP positions: 1 = first TP, 2 = second, etc. Undefined for
+   *  single-TP / SL / SIGNAL exits. */
+  tp_level?: number;
+  /** True when this trade row is a partial close (the position still had
+   *  qty remaining when this leg fired). Helps the trade-log UI group legs
+   *  by `entry_id`. */
+  partial?: boolean;
   /**
-   * CLOSED = actual round-trip trade
+   * CLOSED     = actual round-trip trade
    * MARGIN_CALL = trade attempt skipped because per-trade margin (qty × entry)
-   *               was below the $50 platform minimum
+   *               was below the $50 platform minimum — surfaced in the report
+   *               as a BLOWOUT event (the account couldn't sustain the trade)
    */
   status: "CLOSED" | "MARGIN_CALL";
   /** Required margin at the time of the skipped attempt — only set for MARGIN_CALL */
   attempted_margin?: number;
+  /** Account equity at the moment of the margin-call skip — only set for MARGIN_CALL */
+  equity_at_call?: number;
 }
 
 /** Platform-wide minimum margin per trade (USD). */
 export const MIN_MARGIN_USD = 50;
 
 // ── Backtest Config & Result Types ──────────────────────────────
+
+/**
+ * TradingView-style sizing modes. These are the three ways a backtest can
+ * determine per-trade position size — strategies' own sizing math is
+ * overridden by the engine once a mode is active.
+ *
+ *   contracts        — Every trade uses exactly `sizingValue` units of the
+ *                      base asset (e.g., 0.01 BTC). Notional scales with price.
+ *
+ *   fixed_cash       — Every trade deploys exactly `sizingValue` dollars of
+ *                      margin. qty = sizingValue / price.
+ *
+ *   percent_equity   — Every trade uses `sizingValue`% of current equity.
+ *                      Profits compound into subsequent trades.
+ */
+export type SizingMode = "contracts" | "fixed_cash" | "percent_equity";
 
 export interface BacktestConfig {
   coin: string;
@@ -154,6 +210,21 @@ export interface BacktestConfig {
   initialCapital: number;
   makerFee?: number;    // default 0.0005 (0.05%)
   slippage?: number;    // default 0.0001 (0.01%)
+  /** Optional. If set, engine overrides strategy-provided qty on every entry. */
+  sizingMode?: SizingMode;
+  /**
+   * Numeric parameter for the sizing mode:
+   *   contracts       → raw quantity (e.g., 0.001)
+   *   fixed_cash      → dollars (e.g., 50)
+   *   percent_equity  → percentage 1-100 (e.g., 50)
+   */
+  sizingValue?: number;
+  /**
+   * When true (default), any trade whose per-trade margin (qty × price) is
+   * below MIN_MARGIN_USD is skipped as MARGIN_CALL. Set false to disable
+   * the floor entirely (no MARGIN_CALL rows will be produced).
+   */
+  enforceMinMargin?: boolean;
 }
 
 export interface EquityPoint {
@@ -217,8 +288,16 @@ export interface BacktestMetrics {
   equityDoubleCount: number;           // times total equity crossed above 2× initial
   peakEquity: number;                  // highest equity reached during backtest
   lowestEquity: number;                // lowest equity reached during backtest
-  // ── Margin-call counters ──────────────────────────────────────
-  marginCallCount: number;             // trades skipped because equity×sizePct < $50
+  // ── Margin-call / blowout counters ────────────────────────────
+  marginCallCount: number;             // trades skipped because margin < $50
+  /** Cumulative dollars user would have had to top up (to the $50 floor) to keep trading. */
+  marginCallTopUpTo50Total: number;
+  /** Cumulative dollars user would have had to top up (back to initial capital) after each blowout. */
+  marginCallTopUpToInitialTotal: number;
+  /** Lowest equity observed at the moment of any margin-call skip. */
+  marginCallLowestEquity: number;
+  // ── Liquidation counter ───────────────────────────────────────
+  liquidationCount: number;            // positions force-closed by leverage liquidation
 }
 
 export interface BacktestResult {
