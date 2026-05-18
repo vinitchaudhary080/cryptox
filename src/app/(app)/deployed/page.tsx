@@ -20,6 +20,7 @@ import {
   Loader2,
   Trash2,
   Activity,
+  Beaker,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -204,6 +205,12 @@ function StrategyList({
                             <span className={`mr-1.5 h-1.5 w-1.5 rounded-full ${sc.dot}`} />
                             {sc.label}
                           </Badge>
+                          {strategy.mode === "PAPER" && (
+                            <Badge variant="outline" className="text-[10px] border-amber-500/40 bg-amber-500/10 text-amber-500">
+                              <Beaker className="mr-1 h-3 w-3" />
+                              PAPER
+                            </Badge>
+                          )}
                         </div>
                         <p className="mt-0.5 text-xs text-muted-foreground">
                           {strategy.pair} &middot; {strategy.brokerName} &middot; Since {strategy.deployedAt}
@@ -395,6 +402,12 @@ function StrategyDetail({
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-bold tracking-tight">{strategy.strategyName}</h1>
+              {strategy.mode === "PAPER" && (
+                <Badge variant="outline" className="text-[10px] border-amber-500/40 bg-amber-500/10 text-amber-500">
+                  <Beaker className="mr-1 h-3 w-3" />
+                  PAPER
+                </Badge>
+              )}
               <Badge variant="outline" className={sc.className}>
                 <span className={`mr-1.5 h-1.5 w-1.5 rounded-full ${sc.dot}`} />
                 {sc.label}
@@ -634,6 +647,7 @@ function mapApiToStrategy(d: Record<string, unknown>): DeployedStrategy {
     brokerShortName: ((d.brokerName as string) || "").slice(0, 2).toUpperCase(),
     pair: d.pair as string,
     status: (d.status as string).toLowerCase() as "active" | "paused" | "stopped",
+    mode: (d.mode as "LIVE" | "PAPER" | undefined) ?? "LIVE",
     deployedAt: d.deployedAt as string,
     investedAmount: d.investedAmount as number,
     currentValue: d.currentValue as number,

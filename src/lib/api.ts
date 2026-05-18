@@ -185,6 +185,11 @@ export const strategyApi = {
   adminSyncStatus: () => apiFetch("/strategies/admin/sync-status"),
   pushToLive: (id: string) =>
     apiFetch(`/strategies/${id}/push-to-live`, { method: "POST" }),
+  // Local-dev only — backend returns 404 in production. Cascade-deletes the
+  // strategy along with all deployed instances + their trades + featured-run
+  // pointers. Never call this on prod.
+  remove: (id: string) =>
+    apiFetch(`/strategies/${id}`, { method: "DELETE" }),
 };
 
 // Deployed
@@ -208,6 +213,8 @@ export const deployedApi = {
     pair: string;
     investedAmount: number;
     config?: Record<string, unknown>;
+    /** "LIVE" (default) sends real orders. "PAPER" simulates fills against real prices. Admin-only. */
+    mode?: "LIVE" | "PAPER";
   }) => apiFetch("/deployed", { method: "POST", body: JSON.stringify(data) }),
 
   pause: (id: string) =>

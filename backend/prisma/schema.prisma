@@ -8,29 +8,29 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(uuid())
-  email         String    @unique
-  name          String?
-  displayName   String?
-  phone         String?
-  bio           String?
-  timezone      String    @default("UTC+5:30")
-  country       String?
-  passwordHash  String?
-  googleId      String?   @unique
-  avatarUrl     String?
-  emailVerified Boolean   @default(false)
-  verifyCode    String?
-  verifyExpiry  DateTime?
+  id               String    @id @default(uuid())
+  email            String    @unique
+  name             String?
+  displayName      String?
+  phone            String?
+  bio              String?
+  timezone         String    @default("UTC+5:30")
+  country          String?
+  passwordHash     String?
+  googleId         String?   @unique
+  avatarUrl        String?
+  emailVerified    Boolean   @default(false)
+  verifyCode       String?
+  verifyExpiry     DateTime?
   // ── Password reset (Approach C: OTP + short-lived reset token) ──
   resetOtp         String?
   resetOtpExpiry   DateTime?
   resetOtpAttempts Int       @default(0) // wrong-OTP counter; reset on new OTP request
   resetTokenHash   String? // sha256 of JWT resetToken — single-use check
   resetTokenExpiry DateTime?
-  plan          Plan      @default(FREE)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  plan             Plan      @default(FREE)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   brokers            Broker[]
   deployedStrategies DeployedStrategy[]
@@ -81,22 +81,25 @@ model Broker {
 }
 
 model Strategy {
-  id          String    @id @default(uuid())
-  name        String
-  description String
-  category    String // Grid, DCA, Trend, Mean Reversion, Arbitrage, Scalping
-  riskLevel   RiskLevel
-  config      Json // strategy-specific parameters
-  isSystem    Boolean   @default(true) // system = pre-built template
-  isVisible   Boolean   @default(true) // false = hidden from strategy page but retained for existing deployments
+  id                  String    @id @default(uuid())
+  name                String
+  description         String
+  category            String // Grid, DCA, Trend, Mean Reversion, Arbitrage, Scalping
+  riskLevel           RiskLevel
+  config              Json // strategy-specific parameters
+  isSystem            Boolean   @default(true) // system = pre-built template
+  isVisible           Boolean   @default(true) // false = hidden from strategy page but retained for existing deployments
   // Per-trade position sizing (% of invested capital deployed per entry)
-  defaultPositionSize Float   @default(10)    // percent, e.g. 10 = 10%
-  positionSizeLocked  Boolean @default(false) // if true, user cannot override in deploy dialog
+  defaultPositionSize Float     @default(10) // percent, e.g. 10 = 10%
+  positionSizeLocked  Boolean   @default(false) // if true, user cannot override in deploy dialog
+  // Coins this strategy has been validated on (populated from backtest results).
+  // Empty array means no validation data yet — frontend should fall back to defaults.
+  supportedPairs      Json      @default("[]")
   // Live-sync tracking — tracks whether this local row has been pushed to prod DB
-  liveSyncStatus String? // "synced" | "error" | "pushing" | null (never pushed)
-  liveSyncAt     DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  liveSyncStatus      String? // "synced" | "error" | "pushing" | null (never pushed)
+  liveSyncAt          DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   deployedStrategies DeployedStrategy[]
   featuredBacktests  BacktestRun[]      @relation("FeaturedBacktests")
@@ -111,6 +114,7 @@ model DeployedStrategy {
   brokerId       String
   pair           String // e.g. "BTC/USDT"
   status         DeployedStatus @default(ACTIVE)
+  mode           DeploymentMode @default(LIVE) // LIVE = real orders to exchange. PAPER = simulated fills, real prices, no exchange order. Admin-only.
   investedAmount Float
   currentValue   Float          @default(0)
   config         Json // user overrides: stop loss, take profit, etc.
@@ -209,6 +213,11 @@ enum DeployedStatus {
   DELETED
 }
 
+enum DeploymentMode {
+  LIVE
+  PAPER
+}
+
 enum Side {
   BUY
   SELL
@@ -260,8 +269,8 @@ model BacktestRun {
   featuredStrategyId String?
 
   // Live-sync tracking — does this run also exist on prod DB?
-  liveSyncStatus     String? // "synced" | "error" | "pushing" | null
-  liveSyncAt         DateTime?
+  liveSyncStatus String? // "synced" | "error" | "pushing" | null
+  liveSyncAt     DateTime?
 
   user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   trades           BacktestTrade[]

@@ -9,12 +9,30 @@ import { createNotification } from "../services/notification.service.js";
 const router = Router();
 const prisma = new PrismaClient();
 
+// Admin-only feature gate — mirrors the pattern used in notification.routes.ts
+// and backtest.routes.ts. Paper-mode deployments are restricted to admins.
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "vinitchaudhary080@gmail.com")
+  .split(",")
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean);
+const ADMIN_USER_IDS = (process.env.ADMIN_USER_IDS ?? "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+async function isAdmin(userId: string): Promise<boolean> {
+  if (ADMIN_USER_IDS.includes(userId)) return true;
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+  return !!user && ADMIN_EMAILS.includes(user.email.toLowerCase());
+}
+
 const deploySchema = z.object({
   strategyId: z.string(),
   brokerId: z.string(),
   pair: z.string().min(1),
   investedAmount: z.number().positive(),
   config: z.record(z.string(), z.unknown()).optional(),
+  mode: z.enum(["LIVE", "PAPER"]).optional(),
 });
 
 // List user's deployed strategies
@@ -58,6 +76,7 @@ router.get("/", authenticate, async (req: AuthRequest, res: Response) => {
         brokerId: d.brokerId,
         pair: d.pair,
         status: d.status,
+        mode: d.mode,
         deployedAt: d.deployedAt,
         investedAmount: d.investedAmount,
         currentValue: d.currentValue,
@@ -134,6 +153,14 @@ router.get("/:id/trades", authenticate, async (req: AuthRequest, res: Response) 
 router.post("/", authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const data = deploySchema.parse(req.body);
+    const mode = data.mode ?? "LIVE";
+
+    // Paper-mode deployments are admin-only — enforced at the API boundary
+    // so a non-admin can't bypass the UI gate by crafting a request.
+    if (mode === "PAPER" && !(await isAdmin(req.user!.userId))) {
+      res.status(403).json({ success: false, error: "Paper mode is admin-only" });
+      return;
+    }
 
     const [strategy, broker] = await Promise.all([
       prisma.strategy.findUnique({ where: { id: data.strategyId } }),
@@ -159,6 +186,7 @@ router.post("/", authenticate, async (req: AuthRequest, res: Response) => {
         currentValue: data.investedAmount,
         config: (data.config ?? {}) as Prisma.InputJsonValue,
         status: "ACTIVE",
+        mode,
       },
       include: {
         strategy: { select: { name: true, category: true } },
@@ -166,15 +194,22 @@ router.post("/", authenticate, async (req: AuthRequest, res: Response) => {
       },
     });
 
-    await workerClient.startStrategy(deployed.id);
-
     createNotification({
       userId: req.user!.userId,
       type: "strategy_deploy",
       title: `Strategy Deployed`,
       message: `${deployed.strategy.name} deployed on ${deployed.pair} with $${data.investedAmount}`,
       data: { pair: data.pair, strategyName: deployed.strategy.name, amount: data.investedAmount, deployedId: deployed.id },
-    }).catch(() => {});
+    }).catch((e) => console.error("[deploy] notification failed:", e));
+
+    // Worker start is non-fatal — DB row is ACTIVE, worker.resumeAll() picks it up on next boot.
+    try {
+      await workerClient.startStrategy(deployed.id);
+    } catch (err) {
+      console.warn(
+        `[deploy] worker start failed for ${deployed.id} — strategy saved as ACTIVE, will resume on worker boot. Error: ${(err as Error).message}`,
+      );
+    }
 
     res.status(201).json({ success: true, data: deployed });
   } catch (err: unknown) {

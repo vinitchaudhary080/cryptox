@@ -12,6 +12,7 @@ import {
   DollarSign,
   Loader2,
   Search,
+  Beaker,
 } from "lucide-react"
 import {
   Dialog,
@@ -24,7 +25,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { brokerApi, deployedApi } from "@/lib/api"
+import { brokerApi, deployedApi, notificationApi } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
 type Broker = {
@@ -105,6 +106,9 @@ export function DeployDialog({
   const [amount, setAmount] = useState("50")
   const [leverage, setLeverage] = useState("10")
   const [positionSize, setPositionSize] = useState(String(defaultPositionSize))
+  // Admin-only paper-trade mode. Default LIVE for backward compatibility.
+  const [mode, setMode] = useState<"LIVE" | "PAPER">("LIVE")
+  const [isAdmin, setIsAdmin] = useState(false)
 
   // Pair list + instrument info state (broker-aware)
   const [availablePairs, setAvailablePairs] = useState<string[]>([])
@@ -128,6 +132,7 @@ export function DeployDialog({
     setInstrument(null)
     setPairSearch("")
     setShowAllPairs(false)
+    setMode("LIVE")
     setLoading(true)
 
     brokerApi.list().then((res) => {
@@ -140,6 +145,16 @@ export function DeployDialog({
       }
       setLoading(false)
     })
+
+    // Check admin status to decide whether to show the PAPER toggle.
+    // Mirrors app-header.tsx pattern.
+    notificationApi
+      .adminCheck()
+      .then((r) => {
+        const res = r as { success?: boolean; data?: { isAdmin?: boolean } }
+        setIsAdmin(!!res?.data?.isAdmin)
+      })
+      .catch(() => setIsAdmin(false))
   }, [open])
 
   // Fetch broker's pair list whenever broker changes
@@ -228,6 +243,7 @@ export function DeployDialog({
         // it through so DB config stays self-descriptive.
         positionSizePercent: positionSizeLocked ? defaultPositionSize : positionSizeNum,
       },
+      mode,
     })
 
     setDeploying(false)
@@ -328,6 +344,49 @@ export function DeployDialog({
                   exit={{ opacity: 0, x: -20 }}
                   className="space-y-3"
                 >
+                  {/* Admin-only deployment mode toggle. Default LIVE. */}
+                  {isAdmin && (
+                    <div className="rounded-lg border border-border/50 bg-muted/10 p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-medium">Deployment mode</Label>
+                        <Badge variant="outline" className="text-[10px]">Admin only</Badge>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setMode("LIVE")}
+                          className={cn(
+                            "rounded-md border px-3 py-2 text-xs font-medium transition-colors",
+                            mode === "LIVE"
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border/50 bg-transparent text-muted-foreground hover:bg-muted/30"
+                          )}
+                        >
+                          <Rocket className="mx-auto mb-1 h-4 w-4" />
+                          Live
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setMode("PAPER")}
+                          className={cn(
+                            "rounded-md border px-3 py-2 text-xs font-medium transition-colors",
+                            mode === "PAPER"
+                              ? "border-amber-500 bg-amber-500/10 text-amber-500"
+                              : "border-border/50 bg-transparent text-muted-foreground hover:bg-muted/30"
+                          )}
+                        >
+                          <Beaker className="mx-auto mb-1 h-4 w-4" />
+                          Paper
+                        </button>
+                      </div>
+                      <p className="text-[10px] leading-relaxed text-muted-foreground">
+                        {mode === "PAPER"
+                          ? "Simulated fills against real prices. No exchange orders, no funds move."
+                          : "Real orders sent to your broker. Trades use real funds."}
+                      </p>
+                    </div>
+                  )}
+
                   <p className="text-sm font-medium">Which broker do you want to use?</p>
 
                   {loading ? (
@@ -695,6 +754,7 @@ export function DeployDialog({
                 >
                   <div className="rounded-xl border border-border/50 bg-muted/20 p-4 space-y-3">
                     {[
+                      { label: "Mode", value: mode === "PAPER" ? "PAPER (simulated)" : "LIVE" },
                       { label: "Strategy", value: strategyName },
                       { label: "Broker", value: selectedBroker ? `${selectedBroker.name} (${selectedBroker.uid})` : "" },
                       { label: "Pair", value: formatPair(selectedPair) },
@@ -709,13 +769,24 @@ export function DeployDialog({
                     ))}
                   </div>
 
-                  <div className="flex items-start gap-2.5 rounded-lg border border-warning/20 bg-warning/5 p-3">
-                    <Shield className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-                    <p className="text-[11px] leading-relaxed text-muted-foreground">
-                      This will deploy a <strong>live strategy</strong> on your {selectedBroker?.name} account.
-                      The bot will execute real trades. Past performance does not guarantee future results.
-                    </p>
-                  </div>
+                  {mode === "PAPER" ? (
+                    <div className="flex items-start gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+                      <Beaker className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+                      <p className="text-[11px] leading-relaxed text-muted-foreground">
+                        <strong>Paper mode</strong> — orders are simulated against real {selectedBroker?.name} prices.
+                        No funds will move, no API order will be placed. Use this to validate the strategy
+                        before going live.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-2.5 rounded-lg border border-warning/20 bg-warning/5 p-3">
+                      <Shield className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+                      <p className="text-[11px] leading-relaxed text-muted-foreground">
+                        This will deploy a <strong>live strategy</strong> on your {selectedBroker?.name} account.
+                        The bot will execute real trades. Past performance does not guarantee future results.
+                      </p>
+                    </div>
+                  )}
 
                   {error && (
                     <div className="rounded-lg border border-loss/20 bg-loss/5 p-3 text-xs text-loss">

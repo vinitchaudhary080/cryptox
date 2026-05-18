@@ -220,6 +220,20 @@ export const strategies = [
     tags: ["Gann", "Momentum"],
   },
   {
+    id: "gann-matrix-momentum-v2",
+    name: "Gann Matrix Momentum V2",
+    description: "5m variant of Gann Matrix Momentum — identical Weekly Gann zones + EMA20/50 cross logic on a faster timeframe. More decision points, tighter exits. Position sizing locked to leverage (5x→100%, 10x→40%, 20x→20%).",
+    category: "Gann / Momentum",
+    risk: "high" as const,
+    returnRate: 48.6,
+    winRate: 43,
+    trades: 2180,
+    minInvestment: 500,
+    pairs: ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
+    performance: Array.from({ length: 30 }, (_, i) => ({ day: i + 1, value: 100 + i * 1.35 + Math.cos(i * 0.7) * 6 })),
+    tags: ["5m", "Gann", "Momentum"],
+  },
+  {
     id: "support/resistance-breakout",
     name: "Support/Resistance Breakout",
     description: "15m volume-confirmed pivot zones with ATR(200)-wide boxes. Fresh breakouts above resistance / below support with hard SL at the far edge, then KAMA trail.",
@@ -232,6 +246,20 @@ export const strategies = [
     pairs: ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
     performance: Array.from({ length: 30 }, (_, i) => ({ day: i + 1, value: 100 + i * 0.8 + Math.sin(i * 0.6) * 3.5 })),
     tags: ["Breakout", "KAMA Trail"],
+  },
+  {
+    id: "support/resistance-breakout-v2",
+    name: "Support/Resistance Breakout V2",
+    description: "5m version of SR Breakout — identical pivot + KAMA logic on a faster timeframe. More signals, tighter stops; candle-size filter strongly recommended.",
+    category: "Breakout",
+    risk: "high" as const,
+    returnRate: 34.8,
+    winRate: 48,
+    trades: 1240,
+    minInvestment: 500,
+    pairs: ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
+    performance: Array.from({ length: 30 }, (_, i) => ({ day: i + 1, value: 100 + i * 1.05 + Math.sin(i * 0.9) * 4 })),
+    tags: ["5m", "Breakout", "KAMA Trail"],
   },
   {
     id: "macd-crossover-swing",
@@ -426,6 +454,7 @@ export type DeployedStrategy = {
   brokerShortName: string
   pair: string
   status: "active" | "paused" | "stopped"
+  mode?: "LIVE" | "PAPER"
   deployedAt: string
   investedAmount: number
   currentValue: number

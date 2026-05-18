@@ -9,7 +9,10 @@ import type { Candle, IndicatorConfig, IndicatorValues } from "../backtest/types
 
 const prisma = new PrismaClient();
 
-const PAPER_TRADE_EMAIL = "test@cryptox.com";
+// Legacy: email-based paper-trade flag — kept ONLY as fallback for
+// deployments created before the `mode` column existed. New deployments
+// set `mode` explicitly on the DeployedStrategy row.
+const LEGACY_PAPER_TRADE_EMAIL = "test@cryptox.com";
 const CANDLE_LOOKBACK = 100; // fetch last 100 candles for indicator computation
 
 function log(strategyName: string, pair: string, msg: string) {
@@ -201,7 +204,10 @@ class StrategyWorker {
       return;
     }
 
-    const isPaperTrade = deployed.user.email === PAPER_TRADE_EMAIL;
+    // Paper-trade flag: `mode === "PAPER"` on the deployment row is the
+    // authoritative source. Email fallback kept for any pre-mode rows.
+    const isPaperTrade =
+      deployed.mode === "PAPER" || deployed.user.email === LEGACY_PAPER_TRADE_EMAIL;
     const exchange = exchangeService.getExchange(
       deployed.brokerId,
       deployed.broker.exchangeId,
@@ -1065,7 +1071,8 @@ class StrategyWorker {
       return { closed: 0, totalPnl: 0 };
     }
 
-    const isPaperTrade = deployed.user.email === PAPER_TRADE_EMAIL;
+    const isPaperTrade =
+      deployed.mode === "PAPER" || deployed.user.email === LEGACY_PAPER_TRADE_EMAIL;
     let currentPrice = 0;
 
     try {
