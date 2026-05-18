@@ -2,9 +2,13 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
 
 type FetchOptions = RequestInit & { skipAuth?: boolean };
 
+// Auth storage moved from sessionStorage → localStorage so tokens survive
+// iOS PWA restarts (sessionStorage was being wiped when the standalone PWA
+// was backgrounded, forcing re-login). The Zustand auth store now persists
+// to localStorage too — both reads MUST use the same key/storage.
 function getTokens() {
   if (typeof window === "undefined") return null;
-  const raw = sessionStorage.getItem("cryptox-auth");
+  const raw = localStorage.getItem("cryptox-auth");
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw);
@@ -16,13 +20,13 @@ function getTokens() {
 
 function setTokens(accessToken: string, refreshToken: string) {
   if (typeof window === "undefined") return;
-  const raw = sessionStorage.getItem("cryptox-auth");
+  const raw = localStorage.getItem("cryptox-auth");
   if (!raw) return;
   try {
     const parsed = JSON.parse(raw);
     parsed.state.accessToken = accessToken;
     parsed.state.refreshToken = refreshToken;
-    sessionStorage.setItem("cryptox-auth", JSON.stringify(parsed));
+    localStorage.setItem("cryptox-auth", JSON.stringify(parsed));
   } catch { /* ignore */ }
 }
 

@@ -121,16 +121,23 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: "cryptox-auth",
+      // localStorage (not sessionStorage) so the session survives iOS PWA
+      // restarts. iOS clears the in-memory session when the standalone PWA
+      // is backgrounded long enough — sessionStorage went with it, forcing
+      // a fresh login on every relaunch. localStorage is durable across
+      // app restarts (and only clears on explicit logout, browser data
+      // clear, or iOS storage eviction after ~weeks of non-use). Refresh
+      // tokens still expire on the server side (JWT_REFRESH_EXPIRES_IN=7d).
       storage: {
         getItem: (name: string) => {
-          const value = typeof window !== "undefined" ? sessionStorage.getItem(name) : null;
+          const value = typeof window !== "undefined" ? localStorage.getItem(name) : null;
           return value ? JSON.parse(value) : null;
         },
         setItem: (name: string, value: StorageValue<unknown>) => {
-          if (typeof window !== "undefined") sessionStorage.setItem(name, JSON.stringify(value));
+          if (typeof window !== "undefined") localStorage.setItem(name, JSON.stringify(value));
         },
         removeItem: (name: string) => {
-          if (typeof window !== "undefined") sessionStorage.removeItem(name);
+          if (typeof window !== "undefined") localStorage.removeItem(name);
         },
       },
       partialize: (state) => ({

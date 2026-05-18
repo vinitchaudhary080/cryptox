@@ -109,6 +109,11 @@ export const viewport: Viewport = {
   ],
   width: "device-width",
   initialScale: 1,
+  // `cover` lets the page extend under iOS notch / home indicator AND makes
+  // env(safe-area-inset-*) report non-zero values — without this the
+  // BottomNav's safe-area padding is silently zero and the bar sits flush
+  // against the home indicator.
+  viewportFit: "cover",
 }
 
 export default function RootLayout({

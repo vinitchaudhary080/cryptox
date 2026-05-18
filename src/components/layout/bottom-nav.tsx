@@ -49,7 +49,10 @@ export function BottomNav() {
         "border-t border-border/50 bg-background/85 backdrop-blur-xl",
       )}
       style={{
-        paddingBottom: "env(safe-area-inset-bottom)",
+        // Floor of 10px so non-iOS devices (Android, dev tools, browsers
+        // without notch metadata) still get breathing room above the
+        // hardware edge. iOS reports ~34px on devices with home indicator.
+        paddingBottom: "max(env(safe-area-inset-bottom), 10px)",
       }}
     >
       <ul className="flex items-stretch justify-around">
