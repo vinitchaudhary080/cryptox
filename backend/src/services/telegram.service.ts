@@ -19,10 +19,11 @@
  *   the two channels run in parallel; either independently sufficient.
  */
 import { PrismaClient } from "@prisma/client";
+import { request as httpsRequest } from "node:https";
 
 const prisma = new PrismaClient();
 
-const TELEGRAM_API_BASE = "https://api.telegram.org";
+const TELEGRAM_API_HOST = "api.telegram.org";
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? "";
 const BOT_USERNAME = process.env.TELEGRAM_BOT_USERNAME ?? "algopulse_alerts_bot";
 
@@ -58,16 +59,59 @@ interface TelegramApiResponse<T> {
   error_code?: number;
 }
 
+/**
+ * IMPORTANT — uses node:https instead of the global fetch().
+ *
+ * Why: AWS EC2 instances default to IPv4-only outbound networking, but
+ * api.telegram.org publishes both A and AAAA DNS records. Node 24's
+ * built-in fetch (undici) tries the IPv6 address first via Happy
+ * Eyeballs and gets ENETUNREACH immediately, but the fallback to IPv4
+ * doesn't kick in reliably — every Telegram call from EC2 hangs and
+ * eventually fails with ETIMEDOUT. node:https with `family: 4` forces
+ * the IPv4 path that curl uses, which works.
+ *
+ * If undici's happy-eyeballs is ever fixed upstream, this can revert to
+ * a normal fetch() call.
+ */
 async function callTelegramApi<T>(
   method: string,
   body: Record<string, unknown>,
 ): Promise<TelegramApiResponse<T>> {
-  const res = await fetch(`${TELEGRAM_API_BASE}/bot${BOT_TOKEN}/${method}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+  const payload = JSON.stringify(body);
+  return new Promise<TelegramApiResponse<T>>((resolve, reject) => {
+    const req = httpsRequest(
+      {
+        host: TELEGRAM_API_HOST,
+        port: 443,
+        path: `/bot${BOT_TOKEN}/${method}`,
+        method: "POST",
+        family: 4, // force IPv4 — see comment above
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(payload),
+        },
+        timeout: 10_000,
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (c) => chunks.push(c));
+        res.on("end", () => {
+          const raw = Buffer.concat(chunks).toString("utf-8");
+          try {
+            resolve(JSON.parse(raw) as TelegramApiResponse<T>);
+          } catch {
+            resolve({ ok: false, description: `non-JSON response: ${raw.slice(0, 100)}` });
+          }
+        });
+      },
+    );
+    req.on("error", (err) => reject(err));
+    req.on("timeout", () => {
+      req.destroy(new Error("Telegram API timeout (10s)"));
+    });
+    req.write(payload);
+    req.end();
   });
-  return (await res.json()) as TelegramApiResponse<T>;
 }
 
 // ─── Send a Telegram message to a linked user ──────────────────
