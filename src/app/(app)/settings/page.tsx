@@ -35,7 +35,7 @@ import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { userApi } from "@/lib/api"
+import { userApi, telegramApi } from "@/lib/api"
 import { TradingLoader } from "@/components/ui/trading-loader"
 import { useAuthStore } from "@/stores/auth-store"
 import {
@@ -89,7 +89,14 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [editing, setEditing] = useState(false)
+  // Telegram bot — real wiring via /api/telegram/* endpoints.
+  // Status is fetched on mount; Connect opens a deep-link to t.me/<bot>?start=<code>
+  // and polls /status to detect when the user has completed /start in Telegram.
   const [telegramConnected, setTelegramConnected] = useState(false)
+  const [telegramBotUsername, setTelegramBotUsername] = useState("algopulse_alerts_bot")
+  const [telegramBusy, setTelegramBusy] = useState(false)
+  const [telegramError, setTelegramError] = useState<string | null>(null)
+  const [telegramPolling, setTelegramPolling] = useState(false)
 
   // Browser push notifications
   const [pushSupported, setPushSupported] = useState(false)
@@ -115,6 +122,81 @@ export default function SettingsPage() {
     setPushPermission(Notification.permission)
     isSubscribed().then(setPushEnabled)
   }, [])
+
+  // Fetch initial Telegram connection state.
+  useEffect(() => {
+    telegramApi
+      .status()
+      .then((r) => {
+        const res = r as { success?: boolean; data?: { connected?: boolean; botUsername?: string } }
+        setTelegramConnected(!!res.data?.connected)
+        if (res.data?.botUsername) setTelegramBotUsername(res.data.botUsername)
+      })
+      .catch(() => {})
+  }, [])
+
+  /**
+   * Connect Telegram — ask backend for a one-time code + deep-link, open
+   * Telegram, and poll /status every 3s for up to 5 min. As soon as the
+   * user taps "Start" inside Telegram, the webhook fires server-side and
+   * our next poll flips the badge to Active.
+   */
+  const handleConnectTelegram = async () => {
+    setTelegramBusy(true)
+    setTelegramError(null)
+    try {
+      const r = await telegramApi.linkCode()
+      const res = r as { success?: boolean; data?: { deepLink?: string }; error?: string }
+      if (!res.success || !res.data?.deepLink) {
+        setTelegramError(res.error ?? "Could not generate link code")
+        setTelegramBusy(false)
+        return
+      }
+      // Open Telegram — t.me/<bot>?start=<code> opens the bot with /start CODE pre-filled.
+      window.open(res.data.deepLink, "_blank", "noopener,noreferrer")
+
+      // Poll for completion. The webhook on the server side flips
+      // telegramChatId — at which point status returns connected: true.
+      setTelegramPolling(true)
+      const startedAt = Date.now()
+      const poll = async (): Promise<void> => {
+        if (Date.now() - startedAt > 5 * 60_000) {
+          setTelegramPolling(false)
+          setTelegramBusy(false)
+          setTelegramError("Didn't detect a successful link within 5 minutes. Try Connect again if you completed it later.")
+          return
+        }
+        try {
+          const s = await telegramApi.status()
+          const sres = s as { data?: { connected?: boolean } }
+          if (sres.data?.connected) {
+            setTelegramConnected(true)
+            setTelegramPolling(false)
+            setTelegramBusy(false)
+            return
+          }
+        } catch {}
+        setTimeout(poll, 3000)
+      }
+      void poll()
+    } catch (err) {
+      setTelegramError((err as Error).message)
+      setTelegramBusy(false)
+    }
+  }
+
+  const handleDisconnectTelegram = async () => {
+    setTelegramBusy(true)
+    setTelegramError(null)
+    try {
+      await telegramApi.disconnect()
+      setTelegramConnected(false)
+    } catch (err) {
+      setTelegramError((err as Error).message)
+    } finally {
+      setTelegramBusy(false)
+    }
+  }
 
   const togglePush = async (nextOn: boolean) => {
     setPushBusy(true)
@@ -523,24 +605,55 @@ export default function SettingsPage() {
                 <CardTitle className="text-base">Notification Channels</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/20 p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#229ED9]/10">
-                      <Send className="h-5 w-5 text-[#229ED9]" />
+                <div className="space-y-2 rounded-lg border border-border/50 bg-muted/20 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#229ED9]/10">
+                        <Send className="h-5 w-5 text-[#229ED9]" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-medium">Telegram</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {telegramConnected
+                            ? `Linked to @${telegramBotUsername} — real-time trade alerts on`
+                            : telegramPolling
+                              ? "Tap /start in Telegram to finish…"
+                              : "Instant alerts even when AlgoPulse is closed"}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium">Telegram</p>
-                      <p className="text-xs text-muted-foreground">
-                        {telegramConnected ? `Connected to @${profile?.displayName || "user"}` : "Get instant alerts on Telegram"}
-                      </p>
-                    </div>
+                    {telegramConnected ? (
+                      <div className="flex shrink-0 items-center gap-2">
+                        <Badge className="bg-profit/10 text-profit">
+                          <Check className="mr-1 h-3 w-3" /> Active
+                        </Badge>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={handleDisconnectTelegram}
+                          disabled={telegramBusy}
+                        >
+                          Disconnect
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        onClick={handleConnectTelegram}
+                        disabled={telegramBusy}
+                        className="shrink-0"
+                      >
+                        {telegramPolling ? "Waiting…" : telegramBusy ? "…" : "Connect"}
+                      </Button>
+                    )}
                   </div>
-                  {telegramConnected ? (
-                    <Badge className="bg-profit/10 text-profit">
-                      <Check className="mr-1 h-3 w-3" /> Active
-                    </Badge>
-                  ) : (
-                    <Button size="sm" onClick={() => setTelegramConnected(true)}>Connect</Button>
+                  {telegramError && (
+                    <p className="text-[11px] text-loss">{telegramError}</p>
+                  )}
+                  {telegramPolling && !telegramConnected && (
+                    <p className="text-[11px] text-muted-foreground">
+                      A new Telegram tab opened. Tap the <strong>Start</strong> button at the bottom — this page will auto-detect the link.
+                    </p>
                   )}
                 </div>
 

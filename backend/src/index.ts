@@ -28,6 +28,7 @@ import historicalRoutes from "./backtest/routes/historical.routes.js";
 import backtestRoutes from "./backtest/routes/backtest.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
 import subscriptionRoutes from "./routes/subscription.routes.js";
+import telegramRoutes from "./routes/telegram.routes.js";
 
 const app = express();
 const server = createServer(app);
@@ -99,6 +100,10 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/subscription", subscriptionRoutes);
 app.use("/api/historical", historicalRoutes);
 app.use("/api/backtest", backtestRoutes);
+// Telegram bot endpoints. The /webhook sub-route is called by Telegram
+// servers themselves (no user session) — `telegram.routes.ts` skips
+// `authenticate` only on that one route.
+app.use("/api/telegram", telegramRoutes);
 
 // Error handler
 app.use(errorHandler);

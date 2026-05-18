@@ -8,29 +8,37 @@ datasource db {
 }
 
 model User {
-  id               String    @id @default(uuid())
-  email            String    @unique
-  name             String?
-  displayName      String?
-  phone            String?
-  bio              String?
-  timezone         String    @default("UTC+5:30")
-  country          String?
-  passwordHash     String?
-  googleId         String?   @unique
-  avatarUrl        String?
-  emailVerified    Boolean   @default(false)
-  verifyCode       String?
-  verifyExpiry     DateTime?
+  id                 String    @id @default(uuid())
+  email              String    @unique
+  name               String?
+  displayName        String?
+  phone              String?
+  bio                String?
+  timezone           String    @default("UTC+5:30")
+  country            String?
+  passwordHash       String?
+  googleId           String?   @unique
+  avatarUrl          String?
+  emailVerified      Boolean   @default(false)
+  verifyCode         String?
+  verifyExpiry       DateTime?
   // ── Password reset (Approach C: OTP + short-lived reset token) ──
-  resetOtp         String?
-  resetOtpExpiry   DateTime?
-  resetOtpAttempts Int       @default(0) // wrong-OTP counter; reset on new OTP request
-  resetTokenHash   String? // sha256 of JWT resetToken — single-use check
-  resetTokenExpiry DateTime?
-  plan             Plan      @default(FREE)
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  resetOtp           String?
+  resetOtpExpiry     DateTime?
+  resetOtpAttempts   Int       @default(0) // wrong-OTP counter; reset on new OTP request
+  resetTokenHash     String? // sha256 of JWT resetToken — single-use check
+  resetTokenExpiry   DateTime?
+  // ── Telegram bot integration ────────────────────────────────────
+  // Once linked, every notification.service.ts createNotification()
+  // call also fires a Telegram message to this chat. Linking flow is a
+  // one-time code (generateLinkCode → user taps deep-link → bot webhook
+  // matches code → chat_id stored). Null chat_id = disconnected.
+  telegramChatId     String?
+  telegramLinkCode   String?   @unique
+  telegramLinkExpiry DateTime?
+  plan               Plan      @default(FREE)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   brokers            Broker[]
   deployedStrategies DeployedStrategy[]

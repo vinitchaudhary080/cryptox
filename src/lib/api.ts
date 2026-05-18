@@ -375,3 +375,15 @@ export const portfolioApi = {
   pnlHistory: (days = 30) => apiFetch(`/portfolio/pnl-history?days=${days}`),
   report: () => apiFetch("/portfolio/report"),
 };
+
+// Telegram
+export const telegramApi = {
+  /** { connected: boolean, botUsername: string } */
+  status: () => apiFetch("/telegram/status"),
+  /** Issues a one-time link code + deep-link to t.me/<bot>?start=<code> */
+  linkCode: () =>
+    apiFetch("/telegram/link-code", { method: "POST", body: "{}" }),
+  /** Clears the user's telegramChatId — alerts stop. */
+  disconnect: () =>
+    apiFetch("/telegram/disconnect", { method: "POST", body: "{}" }),
+};

@@ -1,6 +1,7 @@
 import { PrismaClient, type Prisma } from "@prisma/client";
-import { getIO } from "../websocket/socket.js";
+import { emitToUser } from "../websocket/socket.js";
 import { sendPushToUser } from "./push.service.js";
+import { sendTelegramMessage } from "./telegram.service.js";
 
 const prisma = new PrismaClient();
 
@@ -37,10 +38,10 @@ export async function createNotification(params: CreateNotificationParams) {
     },
   });
 
-  const io = getIO();
-  if (io) {
-    io.to(`user:${params.userId}`).emit("notification:new", notification);
-  }
+  // Realtime push — works from both web (in-memory io) and worker (Redis
+  // emitter). Never throws: if no transport is available the user picks the
+  // notification up on their next REST fetch.
+  emitToUser(params.userId, "notification:new", notification);
 
   // Web push (site closed case) — fire and forget, don't block DB response
   sendPushToUser(params.userId, {
@@ -51,7 +52,38 @@ export async function createNotification(params: CreateNotificationParams) {
     data: { notificationId: notification.id, type: params.type, ...(params.data ?? {}) },
   }).catch((e) => console.error("[notification] push failed:", e));
 
+  // Telegram (most reliable channel for iOS PWAs where Apple silently drops
+  // pushes). Same fire-and-forget pattern — Telegram outages or unlinked
+  // users never block the in-app flow. Only fires for users who have
+  // opted in (linked their chat via Settings).
+  const appUrl = process.env.APP_PUBLIC_URL ?? "https://algopulse.in";
+  const deepLink = `${appUrl}${params.url ?? urlFromType(params.type, params.data)}`;
+  sendTelegramMessage(params.userId, {
+    title: titleWithEmoji(params.type, params.title),
+    body: params.message,
+    link: { url: deepLink, label: "Open AlgoPulse" },
+  }).catch((e) => console.error("[notification] telegram failed:", e));
+
   return notification;
+}
+
+/** Type-aware emoji prefix for nicer Telegram message titles. The DB
+ *  title is preserved untouched; this is purely a presentation upgrade
+ *  for the Telegram channel. */
+function titleWithEmoji(type: NotificationType, title: string): string {
+  const emoji: Record<NotificationType, string> = {
+    trade_open: "📈",
+    trade_close: "📉",
+    trade_error: "⚠️",
+    strategy_deploy: "🚀",
+    strategy_pause: "⏸",
+    strategy_stop: "🛑",
+    strategy_resume: "▶️",
+    admin_broadcast: "📣",
+    margin_call: "💰",
+  };
+  const e = emoji[type] ?? "🔔";
+  return `${e} ${title}`;
 }
 
 function urlFromType(type: NotificationType, _data?: Record<string, unknown>): string {
