@@ -78,7 +78,16 @@ export function AppHeader() {
 
   return (
     <>
-      <header className="relative z-50 shrink-0 border-b border-border bg-background/80 backdrop-blur-xl">
+      <header
+        className="relative z-50 shrink-0 border-b border-border bg-background/80 backdrop-blur-xl"
+        // iOS PWA (and any viewport-fit=cover context) — push the actual
+        // header row below the status bar / notch. The header background
+        // continues UP through the padding, so the status bar area visually
+        // belongs to the header (clean look, no transparent strip).
+        // 0 on non-iOS / non-PWA contexts where the inset isn't exposed,
+        // so desktop + mobile-browser layouts are unchanged.
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
+      >
         <div className="flex h-14 items-center justify-between gap-4 px-4 md:px-6">
           {/* Left: Logo + Nav */}
           <div className="flex items-center gap-6">
