@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useStrategies, queryKeys } from "@/lib/queries"
+import { StrategiesSkeleton } from "@/components/skeletons/strategies-skeleton"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import {
@@ -239,6 +240,13 @@ export default function StrategiesPage() {
   const filtered = strategies.filter((s) =>
     s.name.toLowerCase().includes(search.toLowerCase()),
   )
+
+  // First-visit shimmer — content-shaped placeholders so the user knows
+  // *which page* is loading. Return-visits skip this branch entirely
+  // because TanStack Query has cached data and isPending is false.
+  if (strategiesQuery.isPending) {
+    return <StrategiesSkeleton />
+  }
 
   return (
     <motion.div

@@ -45,7 +45,7 @@ import {
 } from "recharts"
 import { deployedApi } from "@/lib/api"
 import { type DeployedStrategy } from "@/lib/mock-data"
-import { TradingLoader } from "@/components/ui/trading-loader"
+import { DeployedSkeleton } from "@/components/skeletons/deployed-skeleton"
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -705,7 +705,7 @@ export default function DeployedPage() {
   const loading = deployedQuery.isPending
 
   if (loading) {
-    return <TradingLoader message="Loading strategies..." />
+    return <DeployedSkeleton />
   }
 
   const handleBack = () => {

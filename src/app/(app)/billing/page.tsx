@@ -1,6 +1,8 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useMemo } from "react"
+import { useQueryClient } from "@tanstack/react-query"
+import { useSubscriptionPlans, useSubscriptionCurrent, queryKeys } from "@/lib/queries"
 import { motion } from "framer-motion"
 import {
   CreditCard,
@@ -104,36 +106,38 @@ const PLAN_META: Record<string, { icon: typeof Zap; color: string; bg: string; f
 export default function BillingPage() {
   const { user } = useAuthStore()
   const currentPlan = user?.plan ?? "FREE"
+  const queryClient = useQueryClient()
 
-  const [plans, setPlans] = useState<PlanData[]>([])
-  const [activeSub, setActiveSub] = useState<SubscriptionData | null>(null)
-  const [history, setHistory] = useState<SubscriptionData[]>([])
+  const plansQuery = useSubscriptionPlans()
+  const currentQuery = useSubscriptionCurrent()
+
+  const plans: PlanData[] = useMemo(() => {
+    const d = plansQuery.data
+    return d?.success && d.data ? (d.data as PlanData[]) : []
+  }, [plansQuery.data])
+
+  const { activeSub, history } = useMemo(() => {
+    const d = currentQuery.data
+    if (!d?.success || !d.data) return { activeSub: null as SubscriptionData | null, history: [] as SubscriptionData[] }
+    const parsed = d.data as { active: SubscriptionData | null; history: SubscriptionData[] }
+    return { activeSub: parsed.active, history: parsed.history }
+  }, [currentQuery.data])
+
   const [cycle, setCycle] = useState<BillingCycle>("MONTHLY")
-  const [loading, setLoading] = useState(true)
   const [subscribing, setSubscribing] = useState<string | null>(null)
+  const loading = plansQuery.isPending || currentQuery.isPending
 
-  const fetchData = useCallback(async () => {
-    const [plansRes, subRes] = await Promise.all([
-      subscriptionApi.plans(),
-      subscriptionApi.current(),
-    ])
-    if (plansRes.success && plansRes.data) setPlans(plansRes.data as PlanData[])
-    if (subRes.success && subRes.data) {
-      const d = subRes.data as { active: SubscriptionData | null; history: SubscriptionData[] }
-      setActiveSub(d.active)
-      setHistory(d.history)
-    }
-    setLoading(false)
-  }, [])
-
-  useEffect(() => { fetchData() }, [fetchData])
+  const invalidateBilling = () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.subscriptionPlans() })
+    queryClient.invalidateQueries({ queryKey: queryKeys.subscriptionCurrent() })
+  }
 
   const handleSubscribe = async (planId: string) => {
     if (planId === "FREE") return
     setSubscribing(planId)
     const res = await subscriptionApi.subscribe(planId, cycle)
     if (res.success) {
-      await fetchData()
+      invalidateBilling()
       // Refresh user data in auth store
       window.location.reload()
     }
@@ -142,7 +146,7 @@ export default function BillingPage() {
 
   const handleCancel = async () => {
     const res = await subscriptionApi.cancel()
-    if (res.success) await fetchData()
+    if (res.success) invalidateBilling()
   }
 
   if (loading) {

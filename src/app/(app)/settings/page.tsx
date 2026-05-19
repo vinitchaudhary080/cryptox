@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useQueryClient } from "@tanstack/react-query"
+import { useUserProfile, queryKeys } from "@/lib/queries"
 import { motion } from "framer-motion"
 import {
   User,
@@ -84,8 +86,14 @@ type Profile = {
 }
 
 export default function SettingsPage() {
-  const [profile, setProfile] = useState<Profile | null>(null)
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
+  // Profile lives in TanStack Query so the same data is shared across any
+  // future pages that need it (e.g. account dropdown in header).
+  const profileQuery = useUserProfile()
+  const profile: Profile | null = profileQuery.data?.success && profileQuery.data.data
+    ? (profileQuery.data.data as Profile)
+    : null
+  const loading = profileQuery.isPending
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -241,21 +249,17 @@ export default function SettingsPage() {
   const [newPassword, setNewPassword] = useState("")
   const [passwordMsg, setPasswordMsg] = useState<{ type: "success" | "error"; text: string } | null>(null)
 
+  // Once the profile query resolves, seed the form fields. Runs again
+  // only if `profile` reference changes (e.g. after invalidate-on-save).
   useEffect(() => {
-    userApi.getProfile().then((res) => {
-      if (res.success && res.data) {
-        const p = res.data as Profile
-        setProfile(p)
-        setName(p.name || "")
-        setDisplayName(p.displayName || "")
-        setPhone(p.phone || "")
-        setBio(p.bio || "")
-        setTimezone(p.timezone || "UTC+5:30")
-        setCountry(p.country || "")
-      }
-      setLoading(false)
-    })
-  }, [])
+    if (!profile) return
+    setName(profile.name || "")
+    setDisplayName(profile.displayName || "")
+    setPhone(profile.phone || "")
+    setBio(profile.bio || "")
+    setTimezone(profile.timezone || "UTC+5:30")
+    setCountry(profile.country || "")
+  }, [profile])
 
   const handleSave = async () => {
     setSaving(true)
@@ -272,9 +276,9 @@ export default function SettingsPage() {
     if (res.success) {
       setSaved(true)
       setEditing(false)
-      // Re-fetch full profile (with stats) instead of using partial PATCH response
-      const fresh = await userApi.getProfile()
-      if (fresh.success && fresh.data) setProfile(fresh.data as Profile)
+      // Invalidate so the next render fetches the full profile (with stats);
+      // the form-init useEffect will reseed fields once new data arrives.
+      queryClient.invalidateQueries({ queryKey: queryKeys.userProfile() })
       setTimeout(() => setSaved(false), 3000)
     }
   }

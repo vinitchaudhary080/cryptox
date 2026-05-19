@@ -39,7 +39,7 @@ import {
   usePortfolioReport,
 } from "@/lib/queries"
 import { MarketOverview } from "@/components/dashboard/market-overview"
-import { TradingLoader } from "@/components/ui/trading-loader"
+import { DashboardSkeleton } from "@/components/skeletons/dashboard-skeleton"
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -138,7 +138,7 @@ export default function DashboardPage() {
     brokersQuery.isPending
 
   if (loading) {
-    return <TradingLoader message="Loading dashboard..." />
+    return <DashboardSkeleton />
   }
 
   const hasStrategy = (stats?.activeStrategies ?? 0) > 0

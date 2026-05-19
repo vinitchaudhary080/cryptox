@@ -16,7 +16,7 @@
  *   write mutation hooks here — they're page-specific.
  */
 import { useQuery } from "@tanstack/react-query"
-import { strategyApi, deployedApi, brokerApi, userApi, marketApi, portfolioApi, backtestApi, historicalApi } from "./api"
+import { strategyApi, deployedApi, brokerApi, userApi, marketApi, portfolioApi, backtestApi, historicalApi, subscriptionApi } from "./api"
 
 export const queryKeys = {
   strategies: () => ["strategies"] as const,
@@ -34,6 +34,8 @@ export const queryKeys = {
   portfolioReport: () => ["portfolio", "report"] as const,
   backtestRuns: (page: number, limit: number) => ["backtest", "runs", page, limit] as const,
   historicalStatus: () => ["historical", "status"] as const,
+  subscriptionPlans: () => ["subscription", "plans"] as const,
+  subscriptionCurrent: () => ["subscription", "current"] as const,
 }
 
 // Strategies list — most-frequently-hit endpoint. 30s staleTime means
@@ -139,5 +141,22 @@ export function useHistoricalStatus() {
     queryFn: () => historicalApi.status(),
     // Data status rarely changes — cache for a long time.
     staleTime: 5 * 60_000,
+  })
+}
+
+// Subscription — plans list is static-ish, current sub is per-user.
+export function useSubscriptionPlans() {
+  return useQuery({
+    queryKey: queryKeys.subscriptionPlans(),
+    queryFn: () => subscriptionApi.plans(),
+    staleTime: 10 * 60_000,
+  })
+}
+
+export function useSubscriptionCurrent() {
+  return useQuery({
+    queryKey: queryKeys.subscriptionCurrent(),
+    queryFn: () => subscriptionApi.current(),
+    staleTime: 60_000,
   })
 }
