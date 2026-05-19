@@ -45,7 +45,55 @@ router.get("/", async (_req: Request, res: Response) => {
       where: { isSystem: true, isVisible: true },
       orderBy: { createdAt: "desc" },
     });
-    res.json({ success: true, data: strategies });
+
+    // Surface aggregate stats from each strategy's featured backtest runs
+    // so the strategy-list cards render real 30D Return / Win Rate / Total
+    // Trades instead of 0/0/0. Picks the highest-PnL featured run as the
+    // headline number — same logic as a "best-coin highlight" badge would
+    // do. Without this, the frontend falls back to a hardcoded mock-data
+    // lookup that only knows about pre-2026 legacy strategy names.
+    const ids = strategies.map((s) => s.id);
+    const featured = await prisma.backtestRun.findMany({
+      where: {
+        featuredStrategyId: { in: ids },
+        isFeatured: true,
+        status: "COMPLETED",
+      },
+      select: {
+        featuredStrategyId: true,
+        coin: true,
+        totalPnl: true,
+        initialCapital: true,
+        winRate: true,
+        totalTrades: true,
+      },
+    });
+
+    // Build a "best featured run per strategy" map keyed by strategy id.
+    const bestByStrategy = new Map<string, (typeof featured)[number]>();
+    for (const run of featured) {
+      const key = run.featuredStrategyId ?? "";
+      const existing = bestByStrategy.get(key);
+      const pnl = run.totalPnl ?? 0;
+      const existingPnl = existing?.totalPnl ?? -Infinity;
+      if (!existing || pnl > existingPnl) bestByStrategy.set(key, run);
+    }
+
+    const enriched = strategies.map((s) => {
+      const best = bestByStrategy.get(s.id);
+      // 30D return % is approximated as totalPnl / initialCapital × 100.
+      // Frontend already calls this "30D Return" — name is legacy, the
+      // actual figure represents the featured backtest period's return.
+      const returnRate = best && best.initialCapital > 0
+        ? Math.round((best.totalPnl / best.initialCapital) * 100 * 10) / 10
+        : 0;
+      const winRate = best ? Math.round((best.winRate ?? 0) * 10) / 10 : 0;
+      const totalTrades = best?.totalTrades ?? 0;
+      const featuredCoin = best?.coin ?? null;
+      return { ...s, returnRate, winRate, totalTrades, featuredCoin };
+    });
+
+    res.json({ success: true, data: enriched });
   } catch (err: unknown) {
     const e = err as { message: string };
     res.status(500).json({ success: false, error: e.message });

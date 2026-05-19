@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   Loader2,
+  Trash2,
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -65,6 +66,14 @@ type ApiStrategy = {
   config: Record<string, unknown>
   defaultPositionSize?: number
   positionSizeLocked?: boolean
+  // Stats from the strategy's best featured backtest run (computed in
+  // the backend GET /api/strategies handler). When no featured run
+  // exists, all three are 0 — frontend falls through to the mockStrategies
+  // lookup for legacy hardcoded numbers.
+  returnRate?: number
+  winRate?: number
+  totalTrades?: number
+  featuredCoin?: string | null
 }
 
 type SyncStatus = "synced" | "pushing" | "error" | null
@@ -92,6 +101,11 @@ export default function StrategiesPage() {
   const [liveSyncEnabled, setLiveSyncEnabled] = useState(false)
   const [syncInfo, setSyncInfo] = useState<Record<string, AdminStrategyInfo>>({})
   const [pushingId, setPushingId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  // Local-dev only: enables the destructive "Delete strategy" affordance.
+  // process.env.NODE_ENV is inlined at build time, so this is a true compile-
+  // time gate — the Trash button never ships in a production bundle.
+  const isLocalDev = process.env.NODE_ENV === "development"
 
   useEffect(() => {
     strategyApi.list().then((res) => {
@@ -138,21 +152,56 @@ export default function StrategiesPage() {
     }
   }
 
+  const handleDeleteStrategy = async (strategyId: string, strategyName: string) => {
+    if (!isLocalDev) return
+    const ok = window.confirm(
+      `Delete "${strategyName}" from the local DB?\n\n` +
+      `This also wipes every deployed instance, its trades, and any featured-backtest links. ` +
+      `Run \`npm run db:seed\` to restore system strategies.`,
+    )
+    if (!ok) return
+    setDeletingId(strategyId)
+    const res = await strategyApi.remove(strategyId)
+    setDeletingId(null)
+    if (!res.success) {
+      alert(`Delete failed: ${res.error ?? "unknown error"}`)
+      return
+    }
+    // Refresh the list so the deleted card disappears from the grid.
+    const listRes = await strategyApi.list()
+    if (listRes.success && listRes.data) setApiStrategies(listRes.data as ApiStrategy[])
+  }
+
   // Use API strategies directly
   const strategies = apiStrategies.length > 0
     ? apiStrategies.map((api) => {
         const mock = mockStrategies.find((m) => m.name === api.name)
-        return mock ? { ...mock, id: api.id, description: api.description } : {
+        // Prefer real featured-backtest stats from API over hardcoded mock
+        // values when both exist AND the API has non-zero data.
+        const apiHasStats = (api.returnRate ?? 0) !== 0 || (api.winRate ?? 0) !== 0 || (api.totalTrades ?? 0) !== 0
+        if (mock) {
+          return {
+            ...mock,
+            id: api.id,
+            description: api.description,
+            ...(apiHasStats ? {
+              returnRate: api.returnRate ?? mock.returnRate,
+              winRate: api.winRate ?? mock.winRate,
+              trades: api.totalTrades ?? mock.trades,
+            } : {}),
+          }
+        }
+        return {
           id: api.id,
           name: api.name,
           description: api.description,
           category: api.category,
-          returnRate: 0,
-          winRate: 0,
+          returnRate: api.returnRate ?? 0,
+          winRate: api.winRate ?? 0,
           risk: (api.riskLevel === "HIGH" ? "high" : api.riskLevel === "LOW" ? "low" : "medium") as "high" | "low" | "medium",
-          trades: 0,
+          trades: api.totalTrades ?? 0,
           minInvestment: 10,
-          pairs: ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
+          pairs: api.featuredCoin ? [`${api.featuredCoin}/USDT`] : ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
           tags: [api.category],
           performance: Array.from({ length: 30 }, (_, i) => ({ day: i + 1, value: 100 + Math.round(Math.sin(i * 0.3) * 10 + i * 0.5) })),
         }
@@ -416,11 +465,14 @@ export default function StrategiesPage() {
                     )
                   })()}
 
-                  {/* Action buttons, bigger tap targets on mobile (44px = Apple HIG min) */}
+                  {/* Action buttons — primary CTAs. On mobile h-12 (48px) is
+                      comfortably above Apple HIG's 44px minimum and feels
+                      properly tappable proportional to button width. Shrinks
+                      to a denser h-10 on sm+ where pointer precision is high. */}
                   <div className="flex flex-col gap-2.5 sm:flex-row">
                     <Button
                       variant="outline"
-                      className="h-11 flex-1 text-sm sm:h-10"
+                      className="h-12 flex-1 text-[15px] sm:h-10 sm:text-sm"
                       onClick={() => {
                         const apiMatch = apiStrategies.find((a) => a.name === strategy.name)
                         router.push(`/strategies/${apiMatch?.id || strategy.id}/backtest`)
@@ -430,7 +482,7 @@ export default function StrategiesPage() {
                       View Backtest Report
                     </Button>
                     <Button
-                      className="h-11 flex-1 text-sm sm:h-10"
+                      className="h-12 flex-1 text-[15px] sm:h-10 sm:text-sm"
                       onClick={() => {
                         const apiMatch = apiStrategies.find((a) => a.name === strategy.name)
                         setDeployTarget({
@@ -450,6 +502,39 @@ export default function StrategiesPage() {
                   <p className="text-center text-[10px] text-muted-foreground">
                     Min. investment: ${strategy.minInvestment.toLocaleString()} &middot; Past performance does not guarantee future results
                   </p>
+
+                  {isLocalDev && (() => {
+                    const apiMatch = apiStrategies.find((a) => a.name === strategy.name)
+                    const realId = apiMatch?.id
+                    if (!realId) return null
+                    const isDeleting = deletingId === realId
+                    return (
+                      <div className="mt-3 border-t border-border/50 pt-3">
+                        <div className="flex items-center justify-between gap-3 rounded-lg border border-loss/30 bg-loss/5 px-3 py-2">
+                          <div className="text-xs">
+                            <p className="font-medium text-loss">Local dev only</p>
+                            <p className="text-[11px] text-muted-foreground">
+                              Permanently removes this strategy + all dependents.
+                            </p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 gap-1.5 border-loss/40 text-loss hover:bg-loss/10 hover:text-loss"
+                            onClick={() => handleDeleteStrategy(realId, strategy.name)}
+                            disabled={isDeleting}
+                          >
+                            {isDeleting ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-3.5 w-3.5" />
+                            )}
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    )
+                  })()}
                 </div>
               </DialogContent>
             </Dialog>
