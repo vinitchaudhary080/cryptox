@@ -74,6 +74,14 @@ type ApiStrategy = {
   winRate?: number
   totalTrades?: number
   featuredCoin?: string | null
+  // Top 5 coins (curated featured backtest runs) — sorted by return % desc.
+  // Used to render the "AlgoPulse Picks" badges on the strategy popup.
+  topCoins?: Array<{
+    coin: string
+    returnRate: number
+    winRate: number
+    totalTrades: number
+  }>
 }
 
 type SyncStatus = "synced" | "pushing" | "error" | null
@@ -179,11 +187,26 @@ export default function StrategiesPage() {
         // Prefer real featured-backtest stats from API over hardcoded mock
         // values when both exist AND the API has non-zero data.
         const apiHasStats = (api.returnRate ?? 0) !== 0 || (api.winRate ?? 0) !== 0 || (api.totalTrades ?? 0) !== 0
+        // Recommended-settings panel pulls these straight from the strategy's
+        // saved config (set at backtest time) so users can mirror them on deploy.
+        const cfgLeverage = typeof api.config?.leverage === "number" ? (api.config.leverage as number) : undefined
+        const recommendedLeverage = cfgLeverage ?? 1
+        const recommendedPositionSize = typeof api.defaultPositionSize === "number" ? api.defaultPositionSize : 25
+        // Top picks come from the backend's curated featured-runs (top 5 by return%).
+        // Fallback: single featuredCoin, then a generic BTC/ETH/SOL placeholder.
+        const algoPulsePicks = (api.topCoins && api.topCoins.length > 0
+          ? api.topCoins.map((tc) => `${tc.coin}/USDT`)
+          : api.featuredCoin
+            ? [`${api.featuredCoin}/USDT`]
+            : ["BTC/USDT", "ETH/USDT", "SOL/USDT"])
         if (mock) {
           return {
             ...mock,
             id: api.id,
             description: api.description,
+            recommendedLeverage,
+            recommendedPositionSize,
+            pairs: algoPulsePicks,
             ...(apiHasStats ? {
               returnRate: api.returnRate ?? mock.returnRate,
               winRate: api.winRate ?? mock.winRate,
@@ -201,9 +224,11 @@ export default function StrategiesPage() {
           risk: (api.riskLevel === "HIGH" ? "high" : api.riskLevel === "LOW" ? "low" : "medium") as "high" | "low" | "medium",
           trades: api.totalTrades ?? 0,
           minInvestment: 10,
-          pairs: api.featuredCoin ? [`${api.featuredCoin}/USDT`] : ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
+          pairs: algoPulsePicks,
           tags: [api.category],
           performance: Array.from({ length: 30 }, (_, i) => ({ day: i + 1, value: 100 + Math.round(Math.sin(i * 0.3) * 10 + i * 0.5) })),
+          recommendedLeverage,
+          recommendedPositionSize,
         }
       })
     : []
@@ -412,14 +437,35 @@ export default function StrategiesPage() {
                     ))}
                   </div>
 
-                  {/* Pairs */}
-                  <div>
-                    <p className="mb-2 text-xs font-medium text-muted-foreground">Supported Pairs</p>
+                  {/* AlgoPulse Picks — top 5 coins from featured backtests */}
+                  <div className="rounded-lg border border-border/50 bg-muted/30 p-3 sm:p-4">
+                    <p className="mb-2 text-xs font-medium text-muted-foreground">AlgoPulse Picks</p>
                     <div className="flex flex-wrap gap-1.5">
                       {strategy.pairs.map((pair) => (
                         <Badge key={pair} variant="secondary" className="text-xs">{pair}</Badge>
                       ))}
                     </div>
+                    {/* Admin-only: backtest config (leverage/position size) so the deployer can mirror it */}
+                    {admin && (
+                      <div className="mt-3 border-t border-border/50 pt-3">
+                        <p className="mb-2 text-[11px] text-muted-foreground">
+                          Recommended deploy settings (from backtest)
+                        </p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="rounded-md border border-border/50 bg-background/50 px-3 py-2">
+                            <p className="text-[10px] text-muted-foreground">Leverage</p>
+                            <p className="text-sm font-semibold">{strategy.recommendedLeverage}x</p>
+                          </div>
+                          <div className="rounded-md border border-border/50 bg-background/50 px-3 py-2">
+                            <p className="text-[10px] text-muted-foreground">Position Size</p>
+                            <p className="text-sm font-semibold">{strategy.recommendedPositionSize}%</p>
+                          </div>
+                        </div>
+                        <p className="mt-2 text-[10px] text-muted-foreground/80">
+                          Use the same values when deploying for best-matched results.
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Admin-only: push strategy row to live DB */}

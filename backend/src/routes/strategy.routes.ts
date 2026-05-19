@@ -69,28 +69,49 @@ router.get("/", async (_req: Request, res: Response) => {
       },
     });
 
-    // Build a "best featured run per strategy" map keyed by strategy id.
-    const bestByStrategy = new Map<string, (typeof featured)[number]>();
+    // Group featured runs by strategy → keep best run per coin (so duplicate
+    // coin entries don't crowd the AlgoPulse Picks badges), then sort top 5
+    // overall by return %.
+    const runsByStrategy = new Map<string, (typeof featured)[number][]>();
     for (const run of featured) {
       const key = run.featuredStrategyId ?? "";
-      const existing = bestByStrategy.get(key);
-      const pnl = run.totalPnl ?? 0;
-      const existingPnl = existing?.totalPnl ?? -Infinity;
-      if (!existing || pnl > existingPnl) bestByStrategy.set(key, run);
+      if (!runsByStrategy.has(key)) runsByStrategy.set(key, []);
+      runsByStrategy.get(key)!.push(run);
     }
 
     const enriched = strategies.map((s) => {
-      const best = bestByStrategy.get(s.id);
-      // 30D return % is approximated as totalPnl / initialCapital × 100.
-      // Frontend already calls this "30D Return" — name is legacy, the
-      // actual figure represents the featured backtest period's return.
-      const returnRate = best && best.initialCapital > 0
-        ? Math.round((best.totalPnl / best.initialCapital) * 100 * 10) / 10
-        : 0;
-      const winRate = best ? Math.round((best.winRate ?? 0) * 10) / 10 : 0;
-      const totalTrades = best?.totalTrades ?? 0;
-      const featuredCoin = best?.coin ?? null;
-      return { ...s, returnRate, winRate, totalTrades, featuredCoin };
+      const runs = runsByStrategy.get(s.id) ?? [];
+      // Best run per coin (highest PnL when the same coin has multiple runs)
+      const bestPerCoin = new Map<string, (typeof featured)[number]>();
+      for (const r of runs) {
+        const existing = bestPerCoin.get(r.coin);
+        if (!existing || (r.totalPnl ?? 0) > (existing.totalPnl ?? -Infinity)) {
+          bestPerCoin.set(r.coin, r);
+        }
+      }
+      // Convert to coin-stat objects, sort by return % desc, take top 5
+      const topCoins = Array.from(bestPerCoin.values())
+        .map((r) => ({
+          coin: r.coin,
+          returnRate: r.initialCapital > 0
+            ? Math.round((r.totalPnl / r.initialCapital) * 100 * 10) / 10
+            : 0,
+          winRate: Math.round((r.winRate ?? 0) * 10) / 10,
+          totalTrades: r.totalTrades ?? 0,
+        }))
+        .sort((a, b) => b.returnRate - a.returnRate)
+        .slice(0, 5);
+
+      // Card headline stats — use top-1 from topCoins for backward compat.
+      const headline = topCoins[0];
+      return {
+        ...s,
+        returnRate: headline?.returnRate ?? 0,
+        winRate: headline?.winRate ?? 0,
+        totalTrades: headline?.totalTrades ?? 0,
+        featuredCoin: headline?.coin ?? null,
+        topCoins,
+      };
     });
 
     res.json({ success: true, data: enriched });
