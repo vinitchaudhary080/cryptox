@@ -18,7 +18,9 @@ import {
   Rocket,
   BarChart3,
 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
+import { prefetchRoute } from "@/lib/prefetch";
 
 const tabs = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -31,6 +33,7 @@ const tabs = [
 export function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const handleTap = (href: string, isActive: boolean) => {
     if (isActive) {
@@ -64,6 +67,9 @@ export function BottomNav() {
               <Link
                 href={tab.href}
                 prefetch
+                // Touch-down fires ~100-200ms before tap-end. Prefetch the
+                // destination's data now so the page renders from cache.
+                onTouchStart={() => prefetchRoute(tab.href, queryClient)}
                 onClick={(e) => {
                   if (isActive) {
                     e.preventDefault();

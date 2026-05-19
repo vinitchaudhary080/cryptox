@@ -33,6 +33,8 @@ import { SendNotificationDialog } from "@/components/admin/send-notification-dia
 import { notificationApi } from "@/lib/api"
 import { Megaphone } from "lucide-react"
 import { Logo } from "@/components/ui/logo"
+import { useQueryClient } from "@tanstack/react-query"
+import { prefetchRoute } from "@/lib/prefetch"
 
 const showBacktest = process.env.NEXT_PUBLIC_SHOW_BACKTEST !== "false"
 
@@ -49,6 +51,7 @@ const navItems = [
 export function AppHeader() {
   const pathname = usePathname()
   const router = useRouter()
+  const queryClient = useQueryClient()
   const { theme, setTheme } = useTheme()
   const { user, logout } = useAuthStore()
   const [isAdmin, setIsAdmin] = useState(false)
@@ -104,6 +107,11 @@ export function AppHeader() {
                   <Link
                     key={item.href}
                     href={item.href}
+                    // Fire the destination page's data fetches the moment the
+                    // user hovers — by the time they click (200-500ms later),
+                    // the cache is warm and the page renders without a loader.
+                    onMouseEnter={() => prefetchRoute(item.href, queryClient)}
+                    onFocus={() => prefetchRoute(item.href, queryClient)}
                     className={cn(
                       "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                       isActive
