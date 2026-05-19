@@ -16,7 +16,7 @@
  *   write mutation hooks here — they're page-specific.
  */
 import { useQuery } from "@tanstack/react-query"
-import { strategyApi, deployedApi, brokerApi, userApi, marketApi, portfolioApi } from "./api"
+import { strategyApi, deployedApi, brokerApi, userApi, marketApi, portfolioApi, backtestApi, historicalApi } from "./api"
 
 export const queryKeys = {
   strategies: () => ["strategies"] as const,
@@ -32,6 +32,8 @@ export const queryKeys = {
   portfolioStats: () => ["portfolio", "stats"] as const,
   portfolioTrades: (limit: number) => ["portfolio", "trades", limit] as const,
   portfolioReport: () => ["portfolio", "report"] as const,
+  backtestRuns: (page: number, limit: number) => ["backtest", "runs", page, limit] as const,
+  historicalStatus: () => ["historical", "status"] as const,
 }
 
 // Strategies list — most-frequently-hit endpoint. 30s staleTime means
@@ -118,5 +120,24 @@ export function usePortfolioReport() {
     queryKey: queryKeys.portfolioReport(),
     queryFn: () => portfolioApi.report(),
     staleTime: 15_000,
+  })
+}
+
+export function useBacktestRuns(page = 1, limit = 50) {
+  return useQuery({
+    queryKey: queryKeys.backtestRuns(page, limit),
+    queryFn: () => backtestApi.listRuns(page, limit),
+    // Backtest runs list updates when a new run completes — keep it warm
+    // but allow window-focus to refetch.
+    staleTime: 20_000,
+  })
+}
+
+export function useHistoricalStatus() {
+  return useQuery({
+    queryKey: queryKeys.historicalStatus(),
+    queryFn: () => historicalApi.status(),
+    // Data status rarely changes — cache for a long time.
+    staleTime: 5 * 60_000,
   })
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   TrendingUp,
@@ -35,7 +35,7 @@ import {
   Area,
   Cell,
 } from "recharts"
-import { portfolioApi } from "@/lib/api"
+import { usePortfolioReport } from "@/lib/queries"
 import { TradingLoader } from "@/components/ui/trading-loader"
 
 const fadeUp = {
@@ -415,27 +415,19 @@ function StrategyWiseTab({ strategies, onSelect }: { strategies: StrategyReport[
 
 export default function ReportsPage() {
   const [tab, setTab] = useState<"overall" | "strategy">("overall")
-  const [loading, setLoading] = useState(true)
-  const [overall, setOverall] = useState<OverallReport | null>(null)
-  const [strategies, setStrategies] = useState<StrategyReport[]>([])
   const [selectedStrategy, setSelectedStrategy] = useState<StrategyReport | null>(null)
 
-  const fetchReport = useCallback(async () => {
-    setLoading(true)
-    const res = await portfolioApi.report()
-    if (res.success && res.data) {
-      const d = res.data as { overall: OverallReport; strategies: StrategyReport[] }
-      setOverall(d.overall)
-      setStrategies(d.strategies)
-    }
-    setLoading(false)
-  }, [])
+  // Shared cache with dashboard's pnlHistory/allocation calc — navigating
+  // dashboard → reports → dashboard hits cache on both ends.
+  const reportQuery = usePortfolioReport()
+  const { overall, strategies } = useMemo(() => {
+    const d = reportQuery.data
+    if (!d?.success || !d.data) return { overall: null as OverallReport | null, strategies: [] as StrategyReport[] }
+    const parsed = d.data as { overall: OverallReport; strategies: StrategyReport[] }
+    return { overall: parsed.overall, strategies: parsed.strategies }
+  }, [reportQuery.data])
 
-  useEffect(() => {
-    fetchReport()
-  }, [fetchReport])
-
-  if (loading) {
+  if (reportQuery.isPending) {
     return <TradingLoader message="Loading reports..." />
   }
 

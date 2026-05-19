@@ -1,6 +1,8 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useMemo } from "react"
+import { useQueryClient } from "@tanstack/react-query"
+import { useBacktestRuns, useHistoricalStatus } from "@/lib/queries"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { formatISTDate } from "@/lib/time-ist"
@@ -59,36 +61,31 @@ interface DataStatus {
 
 export default function BacktestPage() {
   const router = useRouter()
-  const [runs, setRuns] = useState<BacktestRun[]>([])
-  const [dataStatus, setDataStatus] = useState<DataStatus[]>([])
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [syncing, setSyncing] = useState(false)
   const [pollingId, setPollingId] = useState<string | null>(null)
 
-  const fetchRuns = useCallback(async () => {
-    const res = await backtestApi.listRuns(1, 50)
-    if (res.success && res.data) {
-      setRuns((res.data as { runs: BacktestRun[] }).runs)
-    }
-    setLoading(false)
-  }, [])
+  // Backtest runs list — cached & background-refetched on focus.
+  const runsQuery = useBacktestRuns(1, 50)
+  const runs: BacktestRun[] = useMemo(() => {
+    const d = runsQuery.data
+    if (!d?.success || !d.data) return []
+    return (d.data as { runs: BacktestRun[] }).runs
+  }, [runsQuery.data])
 
-  const fetchDataStatus = useCallback(async () => {
-    const res = await historicalApi.status()
-    if (res.success && res.data) {
-      setDataStatus(res.data as DataStatus[])
-    }
-  }, [])
+  // Data-availability status (rarely changes — long cache).
+  const dataStatusQuery = useHistoricalStatus()
+  const dataStatus: DataStatus[] = useMemo(() => {
+    const d = dataStatusQuery.data
+    return d?.success && d.data ? (d.data as DataStatus[]) : []
+  }, [dataStatusQuery.data])
 
-  useEffect(() => {
-    fetchRuns()
-    fetchDataStatus()
-  }, [fetchRuns, fetchDataStatus])
+  const fetchRuns = () => queryClient.invalidateQueries({ queryKey: ["backtest", "runs"] })
 
-  // Poll for running backtests
+  // Poll a single running backtest until it finishes — special case, not
+  // a long-lived query (runs once, then we invalidate the list).
   useEffect(() => {
     if (!pollingId) return
-
     const interval = setInterval(async () => {
       const res = await backtestApi.getRun(pollingId)
       if (res.success && res.data) {
@@ -99,19 +96,20 @@ export default function BacktestPage() {
         }
       }
     }, 2000)
-
     return () => clearInterval(interval)
-  }, [pollingId, fetchRuns])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pollingId])
+
+  const loading = runsQuery.isPending
 
   const handleRunStarted = (id: string) => {
     setPollingId(id)
-    // Add a placeholder run
     fetchRuns()
   }
 
   const handleDelete = async (id: string) => {
     await backtestApi.deleteRun(id)
-    setRuns((prev) => prev.filter((r) => r.id !== id))
+    fetchRuns()
   }
 
   const handleSyncAll = async () => {
@@ -119,7 +117,7 @@ export default function BacktestPage() {
     await historicalApi.sync()
     // Refresh status after a delay
     setTimeout(() => {
-      fetchDataStatus()
+      queryClient.invalidateQueries({ queryKey: ["historical", "status"] })
       setSyncing(false)
     }, 3000)
   }

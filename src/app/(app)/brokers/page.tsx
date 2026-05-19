@@ -39,7 +39,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { brokerApi, portfolioApi } from "@/lib/api"
+import { brokerApi } from "@/lib/api"
+import { useQueryClient } from "@tanstack/react-query"
+import { useBrokers, usePortfolioStats, queryKeys } from "@/lib/queries"
 import { availableBrokers } from "@/lib/mock-data"
 
 const fadeUp = {
@@ -74,7 +76,17 @@ export default function BrokersPage() {
   const [selectedBroker, setSelectedBroker] = useState<string | null>(null)
   const [showApiKey, setShowApiKey] = useState(false)
   const [step, setStep] = useState<"select" | "configure">("select")
-  const [brokers, setBrokers] = useState<ApiBroker[]>([])
+  // Brokers list — cached & shared with dashboard/deployed pages via TanStack Query.
+  // 10s polling preserved through query-invalidation interval below.
+  const queryClient = useQueryClient()
+  const brokersQuery = useBrokers()
+  const brokers: ApiBroker[] = brokersQuery.data?.success && brokersQuery.data.data
+    ? (brokersQuery.data.data as ApiBroker[])
+    : []
+  const portfolioStatsQuery = usePortfolioStats()
+  const portfolioPnl: number = portfolioStatsQuery.data?.success && portfolioStatsQuery.data.data
+    ? ((portfolioStatsQuery.data.data as { totalPnl: number }).totalPnl)
+    : 0
   const [newUid, setNewUid] = useState("")
   const [newApiKey, setNewApiKey] = useState("")
   const [newApiSecret, setNewApiSecret] = useState("")
@@ -94,9 +106,9 @@ export default function BrokersPage() {
   const [editSuccess, setEditSuccess] = useState(false)
   const [showEditApiKey, setShowEditApiKey] = useState(false)
 
-  // Loading state
-  const [loading, setLoading] = useState(true)
-  const [portfolioPnl, setPortfolioPnl] = useState(0)
+  // Loading reflects only the FIRST visit (cache cold). Subsequent visits
+  // render instantly from cache while a silent background refetch runs.
+  const loading = brokersQuery.isPending || portfolioStatsQuery.isPending
 
   // Delete state
   const [deleting, setDeleting] = useState<string | null>(null)
@@ -150,23 +162,16 @@ export default function BrokersPage() {
     if (res.success) fetchBrokers()
   }
 
+  // Force a refetch — used after broker connect/edit/delete + on a 10s timer.
   const fetchBrokers = () => {
-    Promise.all([
-      brokerApi.list().then((res) => {
-        if (res.success && res.data) setBrokers(res.data as ApiBroker[])
-      }),
-      portfolioApi.stats().then((res) => {
-        if (res.success && res.data) {
-          setPortfolioPnl((res.data as { totalPnl: number }).totalPnl)
-        }
-      }),
-    ]).finally(() => setLoading(false))
+    queryClient.invalidateQueries({ queryKey: queryKeys.brokers() })
+    queryClient.invalidateQueries({ queryKey: queryKeys.portfolioStats() })
   }
 
   useEffect(() => {
-    fetchBrokers()
-    const interval = setInterval(fetchBrokers, 10_000) // refresh every 10s
+    const interval = setInterval(fetchBrokers, 10_000)
     return () => clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const connectedBrokers = brokers.filter((b) => b.status === "CONNECTED")
