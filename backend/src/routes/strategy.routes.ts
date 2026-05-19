@@ -1,12 +1,23 @@
 import { Router, type Request, type Response } from "express";
 import { PrismaClient, RiskLevel } from "@prisma/client";
+import { existsSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { authenticate } from "../middleware/auth.js";
+import { env } from "../config/env.js";
 import {
   isLiveSyncConfigured,
   pushStrategyToLive,
   LiveSyncDisabledError,
   LiveSyncRequestError,
 } from "../services/live-sync.service.js";
+import { getStrategyByName } from "../backtest/strategies/strategy-runner.js";
+
+// Resolve path to the builtin/ folder relative to THIS file. Used by the
+// pre-flight validator to confirm a strategy's `.ts` file is on disk
+// before letting its DB row be pushed to live. Keeps backtest = live.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const BUILTIN_DIR = path.resolve(__dirname, "../backtest/strategies/builtin");
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -161,6 +172,43 @@ router.post("/:id/push-to-live", authenticate, async (req: Request, res: Respons
       return;
     }
 
+    // ── PRE-FLIGHT VALIDATOR ─────────────────────────────────────
+    // Push-to-live is meaningless if the strategy's algorithm code
+    // doesn't exist + isn't registered. The DB row would land on prod
+    // but the live worker couldn't execute it — falls back to generic
+    // category handler (the bug from May 18 that caused backtest ≠ live
+    // PnL divergence). Block the push at the source instead.
+    //
+    // Two checks:
+    //   1. `getStrategyByName(id)` returns non-null  →  registered in
+    //      BUILTIN_STRATEGIES (strategy-runner.ts)
+    //   2. The .ts file physically exists on disk  →  git-committed
+    //      and ready to be deployed to prod via `git push + npm build`
+    const registered = getStrategyByName(id);
+    const filePath = path.join(BUILTIN_DIR, `${id}.ts`);
+    const fileExists = existsSync(filePath);
+    if (!registered || !fileExists) {
+      const problems: string[] = [];
+      if (!registered) {
+        problems.push(
+          `'${id}' is not registered in BUILTIN_STRATEGIES (strategy-runner.ts). Import + register first.`,
+        );
+      }
+      if (!fileExists) {
+        problems.push(
+          `Strategy file missing on disk: backend/src/backtest/strategies/builtin/${id}.ts`,
+        );
+      }
+      res.status(400).json({
+        success: false,
+        error:
+          "Strategy code is not ready for live deployment. " +
+          problems.join(" ") +
+          " Push-to-live blocked because the prod worker has no algorithm to execute — would fall back to generic category handler (backtest ≠ live).",
+      });
+      return;
+    }
+
     await prisma.strategy.update({
       where: { id },
       data: { liveSyncStatus: "pushing" },
@@ -290,6 +338,61 @@ router.get("/admin/sync-status", authenticate, async (req: Request, res: Respons
     });
     res.json({ success: true, data: strategies });
   } catch (err) {
+    res.status(500).json({ success: false, error: (err as Error).message });
+  }
+});
+
+// DELETE /api/strategies/:id — local-dev only. Cascade-deletes the strategy
+// along with every dependent row (deployedStrategies, their trades, and any
+// featured-backtest references). Designed to clean up test data on a local
+// machine; permanently disabled in production.
+router.delete("/:id", authenticate, async (req: Request, res: Response) => {
+  if (env.nodeEnv === "production") {
+    res.status(404).json({ success: false, error: "Not found" });
+    return;
+  }
+  try {
+    const id = req.params.id as string;
+
+    const strategy = await prisma.strategy.findUnique({
+      where: { id },
+      select: { id: true, name: true },
+    });
+    if (!strategy) {
+      res.status(404).json({ success: false, error: "Strategy not found" });
+      return;
+    }
+
+    const deployed = await prisma.deployedStrategy.findMany({
+      where: { strategyId: id },
+      select: { id: true },
+    });
+    const deployedIds = deployed.map((d) => d.id);
+
+    await prisma.$transaction([
+      // 1. Trades attached to this strategy's deployments
+      prisma.trade.deleteMany({ where: { deployedStrategyId: { in: deployedIds } } }),
+      // 2. Deployments themselves
+      prisma.deployedStrategy.deleteMany({ where: { strategyId: id } }),
+      // 3. Featured-backtest pointer (column is nullable on BacktestRun)
+      prisma.backtestRun.updateMany({
+        where: { featuredStrategyId: id },
+        data: { featuredStrategyId: null, isFeatured: false, periodLabel: null },
+      }),
+      // 4. The strategy row itself
+      prisma.strategy.delete({ where: { id } }),
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        id,
+        name: strategy.name,
+        deletedDeployments: deployedIds.length,
+      },
+    });
+  } catch (err) {
+    console.error("[strategy:delete]", err);
     res.status(500).json({ success: false, error: (err as Error).message });
   }
 });
