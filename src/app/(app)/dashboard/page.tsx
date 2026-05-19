@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import {
@@ -32,7 +32,12 @@ import {
   Pie,
   Cell,
 } from "recharts"
-import { portfolioApi, brokerApi } from "@/lib/api"
+import {
+  useBrokers,
+  usePortfolioStats,
+  usePortfolioTrades,
+  usePortfolioReport,
+} from "@/lib/queries"
 import { MarketOverview } from "@/components/dashboard/market-overview"
 import { TradingLoader } from "@/components/ui/trading-loader"
 
@@ -67,64 +72,70 @@ type TradeItem = {
   deployedStrategy?: { strategy: { name: string }; broker: { name: string } }
 }
 
+const PAIR_COLORS: Record<string, string> = {
+  BTC: "#F7931A", ETH: "#627EEA", SOL: "#9945FF", XRP: "#00AAE4",
+  DOGE: "#C2A633", ADA: "#0033AD", DOT: "#E6007A", SUI: "#6FBCF0",
+  LINK: "#2A5ADA", AVAX: "#E84142",
+}
+
 export default function DashboardPage() {
   const router = useRouter()
-  const [stats, setStats] = useState<PortfolioStats | null>(null)
-  const [trades, setTrades] = useState<TradeItem[]>([])
-  const [pnlHistory, setPnlHistory] = useState<{ date: string; pnl: number }[]>([])
-  const [allocation, setAllocation] = useState<{ name: string; value: number; color: string }[]>([])
-  const [hasBrokerConnected, setHasBrokerConnected] = useState(false)
-  const [loading, setLoading] = useState(true)
+  // Each query runs in parallel and is cached independently — navigating
+  // away and back to the dashboard renders the cached numbers instantly
+  // while the background refetch keeps them honest.
+  const brokersQuery = useBrokers()
+  const statsQuery = usePortfolioStats()
+  const tradesQuery = usePortfolioTrades(10)
+  const reportQuery = usePortfolioReport()
 
-  useEffect(() => {
-    const PAIR_COLORS: Record<string, string> = {
-      BTC: "#F7931A", ETH: "#627EEA", SOL: "#9945FF", XRP: "#00AAE4",
-      DOGE: "#C2A633", ADA: "#0033AD", DOT: "#E6007A", SUI: "#6FBCF0",
-      LINK: "#2A5ADA", AVAX: "#E84142",
+  const hasBrokerConnected = useMemo(() => {
+    const data = brokersQuery.data
+    if (!data?.success || !Array.isArray(data.data)) return false
+    return (data.data as { status: string }[]).some((b) => b.status === "CONNECTED")
+  }, [brokersQuery.data])
+
+  const stats: PortfolioStats | null = useMemo(() => {
+    const d = statsQuery.data
+    return d?.success && d.data ? (d.data as PortfolioStats) : null
+  }, [statsQuery.data])
+
+  const trades: TradeItem[] = useMemo(() => {
+    const d = tradesQuery.data
+    return d?.success && d.data ? (d.data as TradeItem[]) : []
+  }, [tradesQuery.data])
+
+  const { pnlHistory, allocation } = useMemo(() => {
+    const r = reportQuery.data
+    const empty = { pnlHistory: [] as { date: string; pnl: number }[], allocation: [] as { name: string; value: number; color: string }[] }
+    if (!r?.success || !r.data) return empty
+    const d = r.data as {
+      overall: { pnlHistory: { date: string; pnl: number }[] }
+      strategies: { pair: string; investedAmount: number; currentValue: number }[]
     }
+    const coinMap = new Map<string, number>()
+    for (const s of d.strategies) {
+      const coin = s.pair.split("/")[0]
+      coinMap.set(coin, (coinMap.get(coin) ?? 0) + s.currentValue)
+    }
+    const total = Array.from(coinMap.values()).reduce((s, v) => s + v, 0)
+    const alloc = total > 0
+      ? Array.from(coinMap.entries()).map(([name, value]) => ({
+          name,
+          value: Math.round((value / total) * 100),
+          color: PAIR_COLORS[name] ?? "#6366F1",
+        }))
+      : []
+    return { pnlHistory: d.overall.pnlHistory, allocation: alloc }
+  }, [reportQuery.data])
 
-    Promise.all([
-      brokerApi.list().then((res) => {
-        if (res.success && Array.isArray(res.data)) {
-          const connected = (res.data as { status: string }[]).some(
-            (b) => b.status === "CONNECTED"
-          )
-          setHasBrokerConnected(connected)
-        }
-      }).catch(() => {}),
-      portfolioApi.stats().then((res) => {
-        if (res.success && res.data) setStats(res.data as PortfolioStats)
-      }),
-      portfolioApi.trades(10).then((res) => {
-        if (res.success && res.data) setTrades(res.data as TradeItem[])
-      }),
-      portfolioApi.report().then((res) => {
-        if (res.success && res.data) {
-          const d = res.data as {
-            overall: { pnlHistory: { date: string; pnl: number }[] };
-            strategies: { pair: string; investedAmount: number; currentValue: number }[];
-          }
-          setPnlHistory(d.overall.pnlHistory)
-
-          // Build allocation from deployed strategies by coin
-          const coinMap = new Map<string, number>()
-          d.strategies.forEach((s) => {
-            const coin = s.pair.split("/")[0]
-            coinMap.set(coin, (coinMap.get(coin) ?? 0) + s.currentValue)
-          })
-          const total = Array.from(coinMap.values()).reduce((s, v) => s + v, 0)
-          if (total > 0) {
-            const alloc = Array.from(coinMap.entries()).map(([name, value]) => ({
-              name,
-              value: Math.round((value / total) * 100),
-              color: PAIR_COLORS[name] ?? "#6366F1",
-            }))
-            setAllocation(alloc)
-          }
-        }
-      }),
-    ]).finally(() => setLoading(false))
-  }, [])
+  // Show the loader only on the *first* visit (no cache yet). On subsequent
+  // navigations TanStack Query serves cached data immediately so we skip the
+  // loader and let background refetches update silently.
+  const loading =
+    statsQuery.isPending ||
+    tradesQuery.isPending ||
+    reportQuery.isPending ||
+    brokersQuery.isPending
 
   if (loading) {
     return <TradingLoader message="Loading dashboard..." />

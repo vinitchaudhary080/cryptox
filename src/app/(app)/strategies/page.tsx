@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useQueryClient } from "@tanstack/react-query"
+import { useStrategies, queryKeys } from "@/lib/queries"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import {
@@ -95,8 +97,15 @@ type AdminStrategyInfo = {
 
 export default function StrategiesPage() {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const [search, setSearch] = useState("")
-  const [apiStrategies, setApiStrategies] = useState<ApiStrategy[]>([])
+  // Strategies list now served by TanStack Query — cached across navigations,
+  // background-refetched on focus/reconnect. First mount still hits the API
+  // (no cache yet); subsequent visits render instantly from cache.
+  const strategiesQuery = useStrategies()
+  const apiStrategies = (strategiesQuery.data?.success && strategiesQuery.data.data
+    ? (strategiesQuery.data.data as ApiStrategy[])
+    : [])
   const [deployOpen, setDeployOpen] = useState(false)
   const [deployTarget, setDeployTarget] = useState<{
     id: string
@@ -114,12 +123,6 @@ export default function StrategiesPage() {
   // process.env.NODE_ENV is inlined at build time, so this is a true compile-
   // time gate — the Trash button never ships in a production bundle.
   const isLocalDev = process.env.NODE_ENV === "development"
-
-  useEffect(() => {
-    strategyApi.list().then((res) => {
-      if (res.success && res.data) setApiStrategies(res.data as ApiStrategy[])
-    })
-  }, [])
 
   // Admin + sync status — only runs for admins; non-admins see an identical
   // page without any of the push-to-live affordances.
@@ -175,9 +178,9 @@ export default function StrategiesPage() {
       alert(`Delete failed: ${res.error ?? "unknown error"}`)
       return
     }
-    // Refresh the list so the deleted card disappears from the grid.
-    const listRes = await strategyApi.list()
-    if (listRes.success && listRes.data) setApiStrategies(listRes.data as ApiStrategy[])
+    // Invalidate the cache so the strategies list refetches and the deleted
+    // card disappears from the grid (in any open page sharing this cache).
+    queryClient.invalidateQueries({ queryKey: queryKeys.strategies() })
   }
 
   // Use API strategies directly

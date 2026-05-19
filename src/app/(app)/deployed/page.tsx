@@ -1,6 +1,8 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
+import { useQueryClient } from "@tanstack/react-query"
+import { useDeployed, useBrokers, queryKeys } from "@/lib/queries"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import {
@@ -41,7 +43,7 @@ import {
   Tooltip as RechartsTooltip,
   ResponsiveContainer,
 } from "recharts"
-import { deployedApi, brokerApi } from "@/lib/api"
+import { deployedApi } from "@/lib/api"
 import { type DeployedStrategy } from "@/lib/mock-data"
 import { TradingLoader } from "@/components/ui/trading-loader"
 
@@ -663,48 +665,44 @@ function mapApiToStrategy(d: Record<string, unknown>): DeployedStrategy {
 }
 
 export default function DeployedPage() {
+  const queryClient = useQueryClient()
   const [selected, setSelected] = useState<DeployedStrategy | null>(null)
   const [brokerFilter, setBrokerFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
-  const [apiData, setApiData] = useState<DeployedStrategy[]>([])
-  const [brokers, setBrokers] = useState<ApiBroker[]>([])
-  const [loading, setLoading] = useState(true)
-  const [refreshKey, setRefreshKey] = useState(0)
 
-  // Fetch connected brokers once
-  useEffect(() => {
-    brokerApi.list().then((res) => {
-      if (res.success && res.data) {
-        setBrokers((res.data as Array<Record<string, unknown>>).map((b) => ({
-          id: b.id as string,
-          name: b.name as string,
-          exchangeId: b.exchangeId as string,
-        })))
-      }
-    })
-  }, [])
+  // Brokers list — rarely changes, cached aggressively.
+  const brokersQuery = useBrokers()
+  const brokers: ApiBroker[] = useMemo(() => {
+    const data = brokersQuery.data
+    if (!data?.success || !data.data) return []
+    return (data.data as Array<Record<string, unknown>>).map((b) => ({
+      id: b.id as string,
+      name: b.name as string,
+      exchangeId: b.exchangeId as string,
+    }))
+  }, [brokersQuery.data])
 
-  const fetchList = useCallback(() => {
-    deployedApi.list({ brokerId: brokerFilter, status: statusFilter }).then((res) => {
-      if (res.success && res.data) {
-        setApiData((res.data as Array<Record<string, unknown>>).map(mapApiToStrategy))
-      }
-    }).finally(() => setLoading(false))
-  }, [brokerFilter, statusFilter])
+  // Deployed strategies — auto-refetches every 10s while the list view is
+  // visible, and refetches on window-focus so PnL/status stay near-realtime.
+  // Stops polling when a strategy is selected (detail view has its own data).
+  const deployedQuery = useDeployed({ brokerId: brokerFilter, status: statusFilter })
+  const apiData: DeployedStrategy[] = useMemo(() => {
+    const data = deployedQuery.data
+    if (!data?.success || !data.data) return []
+    return (data.data as Array<Record<string, unknown>>).map(mapApiToStrategy)
+  }, [deployedQuery.data])
 
-  // Fetch on mount, filter change, and refreshKey change
-  useEffect(() => {
-    fetchList()
-  }, [fetchList, refreshKey])
-
-  // Auto-refresh list every 10s when on list view
+  // 10s polling while on list view — TanStack Query handles cleanup itself.
   useEffect(() => {
     if (selected) return
-    const interval = setInterval(fetchList, 10_000)
+    const interval = setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.deployed({ brokerId: brokerFilter, status: statusFilter }) })
+    }, 10_000)
     return () => clearInterval(interval)
-  }, [selected, fetchList])
+  }, [selected, brokerFilter, statusFilter, queryClient])
 
   const strategies = apiData
+  const loading = deployedQuery.isPending
 
   if (loading) {
     return <TradingLoader message="Loading strategies..." />
@@ -712,7 +710,7 @@ export default function DeployedPage() {
 
   const handleBack = () => {
     setSelected(null)
-    setRefreshKey((k) => k + 1) // force re-fetch list on back
+    queryClient.invalidateQueries({ queryKey: ["deployed"] })
   }
 
   return (

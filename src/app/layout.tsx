@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { QueryProvider } from "@/providers/query-provider"
 import { Toaster } from "sonner"
 import "./globals.css"
 
@@ -129,8 +130,10 @@ export default function RootLayout({
     >
       <body className="min-h-screen bg-background antialiased">
         <ThemeProvider>
-          <TooltipProvider>{children}</TooltipProvider>
-          <Toaster position="top-right" richColors closeButton expand theme="system" />
+          <QueryProvider>
+            <TooltipProvider>{children}</TooltipProvider>
+            <Toaster position="top-right" richColors closeButton expand theme="system" />
+          </QueryProvider>
         </ThemeProvider>
       </body>
     </html>
