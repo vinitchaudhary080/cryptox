@@ -16,7 +16,9 @@ import {
 } from "lucide-react"
 import {
   Dialog,
+  DialogBody,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -271,6 +273,7 @@ export function DeployDialog({
           </DialogTitle>
         </DialogHeader>
 
+        <DialogBody>
         {success ? (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -450,15 +453,6 @@ export function DeployDialog({
                       ))}
                     </div>
                   )}
-
-                  <div className="flex justify-end pt-2">
-                    <Button
-                      onClick={() => setStep("config")}
-                      disabled={!selectedBrokerId}
-                    >
-                      Next <ChevronRight className="ml-1.5 h-4 w-4" />
-                    </Button>
-                  </div>
                 </motion.div>
               )}
 
@@ -725,21 +719,6 @@ export function DeployDialog({
                     </div>
                   ) : null}
 
-                  <div className="flex gap-3 pt-2">
-                    <Button variant="outline" className="flex-1" onClick={() => setStep("broker")}>
-                      Back
-                    </Button>
-                    <Button
-                      className="flex-1"
-                      onClick={() => setStep("confirm")}
-                      disabled={
-                        !selectedPair || !amount || amountNum < 50 || !meetsMin || leverageOverMax ||
-                        (amountNum * positionSizeFraction) < 50
-                      }
-                    >
-                      Next <ChevronRight className="ml-1.5 h-4 w-4" />
-                    </Button>
-                  </div>
                 </motion.div>
               )}
 
@@ -793,25 +772,79 @@ export function DeployDialog({
                       {error}
                     </div>
                   )}
-
-                  <div className="flex gap-3">
-                    <Button variant="outline" className="flex-1" onClick={() => setStep("config")}>
-                      Back
-                    </Button>
-                    <Button className="flex-1" onClick={handleDeploy} disabled={deploying}>
-                      {deploying ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <>
-                          <Rocket className="mr-2 h-4 w-4" /> Deploy Now
-                        </>
-                      )}
-                    </Button>
-                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
           </div>
+        )}
+        </DialogBody>
+
+        {/* Sticky footer with step-aware action buttons. Lives outside
+            DialogBody so it stays anchored at the bottom — never clipped
+            even when the body content scrolls (the long broker list,
+            confirm summary, etc.). Hidden during the post-deploy success
+            screen. */}
+        {!success && (
+          <DialogFooter className="flex-row gap-3 sm:justify-end">
+            {/* All footer buttons use h-12 on mobile (48px — comfortable
+                tap target on iPhones) and shrink to the denser h-10 on
+                sm+. text-[15px] on mobile / sm:text-sm matches the
+                strategy popup CTAs so the whole product feels consistent. */}
+            {step === "broker" && (
+              <Button
+                onClick={() => setStep("config")}
+                disabled={!selectedBrokerId}
+                className="ml-auto h-12 text-[15px] sm:h-10 sm:text-sm"
+              >
+                Next <ChevronRight className="ml-1.5 h-4 w-4" />
+              </Button>
+            )}
+            {step === "config" && (
+              <>
+                <Button
+                  variant="outline"
+                  className="h-12 flex-1 text-[15px] sm:h-10 sm:flex-none sm:text-sm"
+                  onClick={() => setStep("broker")}
+                >
+                  Back
+                </Button>
+                <Button
+                  className="h-12 flex-1 text-[15px] sm:h-10 sm:flex-none sm:text-sm"
+                  onClick={() => setStep("confirm")}
+                  disabled={
+                    !selectedPair || !amount || amountNum < 50 || !meetsMin || leverageOverMax ||
+                    (amountNum * positionSizeFraction) < 50
+                  }
+                >
+                  Next <ChevronRight className="ml-1.5 h-4 w-4" />
+                </Button>
+              </>
+            )}
+            {step === "confirm" && (
+              <>
+                <Button
+                  variant="outline"
+                  className="h-12 flex-1 text-[15px] sm:h-10 sm:flex-none sm:text-sm"
+                  onClick={() => setStep("config")}
+                >
+                  Back
+                </Button>
+                <Button
+                  className="h-12 flex-1 text-[15px] sm:h-10 sm:flex-none sm:text-sm"
+                  onClick={handleDeploy}
+                  disabled={deploying}
+                >
+                  {deploying ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <>
+                      <Rocket className="mr-2 h-4 w-4" /> Deploy Now
+                    </>
+                  )}
+                </Button>
+              </>
+            )}
+          </DialogFooter>
         )}
       </DialogContent>
     </Dialog>

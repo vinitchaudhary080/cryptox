@@ -23,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -175,7 +176,7 @@ export function FeatureRunButton({
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4 py-2">
+            <DialogBody className="space-y-4 py-2">
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">
                   Strategy
@@ -219,17 +220,22 @@ export function FeatureRunButton({
               </div>
 
               {error && <p className="text-xs text-loss">{error}</p>}
-            </div>
+            </DialogBody>
 
             <DialogFooter>
               <Button
                 variant="ghost"
+                className="h-12 text-[15px] sm:h-10 sm:text-sm"
                 onClick={() => setOpen(false)}
                 disabled={submitting}
               >
                 Cancel
               </Button>
-              <Button onClick={handleFeature} disabled={submitting}>
+              <Button
+                className="h-12 text-[15px] sm:h-10 sm:text-sm"
+                onClick={handleFeature}
+                disabled={submitting}
+              >
                 {submitting ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : null}

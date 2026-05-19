@@ -540,10 +540,18 @@ export default function BrokersPage() {
                   )}
 
                   <div className="flex gap-3">
-                    <Button variant="outline" className="flex-1" onClick={() => setStep("select")}>
+                    <Button
+                      variant="outline"
+                      className="h-12 flex-1 text-[15px] sm:h-10 sm:text-sm"
+                      onClick={() => setStep("select")}
+                    >
                       Back
                     </Button>
-                    <Button className="flex-1" onClick={handleConnect} disabled={connecting || !newUid || !newApiKey || !newApiSecret}>
+                    <Button
+                      className="h-12 flex-1 text-[15px] sm:h-10 sm:text-sm"
+                      onClick={handleConnect}
+                      disabled={connecting || !newUid || !newApiKey || !newApiSecret}
+                    >
                       {connecting ? (
                         <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
                       ) : (
@@ -657,10 +665,18 @@ export default function BrokersPage() {
               )}
 
               <div className="flex gap-3">
-                <Button variant="outline" className="flex-1" onClick={() => setEditDialogOpen(false)}>
+                <Button
+                  variant="outline"
+                  className="h-12 flex-1 text-[15px] sm:h-10 sm:text-sm"
+                  onClick={() => setEditDialogOpen(false)}
+                >
                   Cancel
                 </Button>
-                <Button className="flex-1" onClick={handleSaveEdit} disabled={editSaving}>
+                <Button
+                  className="h-12 flex-1 text-[15px] sm:h-10 sm:text-sm"
+                  onClick={handleSaveEdit}
+                  disabled={editSaving}
+                >
                   {editSaving ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (

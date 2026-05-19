@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Loader2, Send, Users, User } from "lucide-react";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -106,7 +107,8 @@ export function SendNotificationDialog({ trigger }: Props) {
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="flex flex-1 min-h-0 flex-col gap-4">
+        <DialogBody className="space-y-4">
           {/* Target */}
           <div className="space-y-2">
             <Label>Target</Label>
@@ -205,12 +207,23 @@ export function SendNotificationDialog({ trigger }: Props) {
               {status.message}
             </div>
           )}
+        </DialogBody>
 
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={loading}>
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-12 text-[15px] sm:h-10 sm:text-sm"
+              onClick={() => setOpen(false)}
+              disabled={loading}
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button
+              type="submit"
+              className="h-12 text-[15px] sm:h-10 sm:text-sm"
+              disabled={loading}
+            >
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending…

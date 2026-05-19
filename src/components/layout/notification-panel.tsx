@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -339,7 +340,7 @@ export function NotificationPanel() {
                 </div>
               </DialogHeader>
 
-              <div className="mt-2 space-y-3">
+              <DialogBody className="mt-2 space-y-3">
                 <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
                   {viewing.message}
                 </p>
@@ -374,7 +375,7 @@ export function NotificationPanel() {
                     </Button>
                   )
                 })()}
-              </div>
+              </DialogBody>
             </>
           )}
         </DialogContent>
