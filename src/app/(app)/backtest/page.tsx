@@ -189,9 +189,17 @@ export default function BacktestPage() {
         </motion.div>
       )}
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-        {/* Config Form, Left Side */}
-        <motion.div variants={fadeUp} className="lg:col-span-2">
+      {/* `items-start` on the grid prevents children from stretching to match
+          the tallest sibling's height — required for sticky to work, since
+          a stretched column has nothing to scroll within. */}
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-5">
+        {/* Config Form, Left Side — sticky on desktop so it stays visible
+            while the history list scrolls on the right. max-h + overflow-y
+            handles the (rare) case where the form is taller than the viewport. */}
+        <motion.div
+          variants={fadeUp}
+          className="lg:sticky lg:top-4 lg:col-span-2 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto"
+        >
           <BacktestConfigForm onRunStarted={handleRunStarted} />
         </motion.div>
 
