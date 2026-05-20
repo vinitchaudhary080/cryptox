@@ -20,6 +20,7 @@ import type { Candle } from "../types.js";
 import { precomputeSupertrend5mFast } from "./builtin/supertrend-5m-fast.js";
 import { precomputeSupertrend1hSwing } from "./builtin/supertrend-1h-swing.js";
 import { precomputeZScoreMeanReversion1h } from "./builtin/07-zscore-mean-reversion-1h.js";
+import { precomputeZScoreMeanReversion15m } from "./builtin/07-zscore-mean-reversion-15m.js";
 
 type PrecomputeFn = (allCandles: Candle[]) => void;
 
@@ -27,6 +28,7 @@ export const PRECOMPUTE_FNS: Record<string, PrecomputeFn> = {
   "supertrend-5m-fast": precomputeSupertrend5mFast,
   "supertrend-1h-swing": precomputeSupertrend1hSwing,
   "07-zscore-mean-reversion-1h": precomputeZScoreMeanReversion1h,
+  "07-zscore-mean-reversion-15m": precomputeZScoreMeanReversion15m,
 };
 
 export function getPrecomputeFn(slug: string): PrecomputeFn | null {
