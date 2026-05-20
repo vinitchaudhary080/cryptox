@@ -81,11 +81,16 @@ function StrategyList({
   setStatusFilter: (v: string) => void
   brokers: ApiBroker[]
 }) {
-  const filtered = strategies.filter((s) => {
-    const matchesBroker = brokerFilter === "all" || s.brokerId === brokerFilter
-    const matchesStatus = statusFilter === "all" || s.status === statusFilter
-    return matchesBroker && matchesStatus
-  })
+  const filtered = strategies
+    .filter((s) => {
+      const matchesBroker = brokerFilter === "all" || s.brokerId === brokerFilter
+      const matchesStatus = statusFilter === "all" || s.status === statusFilter
+      return matchesBroker && matchesStatus
+    })
+    // Highest realized PnL first so winners surface to the top. Ties (often
+    // 0 PnL on fresh deploys) keep their relative order from the API, which
+    // is most-recently-deployed.
+    .sort((a, b) => b.totalPnl - a.totalPnl)
 
   const totalPnl = filtered.reduce((s, v) => s + v.totalPnl, 0)
   const totalInvested = filtered.reduce((s, v) => s + v.investedAmount, 0)
