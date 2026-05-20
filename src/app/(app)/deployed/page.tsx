@@ -132,10 +132,10 @@ function StrategyList({
         ))}
       </motion.div>
 
-      {/* Filters */}
-      <motion.div variants={fadeUp} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      {/* Filters — always single row; pills shrink on narrow widths, dropdown stays compact */}
+      <motion.div variants={fadeUp} className="flex flex-row items-center gap-2 sm:justify-between">
         {/* Status pills */}
-        <div className="flex items-center gap-1 rounded-lg bg-muted/50 p-1">
+        <div className="flex flex-1 items-center gap-1 overflow-x-auto rounded-lg bg-muted/50 p-1 sm:flex-initial">
           {[
             { value: "all", label: "All" },
             { value: "active", label: "Active", dot: "bg-profit" },
@@ -144,7 +144,7 @@ function StrategyList({
             <button
               key={tab.value}
               onClick={() => setStatusFilter(tab.value)}
-              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
+              className={`flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-all sm:px-3 ${
                 statusFilter === tab.value
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
@@ -157,10 +157,10 @@ function StrategyList({
         </div>
 
         {/* Broker dropdown */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <Select value={brokerFilter} onValueChange={(v) => setBrokerFilter(v ?? "all")}>
-            <SelectTrigger className="h-8 w-[180px] bg-muted/50 text-xs">
-              <SelectValue placeholder="All Brokers" />
+            <SelectTrigger className="h-8 w-[130px] bg-muted/50 text-xs sm:w-[180px]">
+              <SelectValue placeholder="Brokers" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Brokers</SelectItem>
@@ -173,7 +173,7 @@ function StrategyList({
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 text-xs text-muted-foreground"
+              className="h-8 px-2 text-xs text-muted-foreground"
               onClick={() => { setBrokerFilter("all"); setStatusFilter("all") }}
             >
               Clear
@@ -215,39 +215,42 @@ function StrategyList({
                           )}
                         </div>
                         <p className="mt-0.5 text-xs text-muted-foreground">
-                          {strategy.pair} &middot; {strategy.brokerName} &middot; Since {strategy.deployedAt}
+                          {strategy.pair} &middot; {strategy.brokerName} &middot; Since {formatDateTime(strategy.deployedAt)}
                         </p>
                       </div>
                     </div>
 
-                    {/* Right stats */}
-                    <div className="flex items-center gap-6">
-                      <div className="text-right">
-                        <p className="text-[10px] text-muted-foreground">Invested</p>
-                        <p className="text-sm font-medium">${strategy.investedAmount.toLocaleString()}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-[10px] text-muted-foreground">PnL</p>
-                        <p className={`text-sm font-bold ${strategy.totalPnl >= 0 ? "text-profit" : "text-loss"}`}>
-                          {strategy.totalPnl >= 0 ? "+" : ""}${strategy.totalPnl.toFixed(2)}
-                          <span className="ml-1 text-[10px] font-medium">
-                            ({strategy.totalPnl >= 0 ? "+" : ""}{strategy.totalPnlPercent}%)
-                          </span>
-                        </p>
-                      </div>
-                      <div className="hidden text-right md:block">
-                        <p className="text-[10px] text-muted-foreground">Today</p>
-                        <p className={`text-sm font-medium ${strategy.todayPnl >= 0 ? "text-profit" : "text-loss"}`}>
-                          {strategy.todayPnl >= 0 ? "+" : ""}${strategy.todayPnl.toFixed(2)}
-                        </p>
-                      </div>
-                      <div className="hidden text-right md:block">
-                        <p className="text-[10px] text-muted-foreground">Trades</p>
-                        <p className="text-sm font-medium">{strategy.totalTrades}</p>
-                      </div>
-                      <div className="hidden text-right lg:block">
-                        <p className="text-[10px] text-muted-foreground">Win Rate</p>
-                        <p className="text-sm font-medium">{strategy.winRate}%</p>
+                    {/* Right stats — grid on mobile (2 cols stack PnL under Invested),
+                        flat row on md+ where there's room. */}
+                    <div className="flex items-center gap-4 sm:gap-6">
+                      <div className="grid grid-cols-2 gap-x-5 gap-y-2 sm:flex sm:items-center sm:gap-6">
+                        <div className="text-left sm:text-right">
+                          <p className="text-[10px] text-muted-foreground">Invested</p>
+                          <p className="text-sm font-medium">${strategy.investedAmount.toLocaleString()}</p>
+                        </div>
+                        <div className="text-left sm:text-right">
+                          <p className="text-[10px] text-muted-foreground">PnL</p>
+                          <p className={`text-sm font-bold ${strategy.totalPnl >= 0 ? "text-profit" : "text-loss"}`}>
+                            {strategy.totalPnl >= 0 ? "+" : ""}${strategy.totalPnl.toFixed(2)}
+                            <span className="ml-1 text-[10px] font-medium">
+                              ({strategy.totalPnl >= 0 ? "+" : ""}{strategy.totalPnlPercent}%)
+                            </span>
+                          </p>
+                        </div>
+                        <div className="hidden text-right md:block">
+                          <p className="text-[10px] text-muted-foreground">Today</p>
+                          <p className={`text-sm font-medium ${strategy.todayPnl >= 0 ? "text-profit" : "text-loss"}`}>
+                            {strategy.todayPnl >= 0 ? "+" : ""}${strategy.todayPnl.toFixed(2)}
+                          </p>
+                        </div>
+                        <div className="hidden text-right md:block">
+                          <p className="text-[10px] text-muted-foreground">Trades</p>
+                          <p className="text-sm font-medium">{strategy.totalTrades}</p>
+                        </div>
+                        <div className="hidden text-right lg:block">
+                          <p className="text-[10px] text-muted-foreground">Win Rate</p>
+                          <p className="text-sm font-medium">{strategy.winRate}%</p>
+                        </div>
                       </div>
                       <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                     </div>
@@ -281,6 +284,19 @@ function formatTradeTime(iso: string | null | undefined): string {
     minute: "2-digit",
     hour12: true,
   })
+}
+
+/**
+ * Human-friendly datetime: "19 May 2026 | 10:34 am".
+ * Used for "Since …" labels and any place a user reads the timestamp.
+ */
+function formatDateTime(iso: string | null | undefined): string {
+  if (!iso) return "-"
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return "-"
+  const day = d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+  const time = d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }).toLowerCase()
+  return `${day} | ${time}`
 }
 
 type ApiTrade = {
@@ -538,33 +554,66 @@ function StrategyDetail({
               </div>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
+              {/* Mobile: card-per-trade. Desktop: full table. */}
+              <div className="md:hidden space-y-3">
+                {openTrades.map((trade) => (
+                  <div key={trade.id} className="rounded-lg border border-border/40 bg-muted/20 p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-sm font-medium">{trade.pair}</span>
+                      <Badge variant="outline" className={trade.side.toUpperCase() === "BUY" ? "border-profit/30 text-profit" : "border-loss/30 text-loss"}>
+                        {trade.side.toUpperCase()}
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Entry</span>
+                        <span className="font-mono">${trade.entryPrice.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Qty</span>
+                        <span className="font-mono">{trade.quantity.toFixed(4)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Unrealized</span>
+                        <span className={`font-medium ${trade.pnl >= 0 ? "text-profit" : "text-loss"}`}>
+                          {trade.pnl >= 0 ? "+" : ""}${trade.pnl.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="col-span-2 flex justify-between border-t border-border/30 pt-1.5 text-[11px] text-muted-foreground">
+                        <span>Opened</span>
+                        <span>{formatDateTime(trade.openedAt)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="hidden overflow-x-auto md:block">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border/50 text-left text-[10px] uppercase tracking-wider text-muted-foreground">
-                      <th className="pb-2.5 font-medium">Pair</th>
-                      <th className="pb-2.5 font-medium">Side</th>
-                      <th className="pb-2.5 font-medium">Entry Price</th>
-                      <th className="pb-2.5 font-medium">Qty</th>
-                      <th className="pb-2.5 font-medium">Unrealized PnL</th>
+                      <th className="pb-2.5 pr-3 font-medium">Pair</th>
+                      <th className="pb-2.5 pr-3 font-medium">Side</th>
+                      <th className="pb-2.5 pr-3 font-medium">Entry Price</th>
+                      <th className="pb-2.5 pr-3 font-medium">Qty</th>
+                      <th className="pb-2.5 pr-3 font-medium">Unrealized PnL</th>
                       <th className="pb-2.5 text-right font-medium">Opened</th>
                     </tr>
                   </thead>
                   <tbody>
                     {openTrades.map((trade) => (
                       <tr key={trade.id} className="border-b border-border/30 last:border-0">
-                        <td className="py-2.5 font-medium">{trade.pair}</td>
-                        <td className="py-2.5">
+                        <td className="whitespace-nowrap py-2.5 pr-3 font-medium">{trade.pair}</td>
+                        <td className="py-2.5 pr-3">
                           <Badge variant="outline" className={trade.side.toUpperCase() === "BUY" ? "border-profit/30 text-profit" : "border-loss/30 text-loss"}>
                             {trade.side.toUpperCase()}
                           </Badge>
                         </td>
-                        <td className="py-2.5 font-mono text-xs">${trade.entryPrice.toLocaleString()}</td>
-                        <td className="py-2.5 font-mono text-xs">{trade.quantity}</td>
-                        <td className={`py-2.5 font-medium ${trade.pnl >= 0 ? "text-profit" : "text-loss"}`}>
+                        <td className="whitespace-nowrap py-2.5 pr-3 font-mono text-xs">${trade.entryPrice.toLocaleString()}</td>
+                        <td className="whitespace-nowrap py-2.5 pr-3 font-mono text-xs">{trade.quantity.toFixed(4)}</td>
+                        <td className={`whitespace-nowrap py-2.5 pr-3 font-medium ${trade.pnl >= 0 ? "text-profit" : "text-loss"}`}>
                           {trade.pnl >= 0 ? "+" : ""}${trade.pnl.toFixed(2)}
                         </td>
-                        <td className="py-2.5 text-right text-xs text-muted-foreground">{formatTradeTime(trade.openedAt)}</td>
+                        <td className="whitespace-nowrap py-2.5 text-right text-xs text-muted-foreground">{formatDateTime(trade.openedAt)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -587,39 +636,85 @@ function StrategyDetail({
             </div>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
+            {/* Mobile: card-per-trade list (no horizontal scroll, no overlap).
+                Desktop (md+): full table with all columns. */}
+            <div className="md:hidden space-y-3">
+              {closedTrades.length === 0 ? (
+                <p className="py-8 text-center text-xs text-muted-foreground">No closed trades yet</p>
+              ) : (
+                closedTrades.map((trade) => (
+                  <div key={trade.id} className="rounded-lg border border-border/40 bg-muted/20 p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-sm font-medium">{trade.pair}</span>
+                      <Badge variant="outline" className={trade.side.toUpperCase() === "BUY" ? "border-profit/30 text-profit" : "border-loss/30 text-loss"}>
+                        {trade.side.toUpperCase()}
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Entry</span>
+                        <span className="font-mono">${trade.entryPrice.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Exit</span>
+                        <span className="font-mono">${trade.exitPrice?.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Qty</span>
+                        <span className="font-mono">{trade.quantity.toFixed(4)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">PnL</span>
+                        <span className={`font-medium ${trade.pnl >= 0 ? "text-profit" : "text-loss"}`}>
+                          {trade.pnl >= 0 ? "+" : ""}${trade.pnl.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="col-span-2 flex justify-between border-t border-border/30 pt-1.5 text-[11px] text-muted-foreground">
+                        <span>Opened</span>
+                        <span>{formatDateTime(trade.openedAt)}</span>
+                      </div>
+                      <div className="col-span-2 flex justify-between text-[11px] text-muted-foreground">
+                        <span>Closed</span>
+                        <span>{formatDateTime(trade.closedAt)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border/50 text-left text-[10px] uppercase tracking-wider text-muted-foreground">
-                    <th className="pb-2.5 font-medium">Pair</th>
-                    <th className="pb-2.5 font-medium">Side</th>
-                    <th className="pb-2.5 font-medium">Entry</th>
-                    <th className="pb-2.5 font-medium">Exit</th>
-                    <th className="pb-2.5 font-medium">Qty</th>
-                    <th className="pb-2.5 font-medium">PnL</th>
-                    <th className="pb-2.5 font-medium">Fee</th>
-                    <th className="pb-2.5 font-medium">Entry Time</th>
+                    <th className="pb-2.5 pr-3 font-medium">Pair</th>
+                    <th className="pb-2.5 pr-3 font-medium">Side</th>
+                    <th className="pb-2.5 pr-3 font-medium">Entry</th>
+                    <th className="pb-2.5 pr-3 font-medium">Exit</th>
+                    <th className="pb-2.5 pr-3 font-medium">Qty</th>
+                    <th className="pb-2.5 pr-3 font-medium">PnL</th>
+                    <th className="pb-2.5 pr-3 font-medium">Fee</th>
+                    <th className="pb-2.5 pr-3 font-medium">Entry Time</th>
                     <th className="pb-2.5 text-right font-medium">Exit Time</th>
                   </tr>
                 </thead>
                 <tbody>
                   {closedTrades.map((trade) => (
                     <tr key={trade.id} className="border-b border-border/30 last:border-0">
-                      <td className="py-2.5 font-medium">{trade.pair}</td>
-                      <td className="py-2.5">
+                      <td className="whitespace-nowrap py-2.5 pr-3 font-medium">{trade.pair}</td>
+                      <td className="py-2.5 pr-3">
                         <Badge variant="outline" className={trade.side.toUpperCase() === "BUY" ? "border-profit/30 text-profit" : "border-loss/30 text-loss"}>
                           {trade.side.toUpperCase()}
                         </Badge>
                       </td>
-                      <td className="py-2.5 font-mono text-xs">${trade.entryPrice.toLocaleString()}</td>
-                      <td className="py-2.5 font-mono text-xs">${trade.exitPrice?.toLocaleString()}</td>
-                      <td className="py-2.5 font-mono text-xs">{trade.quantity}</td>
-                      <td className={`py-2.5 font-medium ${trade.pnl >= 0 ? "text-profit" : "text-loss"}`}>
+                      <td className="whitespace-nowrap py-2.5 pr-3 font-mono text-xs">${trade.entryPrice.toLocaleString()}</td>
+                      <td className="whitespace-nowrap py-2.5 pr-3 font-mono text-xs">${trade.exitPrice?.toLocaleString()}</td>
+                      <td className="whitespace-nowrap py-2.5 pr-3 font-mono text-xs">{trade.quantity.toFixed(4)}</td>
+                      <td className={`whitespace-nowrap py-2.5 pr-3 font-medium ${trade.pnl >= 0 ? "text-profit" : "text-loss"}`}>
                         {trade.pnl >= 0 ? "+" : ""}${trade.pnl.toFixed(2)}
                       </td>
-                      <td className="py-2.5 text-xs text-muted-foreground">${trade.fee.toFixed(2)}</td>
-                      <td className="py-2.5 text-xs text-muted-foreground">{formatTradeTime(trade.openedAt)}</td>
-                      <td className="py-2.5 text-right text-xs text-muted-foreground">{formatTradeTime(trade.closedAt)}</td>
+                      <td className="whitespace-nowrap py-2.5 pr-3 text-xs text-muted-foreground">${trade.fee.toFixed(2)}</td>
+                      <td className="whitespace-nowrap py-2.5 pr-3 text-xs text-muted-foreground">{formatDateTime(trade.openedAt)}</td>
+                      <td className="whitespace-nowrap py-2.5 text-right text-xs text-muted-foreground">{formatDateTime(trade.closedAt)}</td>
                     </tr>
                   ))}
                   {closedTrades.length === 0 && (
