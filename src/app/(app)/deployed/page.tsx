@@ -220,8 +220,8 @@ function StrategyList({
                       </div>
                     </div>
 
-                    {/* Right stats — grid on mobile (2 cols stack PnL under Invested),
-                        flat row on md+ where there's room. */}
+                    {/* Right stats — 4 stats in 2x2 grid on mobile (Invested/PnL/Today/Trades),
+                        flat row on md+ with Win Rate added at lg+. */}
                     <div className="flex items-center gap-4 sm:gap-6">
                       <div className="grid grid-cols-2 gap-x-5 gap-y-2 sm:flex sm:items-center sm:gap-6">
                         <div className="text-left sm:text-right">
@@ -237,13 +237,13 @@ function StrategyList({
                             </span>
                           </p>
                         </div>
-                        <div className="hidden text-right md:block">
+                        <div className="text-left sm:text-right">
                           <p className="text-[10px] text-muted-foreground">Today</p>
                           <p className={`text-sm font-medium ${strategy.todayPnl >= 0 ? "text-profit" : "text-loss"}`}>
                             {strategy.todayPnl >= 0 ? "+" : ""}${strategy.todayPnl.toFixed(2)}
                           </p>
                         </div>
-                        <div className="hidden text-right md:block">
+                        <div className="text-left sm:text-right">
                           <p className="text-[10px] text-muted-foreground">Trades</p>
                           <p className="text-sm font-medium">{strategy.totalTrades}</p>
                         </div>
@@ -284,6 +284,19 @@ function formatTradeTime(iso: string | null | undefined): string {
     minute: "2-digit",
     hour12: true,
   })
+}
+
+/**
+ * Smart price formatter — keeps small-priced coins readable.
+ * Under $1 → 5 decimals (DOGE/XRP/SHIB shown as $0.10313, not $0.1).
+ * $1–$100 → 4 decimals (LINK/ADA mid-range).
+ * Over $100 → 2 decimals (BTC/ETH).
+ */
+function formatPrice(price: number | null | undefined): string {
+  if (price == null || Number.isNaN(price)) return "-"
+  if (price < 1) return `$${price.toFixed(5)}`
+  if (price < 100) return `$${price.toFixed(4)}`
+  return `$${price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 /**
@@ -567,7 +580,7 @@ function StrategyDetail({
                     <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Entry</span>
-                        <span className="font-mono">${trade.entryPrice.toLocaleString()}</span>
+                        <span className="font-mono">{formatPrice(trade.entryPrice)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Qty</span>
@@ -608,7 +621,7 @@ function StrategyDetail({
                             {trade.side.toUpperCase()}
                           </Badge>
                         </td>
-                        <td className="whitespace-nowrap py-2.5 pr-3 font-mono text-xs">${trade.entryPrice.toLocaleString()}</td>
+                        <td className="whitespace-nowrap py-2.5 pr-3 font-mono text-xs">{formatPrice(trade.entryPrice)}</td>
                         <td className="whitespace-nowrap py-2.5 pr-3 font-mono text-xs">{trade.quantity.toFixed(4)}</td>
                         <td className={`whitespace-nowrap py-2.5 pr-3 font-medium ${trade.pnl >= 0 ? "text-profit" : "text-loss"}`}>
                           {trade.pnl >= 0 ? "+" : ""}${trade.pnl.toFixed(2)}
@@ -653,11 +666,11 @@ function StrategyDetail({
                     <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Entry</span>
-                        <span className="font-mono">${trade.entryPrice.toLocaleString()}</span>
+                        <span className="font-mono">{formatPrice(trade.entryPrice)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Exit</span>
-                        <span className="font-mono">${trade.exitPrice?.toLocaleString()}</span>
+                        <span className="font-mono">{formatPrice(trade.exitPrice)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Qty</span>
@@ -706,8 +719,8 @@ function StrategyDetail({
                           {trade.side.toUpperCase()}
                         </Badge>
                       </td>
-                      <td className="whitespace-nowrap py-2.5 pr-3 font-mono text-xs">${trade.entryPrice.toLocaleString()}</td>
-                      <td className="whitespace-nowrap py-2.5 pr-3 font-mono text-xs">${trade.exitPrice?.toLocaleString()}</td>
+                      <td className="whitespace-nowrap py-2.5 pr-3 font-mono text-xs">{formatPrice(trade.entryPrice)}</td>
+                      <td className="whitespace-nowrap py-2.5 pr-3 font-mono text-xs">{formatPrice(trade.exitPrice)}</td>
                       <td className="whitespace-nowrap py-2.5 pr-3 font-mono text-xs">{trade.quantity.toFixed(4)}</td>
                       <td className={`whitespace-nowrap py-2.5 pr-3 font-medium ${trade.pnl >= 0 ? "text-profit" : "text-loss"}`}>
                         {trade.pnl >= 0 ? "+" : ""}${trade.pnl.toFixed(2)}
