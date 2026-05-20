@@ -763,7 +763,9 @@ function mapApiToStrategy(d: Record<string, unknown>): DeployedStrategy {
     currentValue: d.currentValue as number,
     totalPnl: d.totalPnl as number,
     totalPnlPercent: d.totalPnlPercent as number,
-    todayPnl: 0,
+    // todayPnl is the sum of trades closed since UTC midnight; backend
+    // returns it on /api/deployed. Falls back to 0 for older API versions.
+    todayPnl: (d.todayPnl as number | undefined) ?? 0,
     totalTrades: d.totalTrades as number,
     winRate: d.winRate as number,
     openPositions: d.openPositions as number,

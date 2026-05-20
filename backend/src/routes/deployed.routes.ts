@@ -26,6 +26,45 @@ async function isAdmin(userId: string): Promise<boolean> {
   return !!user && ADMIN_EMAILS.includes(user.email.toLowerCase());
 }
 
+/**
+ * Stop the worker for a deployment and close all its open trades — but
+ * never block the calling handler on worker failures. Both calls hit the
+ * worker process over HTTP; if the worker is down, unreachable, broker
+ * keys are invalid, or the exchange rejects the close order, we still
+ * want to be able to PAUSE / STOP / DELETE the deployment row in the DB.
+ *
+ * Previously these were two unguarded `await`s inline in each handler.
+ * One worker failure aborted the whole request — DB row stayed ACTIVE,
+ * user got a 500, retry hit the same failure. Loop until manual SQL.
+ *
+ * Returns whatever the worker said about closed positions, or zeros if
+ * the worker couldn't be reached. Logs a warning (not an error) on
+ * worker failure so a missing worker doesn't pollute the error feed.
+ */
+async function tryStopAndClose(
+  deployedId: string,
+  context: string,
+): Promise<{ closed: number; totalPnl: number; workerOk: boolean }> {
+  let workerOk = true;
+  try {
+    await workerClient.stopStrategy(deployedId);
+  } catch (err) {
+    workerOk = false;
+    console.warn(
+      `[${context}] worker stopStrategy failed for ${deployedId}, continuing: ${(err as Error).message}`,
+    );
+  }
+  try {
+    const result = await workerClient.closeAllOpenTrades(deployedId);
+    return { ...result, workerOk };
+  } catch (err) {
+    console.warn(
+      `[${context}] worker closeAllOpenTrades failed for ${deployedId}, continuing: ${(err as Error).message}`,
+    );
+    return { closed: 0, totalPnl: 0, workerOk: false };
+  }
+}
+
 const deploySchema = z.object({
   strategyId: z.string(),
   brokerId: z.string(),
@@ -48,6 +87,12 @@ router.get("/", authenticate, async (req: AuthRequest, res: Response) => {
     if (brokerId && brokerId !== "all") where.brokerId = brokerId;
     if (status && status !== "all") where.status = status.toUpperCase() as "ACTIVE" | "PAUSED" | "STOPPED";
 
+    // "Today" is computed from UTC midnight — crypto is 24×7 and exchanges
+    // use UTC for daily settlement boundaries, so users see consistent
+    // today-PnL regardless of which timezone they're viewing from.
+    const todayStartUTC = new Date();
+    todayStartUTC.setUTCHours(0, 0, 0, 0);
+
     const deployed = await prisma.deployedStrategy.findMany({
       where,
       include: {
@@ -59,6 +104,22 @@ router.get("/", authenticate, async (req: AuthRequest, res: Response) => {
       orderBy: { deployedAt: "desc" },
     });
 
+    // Sum today's realized PnL per deployed strategy in one round-trip
+    // (Prisma groupBy aggregates server-side). Only CLOSED trades count
+    // toward today's realized number — open positions remain unrealized.
+    const todayPnlAgg = await prisma.trade.groupBy({
+      by: ["deployedStrategyId"],
+      where: {
+        deployedStrategyId: { in: deployed.map((d) => d.id) },
+        status: "CLOSED",
+        closedAt: { gte: todayStartUTC },
+      },
+      _sum: { pnl: true },
+    });
+    const todayPnlMap = new Map<string, number>(
+      todayPnlAgg.map((t) => [t.deployedStrategyId, t._sum.pnl ?? 0]),
+    );
+
     const data = deployed.map((d) => {
       const totalPnl = d.currentValue - d.investedAmount;
       const totalPnlPercent = d.investedAmount > 0 ? (totalPnl / d.investedAmount) * 100 : 0;
@@ -66,6 +127,7 @@ router.get("/", authenticate, async (req: AuthRequest, res: Response) => {
       const winRate = closedTrades.length > 0
         ? (closedTrades.filter((t) => t.pnl > 0).length / closedTrades.length) * 100
         : 0;
+      const todayPnl = todayPnlMap.get(d.id) ?? 0;
 
       return {
         id: d.id,
@@ -82,6 +144,7 @@ router.get("/", authenticate, async (req: AuthRequest, res: Response) => {
         currentValue: d.currentValue,
         totalPnl: Math.round(totalPnl * 100) / 100,
         totalPnlPercent: Math.round(totalPnlPercent * 100) / 100,
+        todayPnl: Math.round(todayPnl * 100) / 100,
         totalTrades: d._count.trades,
         winRate: Math.round(winRate),
         openPositions: d.trades.filter((t) => t.status === "OPEN").length,
@@ -238,13 +301,11 @@ router.patch("/:id/pause", authenticate, async (req: AuthRequest, res: Response)
       return;
     }
 
-    // 1. Stop the worker
-    await workerClient.stopStrategy(deployed.id);
+    // Stop worker + close trades (best-effort — worker failures don't block
+    // the DB state change).
+    const result = await tryStopAndClose(deployed.id, "pause");
 
-    // 2. Close all open trades at current market price
-    const result = await workerClient.closeAllOpenTrades(deployed.id);
-
-    // 3. Update status
+    // Update status
     const updated = await prisma.deployedStrategy.update({
       where: { id: deployed.id },
       data: { status: "PAUSED" },
@@ -335,13 +396,11 @@ router.patch("/:id/stop", authenticate, async (req: AuthRequest, res: Response) 
       return;
     }
 
-    // 1. Stop worker
-    await workerClient.stopStrategy(deployed.id);
+    // Stop worker + close trades (best-effort — worker failures don't block
+    // the DB state change).
+    const result = await tryStopAndClose(deployed.id, "stop");
 
-    // 2. Close all open trades
-    const result = await workerClient.closeAllOpenTrades(deployed.id);
-
-    // 3. Mark as stopped
+    // Mark as stopped
     const updated = await prisma.deployedStrategy.update({
       where: { id: deployed.id },
       data: { status: "STOPPED", stoppedAt: new Date() },
@@ -376,7 +435,11 @@ router.patch("/:id/stop", authenticate, async (req: AuthRequest, res: Response) 
   }
 });
 
-// Delete strategy — closes all trades + marks as DELETED (keeps data for reports)
+// Delete strategy — closes all trades + marks as DELETED (keeps data for reports).
+// Soft delete: worker failures NEVER block the DB state change. Even if the
+// worker is offline / broker keys are bad / exchange is down, the user can
+// still remove the deployment from their view. Any open trades remain in
+// the trades table but won't tick further (parent status != ACTIVE).
 router.delete("/:id", authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
@@ -388,21 +451,33 @@ router.delete("/:id", authenticate, async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    // 1. Stop the worker if running
-    await workerClient.stopStrategy(deployed.id);
+    // Already deleted? Treat as success (idempotent) — the user clicked the
+    // trash icon, they want it gone. Returning 400 here is what was breaking
+    // retry-after-failed-delete loops.
+    if (deployed.status === "DELETED") {
+      res.json({
+        success: true,
+        message: "Already removed.",
+      });
+      return;
+    }
 
-    // 2. Close all open trades at market price
-    const result = await workerClient.closeAllOpenTrades(deployed.id);
+    // Best-effort worker cleanup. Always continue to DB update.
+    const result = await tryStopAndClose(deployed.id, "delete");
 
-    // 3. Mark as DELETED (soft delete — keeps trades for reports)
+    // Mark as DELETED (soft delete — keeps trades for reports)
     await prisma.deployedStrategy.update({
       where: { id: deployed.id },
       data: { status: "DELETED", stoppedAt: new Date() },
     });
 
+    const cleanupNote = result.workerOk
+      ? `Closed ${result.closed} positions (PnL: $${result.totalPnl}).`
+      : `Worker was unreachable — deployment removed from view, any open trades frozen in history.`;
+
     res.json({
       success: true,
-      message: `Removed. Closed ${result.closed} positions (PnL: $${result.totalPnl}). Trade history preserved in reports.`,
+      message: `Removed. ${cleanupNote} Trade history preserved in reports.`,
     });
   } catch (err: unknown) {
     const e = err as { message: string };
