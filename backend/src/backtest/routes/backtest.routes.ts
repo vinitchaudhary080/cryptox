@@ -36,10 +36,36 @@ type PeriodLabel = (typeof VALID_PERIODS)[number];
 // All backtest routes require auth
 router.use(authenticate);
 
-// GET /api/backtest/strategies — list built-in strategies
-router.get("/strategies", (_req: Request, res: Response) => {
-  const strategies = listBuiltinStrategies();
-  res.json({ success: true, data: strategies });
+// GET /api/backtest/strategies — list built-in strategies that are also
+// marked visible in the DB. This lets us hide candidates from the dropdown
+// without removing them from the code registry (so existing backtest runs
+// and deployments referencing those keys still resolve correctly).
+router.get("/strategies", async (_req: Request, res: Response) => {
+  const all = listBuiltinStrategies();
+  // Pull human-readable name + createdAt for ordering. Returning the
+  // DB `name` (e.g. "Z-Score Mean Reversion 15m") instead of the slug
+  // (e.g. "07-zscore-mean-reversion-15m") makes the strategy dropdown
+  // readable. Order newest-first so the most recently added strategy
+  // sits at the top.
+  const visibleRows = await prisma.strategy.findMany({
+    where: { isVisible: true },
+    select: { id: true, name: true, createdAt: true },
+    orderBy: { createdAt: "desc" },
+  });
+  const metaById = new Map(visibleRows.map((r) => [r.id, r]));
+  const enriched = all
+    .filter((s) => metaById.has(s.name))
+    .map((s) => ({
+      name: s.name, // slug — kept for backwards compat (used as the API value)
+      displayName: metaById.get(s.name)!.name,
+      createdAt: metaById.get(s.name)!.createdAt,
+      description: s.description,
+      defaultConfig: s.defaultConfig,
+    }));
+  // Sort by createdAt DESC (newest first) — newly-added strategies surface
+  // first without forcing the user to scroll.
+  enriched.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  res.json({ success: true, data: enriched });
 });
 
 // GET /api/backtest/coins — list available coins
@@ -65,6 +91,28 @@ router.post("/run", async (req: Request, res: Response) => {
       return;
     }
 
+    // Validate TradingView-style sizing mode + value.
+    //   contracts        → sizingValue > 0 (raw qty)
+    //   fixed_cash       → sizingValue > 0 (dollars)
+    //   percent_equity   → 1 ≤ sizingValue ≤ 100
+    const validModes: readonly string[] = ["contracts", "fixed_cash", "percent_equity"];
+    const sizingMode = typeof body.sizingMode === "string" && validModes.includes(body.sizingMode)
+      ? (body.sizingMode as "contracts" | "fixed_cash" | "percent_equity")
+      : undefined;
+    const sizingValue = sizingMode ? Number(body.sizingValue) : undefined;
+    const enforceMinMargin = body.enforceMinMargin === false ? false : true;
+
+    if (sizingMode && !(Number.isFinite(sizingValue) && (sizingValue as number) > 0)) {
+      res.status(400).json({ success: false, error: "sizingValue must be a positive number" });
+      return;
+    }
+    if (sizingMode === "percent_equity" && (sizingValue as number) > 100) {
+      res.status(400).json({ success: false, error: "percent_equity: sizingValue must be between 1 and 100" });
+      return;
+    }
+
+    const capital = Number(body.initialCapital ?? 10000);
+
     const config: BacktestConfig = {
       coin: body.coin.toUpperCase(),
       startDate: body.startDate,
@@ -72,9 +120,12 @@ router.post("/run", async (req: Request, res: Response) => {
       strategyType: body.strategyType ?? "code",
       strategyName: body.strategyName,
       strategyConfig: body.strategyConfig ?? {},
-      initialCapital: body.initialCapital ?? 10000,
+      initialCapital: capital,
       makerFee: body.makerFee ?? 0.0005,
       slippage: body.slippage ?? 0.0001,
+      sizingMode,
+      sizingValue,
+      enforceMinMargin,
     };
 
     // Create a pending backtest run
@@ -86,7 +137,14 @@ router.post("/run", async (req: Request, res: Response) => {
         endDate: new Date(config.endDate),
         strategyType: config.strategyType,
         strategyName: config.strategyName,
-        strategyConfig: config.strategyConfig as object,
+        // Persist sizing metadata inside strategyConfig so it round-trips on
+        // the report page without needing a DB migration.
+        strategyConfig: {
+          ...(config.strategyConfig as Record<string, unknown>),
+          ...(config.sizingMode ? { _sizingMode: config.sizingMode } : {}),
+          ...(config.sizingValue != null ? { _sizingValue: config.sizingValue } : {}),
+          ...(config.enforceMinMargin === false ? { _enforceMinMargin: false } : {}),
+        } as object,
         initialCapital: config.initialCapital,
         status: "RUNNING",
         // Placeholder values — updated after backtest completes
@@ -173,6 +231,10 @@ router.post("/run", async (req: Request, res: Response) => {
               lowestEquity: result.metrics.lowestEquity,
               maxDrawdownPercent: result.metrics.maxDrawdownPercent,
               marginCallCount: result.metrics.marginCallCount,
+              marginCallTopUpTo50Total: result.metrics.marginCallTopUpTo50Total,
+              marginCallTopUpToInitialTotal: result.metrics.marginCallTopUpToInitialTotal,
+              marginCallLowestEquity: result.metrics.marginCallLowestEquity,
+              liquidationCount: result.metrics.liquidationCount,
             } as unknown as object,
             duration: result.duration,
           },
@@ -283,6 +345,107 @@ router.get("/runs/:id/trades", async (req: Request, res: Response) => {
     ]);
 
     res.json({ success: true, data: { trades, total, page, limit } });
+  } catch (err) {
+    res.status(500).json({ success: false, error: (err as Error).message });
+  }
+});
+
+/**
+ * GET /api/backtest/runs/:id/sanity-check
+ *
+ * Validates that a backtest run's trades are mathematically + logically
+ * consistent — same checks that exposed the inverted-SL bug in z-score MR.
+ * Used by the batch-backtest flow to filter out simulations that look
+ * profitable on paper but are actually engine artifacts.
+ *
+ * Returns `ok: true` only when ALL these hold:
+ *   1) No "SL" exit ended in profit (BUY: exit < entry, SELL: exit > entry).
+ *      Stop-losses by definition lose money.
+ *   2) No "TP" exit ended in loss (mirror of #1).
+ *   3) Sum of per-trade pnl matches run.totalPnl within $0.10 tolerance.
+ *   4) No NaN / Infinity in headline metrics.
+ *   5) At least one closed trade exists.
+ *
+ * `issues` is a human-readable list — empty array when ok.
+ */
+router.get("/runs/:id/sanity-check", async (req: Request, res: Response) => {
+  try {
+    const userId = (req as unknown as { user: { userId: string } }).user.userId;
+    const runId = req.params.id as string;
+
+    const run = await prisma.backtestRun.findFirst({
+      where: { id: runId, userId },
+      select: {
+        id: true,
+        coin: true,
+        status: true,
+        totalPnl: true,
+        totalTrades: true,
+        winRate: true,
+        maxDrawdown: true,
+        initialCapital: true,
+        profitFactor: true,
+        avgWin: true,
+        avgLoss: true,
+      },
+    });
+    if (!run) {
+      res.status(404).json({ success: false, error: "Run not found" });
+      return;
+    }
+
+    const issues: string[] = [];
+    const stats = { slWithProfit: 0, tpWithLoss: 0, invertedSls: 0, pnlSumDiff: 0 };
+
+    if (run.status !== "COMPLETED") {
+      issues.push(`status is ${run.status}, not COMPLETED`);
+    }
+
+    if (!Number.isFinite(run.totalPnl) || !Number.isFinite(run.maxDrawdown)
+        || !Number.isFinite(run.profitFactor) || !Number.isFinite(run.winRate)) {
+      issues.push("headline metrics contain NaN/Infinity");
+    }
+
+    // Trade-level checks
+    const trades = await prisma.backtestTrade.findMany({
+      where: { backtestRunId: runId },
+      select: { side: true, entryPrice: true, exitPrice: true, pnl: true, exitReason: true, status: true },
+    });
+
+    if (run.status === "COMPLETED" && trades.length === 0) {
+      issues.push("no trades recorded");
+    }
+
+    let pnlSum = 0;
+    for (const t of trades) {
+      if (t.status !== "CLOSED" || t.exitPrice == null) continue;
+      pnlSum += t.pnl;
+
+      const isBuy = t.side === "BUY";
+      const priceMovedFavorably = isBuy ? t.exitPrice > t.entryPrice : t.exitPrice < t.entryPrice;
+
+      if (t.exitReason === "SL" && t.pnl > 0) {
+        stats.slWithProfit++;
+        if (priceMovedFavorably) stats.invertedSls++;
+      }
+      if (t.exitReason === "TP" && t.pnl < 0) {
+        stats.tpWithLoss++;
+      }
+    }
+
+    if (stats.slWithProfit > 0) {
+      issues.push(`${stats.slWithProfit} "SL" exits ended in profit (engine artifact, e.g. inverted-SL bug)`);
+    }
+    if (stats.tpWithLoss > 0) {
+      issues.push(`${stats.tpWithLoss} "TP" exits ended in loss`);
+    }
+
+    stats.pnlSumDiff = Math.abs(pnlSum - run.totalPnl);
+    if (stats.pnlSumDiff > 0.1) {
+      issues.push(`pnl sum mismatch: trades=$${pnlSum.toFixed(2)}, run=$${run.totalPnl.toFixed(2)}`);
+    }
+
+    res.json({ success: true, data: { ok: issues.length === 0, issues, stats } });
   } catch (err) {
     res.status(500).json({ success: false, error: (err as Error).message });
   }

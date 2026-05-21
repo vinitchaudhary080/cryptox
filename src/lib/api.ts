@@ -285,6 +285,10 @@ export const backtestApi = {
 
   getEquity: (id: string) => apiFetch(`/backtest/runs/${id}/equity`),
 
+  /** Sanity-check a completed run for engine artifacts (e.g. inverted-SL).
+   *  Returns { ok, issues[], stats } — batch-backtest filter uses this. */
+  sanityCheck: (id: string) => apiFetch(`/backtest/runs/${id}/sanity-check`),
+
   deleteRun: (id: string) =>
     apiFetch(`/backtest/runs/${id}`, { method: "DELETE" }),
 
