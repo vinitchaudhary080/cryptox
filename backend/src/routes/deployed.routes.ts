@@ -6,10 +6,10 @@ import { workerClient } from "../services/worker-client.js";
 import type { AuthRequest } from "../types/index.js";
 import { createNotification } from "../services/notification.service.js";
 import {
-  buildStrategyDeployedTemplate,
-  buildStrategyPausedTemplate,
-  buildStrategyResumedTemplate,
-  buildStrategyStoppedTemplate,
+  buildStrategyDeployedNotification,
+  buildStrategyPausedNotification,
+  buildStrategyResumedNotification,
+  buildStrategyStoppedNotification,
 } from "../services/notification-templates.js";
 
 const router = Router();
@@ -266,18 +266,19 @@ router.post("/", authenticate, async (req: AuthRequest, res: Response) => {
     {
       const cfg = (deployed.config ?? {}) as Record<string, unknown>;
       const leverage = Math.max(1, Number(cfg.leverage ?? 1));
+      const deployContent = buildStrategyDeployedNotification({
+        strategyName: deployed.strategy.name,
+        pair: deployed.pair,
+        capital: data.investedAmount,
+        leverage,
+        mode: mode === "LIVE" ? "Live" : "Paper",
+      });
       createNotification({
         userId: req.user!.userId,
         type: "strategy_deploy",
-        title: `Strategy Deployed`,
-        message: `${deployed.strategy.name} deployed on ${deployed.pair} with $${data.investedAmount}`,
-        telegramHtml: buildStrategyDeployedTemplate({
-          strategyName: deployed.strategy.name,
-          pair: deployed.pair,
-          capital: data.investedAmount,
-          leverage,
-          mode: mode === "LIVE" ? "Live" : "Paper",
-        }),
+        title: deployContent.title,
+        message: deployContent.message,
+        telegramHtml: deployContent.telegramHtml,
         data: { pair: data.pair, strategyName: deployed.strategy.name, amount: data.investedAmount, deployedId: deployed.id },
       }).catch((e) => console.error("[deploy] notification failed:", e));
     }
@@ -329,25 +330,28 @@ router.patch("/:id/pause", authenticate, async (req: AuthRequest, res: Response)
       include: { strategy: { select: { name: true } } },
     });
 
-    createNotification({
-      userId: req.user!.userId,
-      type: "strategy_pause",
-      title: "Strategy Paused",
-      message: `${updated.strategy.name} on ${updated.pair} paused. Closed ${result.closed} position(s) at PnL $${result.totalPnl.toFixed(2)}`,
-      telegramHtml: buildStrategyPausedTemplate({
+    {
+      const pauseContent = buildStrategyPausedNotification({
         strategyName: updated.strategy.name,
         pair: updated.pair,
         closedCount: result.closed,
         closedPnl: result.totalPnl,
-      }),
-      data: {
-        deployedId: updated.id,
-        pair: updated.pair,
-        strategyName: updated.strategy.name,
-        closedCount: result.closed,
-        closedPnl: result.totalPnl,
-      },
-    }).catch(() => {});
+      });
+      createNotification({
+        userId: req.user!.userId,
+        type: "strategy_pause",
+        title: pauseContent.title,
+        message: pauseContent.message,
+        telegramHtml: pauseContent.telegramHtml,
+        data: {
+          deployedId: updated.id,
+          pair: updated.pair,
+          strategyName: updated.strategy.name,
+          closedCount: result.closed,
+          closedPnl: result.totalPnl,
+        },
+      }).catch(() => {});
+    }
 
     res.json({
       success: true,
@@ -384,21 +388,24 @@ router.patch("/:id/resume", authenticate, async (req: AuthRequest, res: Response
 
     await workerClient.startStrategy(deployed.id);
 
-    createNotification({
-      userId: req.user!.userId,
-      type: "strategy_resume",
-      title: "Strategy Resumed",
-      message: `${updated.strategy.name} on ${updated.pair} is active again`,
-      telegramHtml: buildStrategyResumedTemplate({
+    {
+      const resumeContent = buildStrategyResumedNotification({
         strategyName: updated.strategy.name,
         pair: updated.pair,
-      }),
-      data: {
-        deployedId: updated.id,
-        pair: updated.pair,
-        strategyName: updated.strategy.name,
-      },
-    }).catch(() => {});
+      });
+      createNotification({
+        userId: req.user!.userId,
+        type: "strategy_resume",
+        title: resumeContent.title,
+        message: resumeContent.message,
+        telegramHtml: resumeContent.telegramHtml,
+        data: {
+          deployedId: updated.id,
+          pair: updated.pair,
+          strategyName: updated.strategy.name,
+        },
+      }).catch(() => {});
+    }
 
     res.json({ success: true, data: updated, message: "Strategy resumed" });
   } catch (err: unknown) {
@@ -436,27 +443,30 @@ router.patch("/:id/stop", authenticate, async (req: AuthRequest, res: Response) 
 
     const reason = (req.body?.reason as string | undefined) ?? "user stopped";
 
-    createNotification({
-      userId: req.user!.userId,
-      type: "strategy_stop",
-      title: "Strategy Stopped",
-      message: `${updated.strategy.name} on ${updated.pair} stopped (${reason}). Closed ${result.closed} position(s) at PnL $${result.totalPnl.toFixed(2)}`,
-      telegramHtml: buildStrategyStoppedTemplate({
+    {
+      const stopContent = buildStrategyStoppedNotification({
         strategyName: updated.strategy.name,
         pair: updated.pair,
         reason,
         closedCount: result.closed,
         closedPnl: result.totalPnl,
-      }),
-      data: {
-        deployedId: updated.id,
-        pair: updated.pair,
-        strategyName: updated.strategy.name,
-        closedCount: result.closed,
-        closedPnl: result.totalPnl,
-        reason,
-      },
-    }).catch(() => {});
+      });
+      createNotification({
+        userId: req.user!.userId,
+        type: "strategy_stop",
+        title: stopContent.title,
+        message: stopContent.message,
+        telegramHtml: stopContent.telegramHtml,
+        data: {
+          deployedId: updated.id,
+          pair: updated.pair,
+          strategyName: updated.strategy.name,
+          closedCount: result.closed,
+          closedPnl: result.totalPnl,
+          reason,
+        },
+      }).catch(() => {});
+    }
 
     res.json({
       success: true,

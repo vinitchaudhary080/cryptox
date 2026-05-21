@@ -3,10 +3,10 @@ import { exchangeService } from "../services/exchange.service.js";
 import { emitTradeUpdate, emitPortfolioUpdate } from "../websocket/socket.js";
 import { createNotification } from "../services/notification.service.js";
 import {
-  buildTradeOpenedTemplate,
-  buildTradeClosedTemplate,
-  buildTradeErrorTemplate,
-  buildMarginCallTemplate,
+  buildTradeOpenedNotification,
+  buildTradeClosedNotification,
+  buildTradeErrorNotification,
+  buildMarginCallNotification,
 } from "../services/notification-templates.js";
 import type { Exchange, Ticker, OHLCV } from "ccxt";
 import { computeIndicators } from "../backtest/indicators/index.js";
@@ -599,20 +599,18 @@ class StrategyWorker {
           select: { id: true },
         });
         if (!recent) {
+          const content = buildMarginCallNotification({
+            strategyName: deployed.strategy.name,
+            pair: deployed.pair,
+            attemptedMargin: margin,
+            minMargin: MIN_MARGIN_USD,
+          });
           await createNotification({
             userId: deployed.userId,
             type: "margin_call",
-            title: `Insufficient capital — ${deployed.strategy.name}`,
-            message:
-              `${deployed.strategy.name} on ${deployed.pair} tried to open a ${side} trade, but the per-trade margin ` +
-              `($${margin.toFixed(2)}) is below the platform minimum of $${MIN_MARGIN_USD}. ` +
-              `Please add more capital to your deployed strategy to continue trading.`,
-            telegramHtml: buildMarginCallTemplate({
-              strategyName: deployed.strategy.name,
-              pair: deployed.pair,
-              attemptedMargin: margin,
-              minMargin: MIN_MARGIN_USD,
-            }),
+            title: content.title,
+            message: content.message,
+            telegramHtml: content.telegramHtml,
             data: {
               pair: deployed.pair,
               side,
@@ -676,22 +674,23 @@ class StrategyWorker {
           pair: deployed.pair,
         });
 
+        const liveOpenContent = buildTradeOpenedNotification({
+          side,
+          strategyName: deployed.strategy.name,
+          pair: deployed.pair,
+          entry: fillPrice,
+          quantity: trade.quantity,
+          sl: slOverride,
+          tp: tpOverride,
+          leverage: leverageOverride ?? readLeverage(deployed.config),
+          trigger: reason,
+        });
         createNotification({
           userId: deployed.userId,
           type: "trade_open",
-          title: `${side} ${deployed.pair}`,
-          message: `${deployed.strategy.name} opened ${side} at $${fillPrice.toFixed(2)} (${reason})`,
-          telegramHtml: buildTradeOpenedTemplate({
-            side,
-            strategyName: deployed.strategy.name,
-            pair: deployed.pair,
-            entry: fillPrice,
-            quantity: trade.quantity,
-            sl: slOverride,
-            tp: tpOverride,
-            leverage: leverageOverride ?? readLeverage(deployed.config),
-            trigger: reason,
-          }),
+          title: liveOpenContent.title,
+          message: liveOpenContent.message,
+          telegramHtml: liveOpenContent.telegramHtml,
           data: { pair: deployed.pair, side, price: fillPrice, strategyName: deployed.strategy.name, deployedId: deployed.id },
         }).catch(() => {});
 
@@ -708,19 +707,22 @@ class StrategyWorker {
           pair: deployed.pair,
         });
 
-        createNotification({
-          userId: deployed.userId,
-          type: "trade_error",
-          title: "Order Failed",
-          message: `${deployed.strategy.name} on ${deployed.pair}: ${side} order failed — ${msg}`,
-          telegramHtml: buildTradeErrorTemplate({
+        {
+          const errContent = buildTradeErrorNotification({
             strategyName: deployed.strategy.name,
             pair: deployed.pair,
             side,
             error: msg,
-          }),
-          data: { pair: deployed.pair, side, strategyName: deployed.strategy.name, deployedId: deployed.id, error: msg },
-        }).catch(() => {});
+          });
+          createNotification({
+            userId: deployed.userId,
+            type: "trade_error",
+            title: errContent.title,
+            message: errContent.message,
+            telegramHtml: errContent.telegramHtml,
+            data: { pair: deployed.pair, side, strategyName: deployed.strategy.name, deployedId: deployed.id, error: msg },
+          }).catch(() => {});
+        }
 
         return null;
       }
@@ -748,22 +750,23 @@ class StrategyWorker {
       pair: deployed.pair,
     });
 
+    const paperOpenContent = buildTradeOpenedNotification({
+      side,
+      strategyName: deployed.strategy.name,
+      pair: deployed.pair,
+      entry: price,
+      quantity,
+      sl: slOverride,
+      tp: tpOverride,
+      leverage: leverageOverride ?? readLeverage(deployed.config),
+      trigger: reason,
+    });
     createNotification({
       userId: deployed.userId,
       type: "trade_open",
-      title: `${side} ${deployed.pair}`,
-      message: `${deployed.strategy.name} opened ${side} at $${price.toFixed(2)} (${reason})`,
-      telegramHtml: buildTradeOpenedTemplate({
-        side,
-        strategyName: deployed.strategy.name,
-        pair: deployed.pair,
-        entry: price,
-        quantity,
-        sl: slOverride,
-        tp: tpOverride,
-        leverage: leverageOverride ?? readLeverage(deployed.config),
-        trigger: reason,
-      }),
+      title: paperOpenContent.title,
+      message: paperOpenContent.message,
+      telegramHtml: paperOpenContent.telegramHtml,
       data: { pair: deployed.pair, side, price, strategyName: deployed.strategy.name, deployedId: deployed.id },
     }).catch(() => {});
 
@@ -843,22 +846,23 @@ class StrategyWorker {
       ? ((actualExitPrice - entryPriceNum) / entryPriceNum) * 100 * (trade.side === "BUY" ? 1 : -1)
       : 0;
     const heldMs = trade.openedAt ? Date.now() - new Date(trade.openedAt).getTime() : 0;
+    const closeContent = buildTradeClosedNotification({
+      strategyName: deployed.strategy.name,
+      pair: deployed.pair,
+      side: trade.side as "BUY" | "SELL",
+      entry: entryPriceNum,
+      exit: actualExitPrice,
+      pnl: roundedPnl,
+      pnlPct,
+      heldMs,
+      reason,
+    });
     createNotification({
       userId: deployed.userId,
       type: "trade_close",
-      title: `Closed ${trade.side} ${deployed.pair}`,
-      message: `${deployed.strategy.name} closed at $${actualExitPrice.toFixed(2)} — ${roundedPnl >= 0 ? "+" : ""}$${roundedPnl.toFixed(2)} (${reason})`,
-      telegramHtml: buildTradeClosedTemplate({
-        strategyName: deployed.strategy.name,
-        pair: deployed.pair,
-        side: trade.side as "BUY" | "SELL",
-        entry: entryPriceNum,
-        exit: actualExitPrice,
-        pnl: roundedPnl,
-        pnlPct,
-        heldMs,
-        reason,
-      }),
+      title: closeContent.title,
+      message: closeContent.message,
+      telegramHtml: closeContent.telegramHtml,
       data: { pair: deployed.pair, side: trade.side, exitPrice: actualExitPrice, pnl: roundedPnl, reason, strategyName: deployed.strategy.name, deployedId: deployed.id },
     }).catch(() => {});
   }

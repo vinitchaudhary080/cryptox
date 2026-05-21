@@ -9,7 +9,7 @@ import {
   getUnreadCount,
   createNotification,
 } from "../services/notification.service.js";
-import { buildAdminBroadcastTemplate } from "../services/notification-templates.js";
+import { buildAdminBroadcastNotification } from "../services/notification-templates.js";
 import { env } from "../config/env.js";
 
 const router = Router();
@@ -157,15 +157,15 @@ router.post("/admin-send", authenticate, async (req: AuthRequest, res: Response)
       ? [userId]
       : (await prisma.user.findMany({ select: { id: true } })).map((u) => u.id);
 
-    const broadcastTelegramHtml = buildAdminBroadcastTemplate({ title, body: message });
+    const broadcastContent = buildAdminBroadcastNotification({ title, body: message });
     await Promise.all(
       targets.map((uid) =>
         createNotification({
           userId: uid,
           type: "admin_broadcast",
-          title,
-          message,
-          telegramHtml: broadcastTelegramHtml,
+          title: broadcastContent.title,
+          message: broadcastContent.message,
+          telegramHtml: broadcastContent.telegramHtml,
           url,
           data,
         }),

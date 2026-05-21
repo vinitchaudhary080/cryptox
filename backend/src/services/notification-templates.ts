@@ -1,19 +1,33 @@
 /**
- * Telegram message templates — HTML parse_mode.
+ * Notification templates — content + presentation for all 3 channels.
  *
- * Each builder returns the full HTML body shown in Telegram. Layout:
- *   • Bold header with one informative emoji
- *   • Monospace `<pre>` block with aligned key/value rows (numbers line up
- *     on both mobile + desktop Telegram clients)
- *   • Optional italic footer with context
+ * Each builder returns a `NotificationContent` triple:
+ *   • `title`   — short headline (works in-app navbar + as push notif title)
+ *   • `message` — single-line summary (in-app body + push body)
+ *   • `telegramHtml` — multi-line rich HTML (Telegram only)
  *
- * Conventions used by the alignment helpers:
- *   • Labels are left-padded to a fixed width per template — pickWidth()
- *     returns the longest label length so columns are guaranteed flush.
- *   • Numbers use Intl.NumberFormat or toFixed() — never raw `String(n)`.
- *   • All free-form fields (strategyName, reason, error) pass through
- *     escapeHtml() so a stray `<`, `>`, or `&` doesn't break parse.
+ * Why a single builder per type instead of 3 separate ones: keeps the
+ * content for all 3 channels in sync. Adding a field (e.g. new "qty"
+ * column) happens once. The in-app dropdown and the push notification on
+ * a locked iPhone show the same information density — just rendered for
+ * their respective surface.
+ *
+ * Conventions:
+ *   • Titles use a single leading emoji per type so they're glanceable on
+ *     a push notification (no icon support there). The in-app panel has
+ *     its own colored icon per type, so emoji is mildly redundant in-app
+ *     but harmless.
+ *   • Messages prefer the · separator instead of newlines — push and
+ *     navbar both compress whitespace, so · gives a clean inline grouping.
+ *   • All free-form fields are HTML-escaped in the telegramHtml output.
+ *     Title and message are plain text, so no escaping needed there.
  */
+
+export interface NotificationContent {
+  title: string;
+  message: string;
+  telegramHtml: string;
+}
 
 function escapeHtml(s: string): string {
   return s.replace(/[<>&]/g, (ch) => (ch === "<" ? "&lt;" : ch === ">" ? "&gt;" : "&amp;"));
@@ -21,7 +35,6 @@ function escapeHtml(s: string): string {
 
 function formatPrice(n: number): string {
   if (!Number.isFinite(n)) return "—";
-  // < $1 → 5 decimals, < $100 → 4, otherwise 2
   const decimals = Math.abs(n) < 1 ? 5 : Math.abs(n) < 100 ? 4 : 2;
   return `$${n.toFixed(decimals)}`;
 }
@@ -56,20 +69,21 @@ function formatDuration(ms: number): string {
   return `${s}s`;
 }
 
-/**
- * Build an aligned key-value block. The widest label in the input defines
- * the column width so values are flush regardless of label length variety.
- */
 function alignedBlock(rows: Array<[string, string]>): string {
   const width = Math.max(...rows.map(([k]) => k.length)) + 2;
   return rows.map(([k, v]) => `${k.padEnd(width)} ${escapeHtml(v)}`).join("\n");
 }
 
-function joinTemplate(header: string, blockRows: Array<[string, string]>, footer?: string): string {
+function htmlTemplate(header: string, blockRows: Array<[string, string]>, footer?: string): string {
   const block = `<pre>${alignedBlock(blockRows)}</pre>`;
   return [header, "", block, footer ? "" : null, footer ? `<i>${escapeHtml(footer)}</i>` : null]
     .filter((s) => s !== null)
     .join("\n");
+}
+
+/** Strip USDT/USD/USDC quote currency for compact display. AVAX/USDT → AVAX. */
+function basePair(pair: string): string {
+  return pair.split("/")[0];
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -83,22 +97,26 @@ export interface StrategyDeployedData {
   mode: "Live" | "Paper";
 }
 
-export function buildStrategyDeployedTemplate(d: StrategyDeployedData): string {
-  return joinTemplate(
-    `🚀 <b>Strategy Deployed</b>`,
-    [
-      ["Strategy", d.strategyName],
-      ["Pair", d.pair],
-      ["Capital", `$${d.capital.toFixed(2)}`],
-      ["Leverage", `${d.leverage}x`],
-      ["Mode", d.mode],
-    ],
-    "Strategy is now scanning the market. You'll be notified when the first trade fires.",
-  );
+export function buildStrategyDeployedNotification(d: StrategyDeployedData): NotificationContent {
+  return {
+    title: `🚀 Strategy deployed`,
+    message: `${d.strategyName} · ${d.pair} · $${d.capital.toFixed(2)} @ ${d.leverage}x leverage`,
+    telegramHtml: htmlTemplate(
+      `🚀 <b>Strategy Deployed</b>`,
+      [
+        ["Strategy", d.strategyName],
+        ["Pair", d.pair],
+        ["Capital", `$${d.capital.toFixed(2)}`],
+        ["Leverage", `${d.leverage}x`],
+        ["Mode", d.mode],
+      ],
+      "Strategy is now scanning the market. You'll be notified when the first trade fires.",
+    ),
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// 2 & 3. Trade Opened — LONG / SHORT
+// 2. Trade Opened — LONG / SHORT
 // ─────────────────────────────────────────────────────────────────────
 export interface TradeOpenedData {
   side: "BUY" | "SELL";
@@ -112,18 +130,33 @@ export interface TradeOpenedData {
   trigger: string;
 }
 
-export function buildTradeOpenedTemplate(d: TradeOpenedData): string {
+export function buildTradeOpenedNotification(d: TradeOpenedData): NotificationContent {
   const isLong = d.side === "BUY";
+  const sideLabel = isLong ? "LONG" : "SHORT";
+  const sideEmoji = isLong ? "📈" : "📉";
+
+  // Short message — uses · separators for compact rendering in navbar +
+  // mobile push. Skips SL/TP if they weren't passed (legacy strategies).
+  const parts = [
+    d.strategyName,
+    `Entry ${formatPrice(d.entry)}`,
+  ];
+  if (d.sl != null && Number.isFinite(d.sl)) parts.push(`SL ${formatPrice(d.sl)}`);
+  if (d.tp != null && Number.isFinite(d.tp)) parts.push(`TP ${formatPrice(d.tp)}`);
+  parts.push(`${d.leverage}x`);
+
+  const title = `${sideEmoji} ${sideLabel} opened · ${d.pair}`;
+  const message = parts.join(" · ");
+
+  // Telegram rich block
   const header = isLong
     ? `📈 <b>LONG Opened</b>  •  ${escapeHtml(d.pair)}`
     : `📉 <b>SHORT Opened</b>  •  ${escapeHtml(d.pair)}`;
-
   const rows: Array<[string, string]> = [
     ["Strategy", d.strategyName],
     ["Entry", formatPrice(d.entry)],
-    ["Quantity", `${formatQty(d.quantity)} ${d.pair.split("/")[0]}`],
+    ["Quantity", `${formatQty(d.quantity)} ${basePair(d.pair)}`],
   ];
-
   if (d.sl != null && Number.isFinite(d.sl)) {
     const slPct = ((d.sl - d.entry) / d.entry) * 100;
     rows.push(["Stop Loss", `${formatPrice(d.sl)}   (${formatPct(slPct)})`]);
@@ -133,14 +166,15 @@ export function buildTradeOpenedTemplate(d: TradeOpenedData): string {
     rows.push(["Take Profit", `${formatPrice(d.tp)}   (${formatPct(tpPct)})`]);
   }
   rows.push(["Leverage", `${d.leverage}x`]);
-
   const block = `<pre>${alignedBlock(rows)}</pre>`;
-  const trigger = `<i>Trigger:  ${escapeHtml(d.trigger)}</i>`;
-  return [header, "", block, "", trigger].join("\n");
+  const triggerLine = `<i>Trigger:  ${escapeHtml(d.trigger)}</i>`;
+  const telegramHtml = [header, "", block, "", triggerLine].join("\n");
+
+  return { title, message, telegramHtml };
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// 4, 5, 6. Trade Closed — TP / SL / Strategy exit
+// 3. Trade Closed — TP / SL / Strategy exit
 // ─────────────────────────────────────────────────────────────────────
 export interface TradeClosedData {
   strategyName: string;
@@ -161,16 +195,33 @@ export function pickTradeClosedFlavor(reason: string): "tp" | "sl" | "other" {
   return "other";
 }
 
-export function buildTradeClosedTemplate(d: TradeClosedData): string {
+export function buildTradeClosedNotification(d: TradeClosedData): NotificationContent {
   const flavor = pickTradeClosedFlavor(d.reason);
+  const sideLabel = d.side === "BUY" ? "LONG" : "SHORT";
+
+  // Title surfaces the *event* (TP hit / SL hit / Closed) — the in-app
+  // panel renders a PnL badge separately so we keep PnL out of the title
+  // to avoid duplication. On mobile push the message picks up the slack.
+  const titleEmoji = flavor === "tp" ? "✅" : flavor === "sl" ? "🛑" : "🔄";
+  const titleVerb =
+    flavor === "tp" ? "Take Profit" : flavor === "sl" ? "Stop Loss" : "Closed";
+  const title = `${titleEmoji} ${titleVerb} · ${d.pair}`;
+
+  // Message: strategy · SIDE pnl (pct) · held [· reason for strategy-exit]
+  const parts = [
+    d.strategyName,
+    `${sideLabel} ${formatPnl(d.pnl)} (${formatPct(d.pnlPct)})`,
+    `Held ${formatDuration(d.heldMs)}`,
+  ];
+  if (flavor === "other") parts.push(d.reason);
+  const message = parts.join(" · ");
+
   const header =
     flavor === "tp"
       ? `✅ <b>Take Profit Hit</b>  •  ${escapeHtml(d.pair)}`
       : flavor === "sl"
         ? `🛑 <b>Stop Loss Hit</b>  •  ${escapeHtml(d.pair)}`
         : `🔄 <b>Position Closed</b>  •  ${escapeHtml(d.pair)}`;
-
-  const sideLabel = d.side === "BUY" ? "LONG" : "SHORT";
   const rows: Array<[string, string]> = [
     ["Strategy", d.strategyName],
     ["Side", sideLabel],
@@ -179,16 +230,14 @@ export function buildTradeClosedTemplate(d: TradeClosedData): string {
     ["P&L", `${formatPnl(d.pnl)}   (${formatPct(d.pnlPct)})`],
     ["Held", formatDuration(d.heldMs)],
   ];
+  if (flavor === "other") rows.push(["Reason", d.reason]);
+  const telegramHtml = htmlTemplate(header, rows);
 
-  if (flavor === "other") {
-    rows.push(["Reason", d.reason]);
-  }
-
-  return joinTemplate(header, rows);
+  return { title, message, telegramHtml };
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// 7. Order Failed
+// 4. Order Failed
 // ─────────────────────────────────────────────────────────────────────
 export interface TradeErrorData {
   strategyName: string;
@@ -197,20 +246,27 @@ export interface TradeErrorData {
   error: string;
 }
 
-export function buildTradeErrorTemplate(d: TradeErrorData): string {
-  return joinTemplate(
-    `⚠️ <b>Order Failed</b>  •  ${escapeHtml(d.pair)}`,
-    [
-      ["Strategy", d.strategyName],
-      ["Side", d.side],
-      ["Error", d.error],
-    ],
-    "Strategy continues running. The next signal will be attempted normally.",
-  );
+export function buildTradeErrorNotification(d: TradeErrorData): NotificationContent {
+  // Truncate error to keep the in-app row visually tidy. Full text still
+  // available via the Tap-to-read modal that reads notification.message.
+  const errShort = d.error.length > 80 ? `${d.error.slice(0, 77)}…` : d.error;
+  return {
+    title: `⚠️ Order failed · ${d.pair}`,
+    message: `${d.strategyName} · ${d.side} · ${errShort}`,
+    telegramHtml: htmlTemplate(
+      `⚠️ <b>Order Failed</b>  •  ${escapeHtml(d.pair)}`,
+      [
+        ["Strategy", d.strategyName],
+        ["Side", d.side],
+        ["Error", d.error],
+      ],
+      "Strategy continues running. The next signal will be attempted normally.",
+    ),
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// 8. Insufficient Capital (margin call)
+// 5. Margin Call — insufficient capital
 // ─────────────────────────────────────────────────────────────────────
 export interface MarginCallData {
   strategyName: string;
@@ -219,21 +275,25 @@ export interface MarginCallData {
   minMargin: number;
 }
 
-export function buildMarginCallTemplate(d: MarginCallData): string {
-  return joinTemplate(
-    `⚠️ <b>Insufficient Capital</b>`,
-    [
-      ["Strategy", d.strategyName],
-      ["Pair", d.pair],
-      ["Attempted", `$${d.attemptedMargin.toFixed(2)}`],
-      ["Minimum", `$${d.minMargin.toFixed(2)}`],
-    ],
-    "Add more capital to your deployed strategy to resume trading.",
-  );
+export function buildMarginCallNotification(d: MarginCallData): NotificationContent {
+  return {
+    title: `⚠️ Need more capital`,
+    message: `${d.strategyName} on ${d.pair} · attempted $${d.attemptedMargin.toFixed(2)} · need $${d.minMargin.toFixed(0)}+ per trade`,
+    telegramHtml: htmlTemplate(
+      `⚠️ <b>Insufficient Capital</b>`,
+      [
+        ["Strategy", d.strategyName],
+        ["Pair", d.pair],
+        ["Attempted", `$${d.attemptedMargin.toFixed(2)}`],
+        ["Minimum", `$${d.minMargin.toFixed(2)}`],
+      ],
+      "Add more capital to your deployed strategy to resume trading.",
+    ),
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// 9. Strategy Paused
+// 6. Strategy Paused
 // ─────────────────────────────────────────────────────────────────────
 export interface StrategyPausedData {
   strategyName: string;
@@ -242,38 +302,46 @@ export interface StrategyPausedData {
   closedPnl: number;
 }
 
-export function buildStrategyPausedTemplate(d: StrategyPausedData): string {
-  return joinTemplate(
-    `⏸️ <b>Strategy Paused</b>  •  ${escapeHtml(d.pair)}`,
-    [
-      ["Strategy", d.strategyName],
-      ["Positions", `${d.closedCount} closed`],
-      ["Realized P&L", `${formatPnl(d.closedPnl)}`],
-    ],
-  );
+export function buildStrategyPausedNotification(d: StrategyPausedData): NotificationContent {
+  return {
+    title: `⏸ Paused · ${d.strategyName}`,
+    message: `${d.pair} · ${d.closedCount} closed · realized ${formatPnl(d.closedPnl)}`,
+    telegramHtml: htmlTemplate(
+      `⏸️ <b>Strategy Paused</b>  •  ${escapeHtml(d.pair)}`,
+      [
+        ["Strategy", d.strategyName],
+        ["Positions", `${d.closedCount} closed`],
+        ["Realized P&L", `${formatPnl(d.closedPnl)}`],
+      ],
+    ),
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// 10. Strategy Resumed
+// 7. Strategy Resumed
 // ─────────────────────────────────────────────────────────────────────
 export interface StrategyResumedData {
   strategyName: string;
   pair: string;
 }
 
-export function buildStrategyResumedTemplate(d: StrategyResumedData): string {
-  return joinTemplate(
-    `▶️ <b>Strategy Resumed</b>  •  ${escapeHtml(d.pair)}`,
-    [
-      ["Strategy", d.strategyName],
-      ["Status", "Active"],
-    ],
-    "Strategy is scanning the market again. You'll be notified on the next signal.",
-  );
+export function buildStrategyResumedNotification(d: StrategyResumedData): NotificationContent {
+  return {
+    title: `▶️ Resumed · ${d.strategyName}`,
+    message: `${d.pair} · scanning the market again`,
+    telegramHtml: htmlTemplate(
+      `▶️ <b>Strategy Resumed</b>  •  ${escapeHtml(d.pair)}`,
+      [
+        ["Strategy", d.strategyName],
+        ["Status", "Active"],
+      ],
+      "Strategy is scanning the market again. You'll be notified on the next signal.",
+    ),
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// 11. Strategy Stopped
+// 8. Strategy Stopped
 // ─────────────────────────────────────────────────────────────────────
 export interface StrategyStoppedData {
   strategyName: string;
@@ -283,34 +351,42 @@ export interface StrategyStoppedData {
   closedPnl: number;
 }
 
-export function buildStrategyStoppedTemplate(d: StrategyStoppedData): string {
-  return joinTemplate(
-    `⏹️ <b>Strategy Stopped</b>  •  ${escapeHtml(d.pair)}`,
-    [
-      ["Strategy", d.strategyName],
-      ["Reason", d.reason],
-      ["Positions", `${d.closedCount} closed`],
-      ["Realized P&L", `${formatPnl(d.closedPnl)}`],
-    ],
-  );
+export function buildStrategyStoppedNotification(d: StrategyStoppedData): NotificationContent {
+  return {
+    title: `⏹ Stopped · ${d.strategyName}`,
+    message: `${d.pair} · ${d.reason} · ${d.closedCount} closed · ${formatPnl(d.closedPnl)}`,
+    telegramHtml: htmlTemplate(
+      `⏹️ <b>Strategy Stopped</b>  •  ${escapeHtml(d.pair)}`,
+      [
+        ["Strategy", d.strategyName],
+        ["Reason", d.reason],
+        ["Positions", `${d.closedCount} closed`],
+        ["Realized P&L", `${formatPnl(d.closedPnl)}`],
+      ],
+    ),
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// 12. Admin Broadcast
+// 9. Admin Broadcast — title/body come from the admin form verbatim
 // ─────────────────────────────────────────────────────────────────────
 export interface AdminBroadcastData {
   title: string;
   body: string;
 }
 
-export function buildAdminBroadcastTemplate(d: AdminBroadcastData): string {
-  return [
-    `📢 <b>AlgoPulse Announcement</b>`,
-    "",
-    `<b>${escapeHtml(d.title)}</b>`,
-    "",
-    escapeHtml(d.body),
-    "",
-    `<i>— AlgoPulse Team</i>`,
-  ].join("\n");
+export function buildAdminBroadcastNotification(d: AdminBroadcastData): NotificationContent {
+  return {
+    title: d.title,
+    message: d.body,
+    telegramHtml: [
+      `📢 <b>AlgoPulse Announcement</b>`,
+      "",
+      `<b>${escapeHtml(d.title)}</b>`,
+      "",
+      escapeHtml(d.body),
+      "",
+      `<i>— AlgoPulse Team</i>`,
+    ].join("\n"),
+  };
 }
