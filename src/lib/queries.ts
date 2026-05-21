@@ -16,7 +16,7 @@
  *   write mutation hooks here — they're page-specific.
  */
 import { useQuery } from "@tanstack/react-query"
-import { strategyApi, deployedApi, brokerApi, userApi, marketApi, portfolioApi, backtestApi, historicalApi, subscriptionApi } from "./api"
+import { strategyApi, deployedApi, brokerApi, userApi, marketApi, portfolioApi, backtestApi, historicalApi, subscriptionApi, notificationApi } from "./api"
 
 export const queryKeys = {
   strategies: () => ["strategies"] as const,
@@ -36,6 +36,7 @@ export const queryKeys = {
   historicalStatus: () => ["historical", "status"] as const,
   subscriptionPlans: () => ["subscription", "plans"] as const,
   subscriptionCurrent: () => ["subscription", "current"] as const,
+  isAdmin: () => ["user", "is-admin"] as const,
 }
 
 // Strategies list — most-frequently-hit endpoint. 30s staleTime means
@@ -158,5 +159,23 @@ export function useSubscriptionCurrent() {
     queryKey: queryKeys.subscriptionCurrent(),
     queryFn: () => subscriptionApi.current(),
     staleTime: 60_000,
+  })
+}
+
+// Admin status — rarely changes, persisted with the rest of the query cache so
+// the navbar's admin-only Megaphone button is visible on the very first render
+// of a returning admin (no fetch-then-flicker). Auth-gated: only fires when an
+// `enabled` flag from the caller turns true (so we don't spam the endpoint
+// during the brief moment before the auth store hydrates).
+export function useIsAdmin(enabled: boolean) {
+  return useQuery({
+    queryKey: queryKeys.isAdmin(),
+    queryFn: async () => {
+      const r = await notificationApi.adminCheck()
+      const res = r as { success?: boolean; data?: { isAdmin?: boolean } }
+      return !!res?.data?.isAdmin
+    },
+    enabled,
+    staleTime: 60 * 60_000,
   })
 }

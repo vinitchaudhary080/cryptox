@@ -144,7 +144,21 @@ export default function DashboardPage() {
   const hasStrategy = (stats?.activeStrategies ?? 0) > 0
   const hasTrades = (stats?.totalTrades ?? 0) > 0
   const allStepsComplete = hasBrokerConnected && hasStrategy && hasTrades
-  const isNewUser = !allStepsComplete && (!stats || (stats.totalTrades === 0 && stats.activeStrategies === 0 && stats.totalValue === 0))
+  // Only treat the user as "new" once we've successfully fetched BOTH brokers
+  // and stats — otherwise a transient error or token-refresh blip leaves
+  // `stats === null` and falsely flashes the onboarding card to a user who
+  // actually has a broker connected and a strategy deployed (the bug users
+  // reported 2026-05-21). And we no longer use `totalValue === 0` as a "new
+  // user" signal, since an active user can legitimately sit at zero balance
+  // between trades.
+  const brokersResolved = brokersQuery.isSuccess
+  const statsResolved = statsQuery.isSuccess && stats !== null
+  const isNewUser =
+    brokersResolved &&
+    statsResolved &&
+    !hasBrokerConnected &&
+    !hasStrategy &&
+    !hasTrades
   const pnlPositive = (stats?.totalPnl ?? 0) >= 0
 
   const statCards = [

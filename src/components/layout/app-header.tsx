@@ -15,7 +15,6 @@ import {
   Rocket,
   FlaskConical,
 } from "lucide-react"
-import { useState, useEffect } from "react"
 import { useAuthStore } from "@/stores/auth-store"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -30,7 +29,7 @@ import {
 import { cn } from "@/lib/utils"
 import { NotificationPanel } from "./notification-panel"
 import { SendNotificationDialog } from "@/components/admin/send-notification-dialog"
-import { notificationApi } from "@/lib/api"
+import { useIsAdmin } from "@/lib/queries"
 import { Megaphone } from "lucide-react"
 import { Logo } from "@/components/ui/logo"
 import { useQueryClient } from "@tanstack/react-query"
@@ -54,21 +53,7 @@ export function AppHeader() {
   const queryClient = useQueryClient()
   const { theme, setTheme } = useTheme()
   const { user, logout } = useAuthStore()
-  const [isAdmin, setIsAdmin] = useState(false)
-
-  useEffect(() => {
-    if (!user) {
-      setIsAdmin(false)
-      return
-    }
-    notificationApi
-      .adminCheck()
-      .then((r) => {
-        const res = r as { success?: boolean; data?: { isAdmin?: boolean } }
-        setIsAdmin(!!res?.data?.isAdmin)
-      })
-      .catch(() => setIsAdmin(false))
-  }, [user])
+  const { data: isAdmin = false } = useIsAdmin(!!user)
 
   const handleLogout = async () => {
     await logout()
