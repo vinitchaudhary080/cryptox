@@ -2,6 +2,12 @@ import { PrismaClient, type DeployedStrategy, type Strategy, type Broker, type T
 import { exchangeService } from "../services/exchange.service.js";
 import { emitTradeUpdate, emitPortfolioUpdate } from "../websocket/socket.js";
 import { createNotification } from "../services/notification.service.js";
+import {
+  buildTradeOpenedTemplate,
+  buildTradeClosedTemplate,
+  buildTradeErrorTemplate,
+  buildMarginCallTemplate,
+} from "../services/notification-templates.js";
 import type { Exchange, Ticker, OHLCV } from "ccxt";
 import { computeIndicators } from "../backtest/indicators/index.js";
 import { resampleCandles } from "../backtest/indicators/resample.js";
@@ -466,6 +472,9 @@ class StrategyWorker {
           execPrice,
           qty,
           signal.reason ?? `registry signal ${signal.action}`,
+          signal.sl,
+          signal.tp,
+          signal.leverage ?? leverage,
         );
         break;
       }
@@ -556,6 +565,13 @@ class StrategyWorker {
     price: number,
     quantity: number,
     reason: string,
+    // Optional strategy-emitted risk levels — passed through from the
+    // registry path (`signal.sl`/`signal.tp`). Legacy strategy paths that
+    // don't compute these pass undefined and the template just omits the
+    // SL/TP rows.
+    slOverride?: number,
+    tpOverride?: number,
+    leverageOverride?: number,
   ): Promise<Trade | null> {
     const mode = isPaperTrade ? "PAPER" : "LIVE";
 
@@ -591,6 +607,12 @@ class StrategyWorker {
               `${deployed.strategy.name} on ${deployed.pair} tried to open a ${side} trade, but the per-trade margin ` +
               `($${margin.toFixed(2)}) is below the platform minimum of $${MIN_MARGIN_USD}. ` +
               `Please add more capital to your deployed strategy to continue trading.`,
+            telegramHtml: buildMarginCallTemplate({
+              strategyName: deployed.strategy.name,
+              pair: deployed.pair,
+              attemptedMargin: margin,
+              minMargin: MIN_MARGIN_USD,
+            }),
             data: {
               pair: deployed.pair,
               side,
@@ -659,6 +681,17 @@ class StrategyWorker {
           type: "trade_open",
           title: `${side} ${deployed.pair}`,
           message: `${deployed.strategy.name} opened ${side} at $${fillPrice.toFixed(2)} (${reason})`,
+          telegramHtml: buildTradeOpenedTemplate({
+            side,
+            strategyName: deployed.strategy.name,
+            pair: deployed.pair,
+            entry: fillPrice,
+            quantity: trade.quantity,
+            sl: slOverride,
+            tp: tpOverride,
+            leverage: leverageOverride ?? readLeverage(deployed.config),
+            trigger: reason,
+          }),
           data: { pair: deployed.pair, side, price: fillPrice, strategyName: deployed.strategy.name, deployedId: deployed.id },
         }).catch(() => {});
 
@@ -680,6 +713,12 @@ class StrategyWorker {
           type: "trade_error",
           title: "Order Failed",
           message: `${deployed.strategy.name} on ${deployed.pair}: ${side} order failed — ${msg}`,
+          telegramHtml: buildTradeErrorTemplate({
+            strategyName: deployed.strategy.name,
+            pair: deployed.pair,
+            side,
+            error: msg,
+          }),
           data: { pair: deployed.pair, side, strategyName: deployed.strategy.name, deployedId: deployed.id, error: msg },
         }).catch(() => {});
 
@@ -714,6 +753,17 @@ class StrategyWorker {
       type: "trade_open",
       title: `${side} ${deployed.pair}`,
       message: `${deployed.strategy.name} opened ${side} at $${price.toFixed(2)} (${reason})`,
+      telegramHtml: buildTradeOpenedTemplate({
+        side,
+        strategyName: deployed.strategy.name,
+        pair: deployed.pair,
+        entry: price,
+        quantity,
+        sl: slOverride,
+        tp: tpOverride,
+        leverage: leverageOverride ?? readLeverage(deployed.config),
+        trigger: reason,
+      }),
       data: { pair: deployed.pair, side, price, strategyName: deployed.strategy.name, deployedId: deployed.id },
     }).catch(() => {});
 
@@ -788,11 +838,27 @@ class StrategyWorker {
       pnl: roundedPnl,
     });
 
+    const entryPriceNum = Number(trade.entryPrice);
+    const pnlPct = entryPriceNum > 0
+      ? ((actualExitPrice - entryPriceNum) / entryPriceNum) * 100 * (trade.side === "BUY" ? 1 : -1)
+      : 0;
+    const heldMs = trade.openedAt ? Date.now() - new Date(trade.openedAt).getTime() : 0;
     createNotification({
       userId: deployed.userId,
       type: "trade_close",
       title: `Closed ${trade.side} ${deployed.pair}`,
       message: `${deployed.strategy.name} closed at $${actualExitPrice.toFixed(2)} — ${roundedPnl >= 0 ? "+" : ""}$${roundedPnl.toFixed(2)} (${reason})`,
+      telegramHtml: buildTradeClosedTemplate({
+        strategyName: deployed.strategy.name,
+        pair: deployed.pair,
+        side: trade.side as "BUY" | "SELL",
+        entry: entryPriceNum,
+        exit: actualExitPrice,
+        pnl: roundedPnl,
+        pnlPct,
+        heldMs,
+        reason,
+      }),
       data: { pair: deployed.pair, side: trade.side, exitPrice: actualExitPrice, pnl: roundedPnl, reason, strategyName: deployed.strategy.name, deployedId: deployed.id },
     }).catch(() => {});
   }

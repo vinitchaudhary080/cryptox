@@ -24,6 +24,14 @@ interface CreateNotificationParams {
   data?: Record<string, unknown>;
   /** Optional deep-link URL opened when user clicks the push notification. */
   url?: string;
+  /**
+   * Optional pre-formatted Telegram HTML body. When provided, replaces the
+   * default title+message text for the Telegram channel ONLY — in-app
+   * notification list + web/mobile push still use plain title/message.
+   * Lets call sites ship the rich templates from `notification-templates.ts`
+   * without affecting other delivery surfaces.
+   */
+  telegramHtml?: string;
 }
 
 /** Create notification: DB save + Socket.io realtime + Web Push (if subscribed) */
@@ -59,8 +67,15 @@ export async function createNotification(params: CreateNotificationParams) {
   const appUrl = process.env.APP_PUBLIC_URL ?? "https://algopulse.in";
   const deepLink = `${appUrl}${params.url ?? urlFromType(params.type, params.data)}`;
   sendTelegramMessage(params.userId, {
-    title: titleWithEmoji(params.type, params.title),
-    body: params.message,
+    // Prefer rich HTML template when caller provided one; fall back to the
+    // legacy title+body MarkdownV2 path so older call sites keep working
+    // verbatim during the rollout.
+    ...(params.telegramHtml
+      ? { html: params.telegramHtml }
+      : {
+          title: titleWithEmoji(params.type, params.title),
+          body: params.message,
+        }),
     link: { url: deepLink, label: "Open AlgoPulse" },
   }).catch((e) => console.error("[notification] telegram failed:", e));
 

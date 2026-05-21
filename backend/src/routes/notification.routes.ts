@@ -9,6 +9,7 @@ import {
   getUnreadCount,
   createNotification,
 } from "../services/notification.service.js";
+import { buildAdminBroadcastTemplate } from "../services/notification-templates.js";
 import { env } from "../config/env.js";
 
 const router = Router();
@@ -156,6 +157,7 @@ router.post("/admin-send", authenticate, async (req: AuthRequest, res: Response)
       ? [userId]
       : (await prisma.user.findMany({ select: { id: true } })).map((u) => u.id);
 
+    const broadcastTelegramHtml = buildAdminBroadcastTemplate({ title, body: message });
     await Promise.all(
       targets.map((uid) =>
         createNotification({
@@ -163,6 +165,7 @@ router.post("/admin-send", authenticate, async (req: AuthRequest, res: Response)
           type: "admin_broadcast",
           title,
           message,
+          telegramHtml: broadcastTelegramHtml,
           url,
           data,
         }),

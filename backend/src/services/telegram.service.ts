@@ -119,6 +119,14 @@ async function callTelegramApi<T>(
 export interface TelegramSendPayload {
   /** Optional pre-formatted text. If absent, caller must provide title+body. */
   text?: string;
+  /**
+   * Optional pre-formatted HTML payload (parse_mode=HTML). Takes precedence
+   * over `text` + `title`/`body`. Lets `notification.service.ts` ship rich
+   * pretty templates (bold headers, `<pre>` aligned blocks) without going
+   * through MarkdownV2's escape gauntlet. The caller MUST pre-escape any
+   * `<`, `>`, `&` that aren't part of intended HTML tags.
+   */
+  html?: string;
   title?: string;
   body?: string;
   /** Optional inline button (e.g., "Open AlgoPulse" → app URL). */
@@ -144,14 +152,19 @@ export async function sendTelegramMessage(
 
   if (!user?.telegramChatId) return false;
 
-  const text =
-    payload.text ??
-    [
-      payload.title ? `*${escapeMarkdown(payload.title)}*` : null,
-      payload.body ? escapeMarkdown(payload.body) : null,
-    ]
-      .filter(Boolean)
-      .join("\n\n");
+  // Resolve format + body. HTML takes precedence — templates pass it ready
+  // to send (already escaped where needed). Otherwise fall back to the
+  // legacy MarkdownV2 path that escapes title/body for safety.
+  const useHtml = !!payload.html;
+  const text = useHtml
+    ? payload.html!
+    : payload.text ??
+      [
+        payload.title ? `*${escapeMarkdown(payload.title)}*` : null,
+        payload.body ? escapeMarkdown(payload.body) : null,
+      ]
+        .filter(Boolean)
+        .join("\n\n");
 
   if (!text) return false;
 
@@ -163,7 +176,7 @@ export async function sendTelegramMessage(
     const res = await callTelegramApi<{ message_id: number }>("sendMessage", {
       chat_id: user.telegramChatId,
       text,
-      parse_mode: "MarkdownV2",
+      parse_mode: useHtml ? "HTML" : "MarkdownV2",
       disable_web_page_preview: true,
       ...(reply_markup ? { reply_markup } : {}),
     });
