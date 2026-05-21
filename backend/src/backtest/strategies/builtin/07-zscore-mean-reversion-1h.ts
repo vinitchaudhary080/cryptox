@@ -241,7 +241,13 @@ export const zScoreMeanReversion1h: BacktestStrategy = {
     const closedGreen = close1h > open1h;
     const closedRed = close1h < open1h;
 
-    if (z <= -zEntry && zPrev <= -zEntry && z > zPrev && closedGreen) {
+    // Reject entries that are ALREADY past the hard-stop threshold.
+    // When z is more extreme than -zHardStop, the computed SL price
+    // (ema - zHardStop*std) ends up ABOVE the entry close — which the
+    // engine treats as immediately-triggered and fills at SL price,
+    // producing artificial profit. Skip these entries — mean reversion
+    // is unreliable at extreme dislocations anyway.
+    if (z <= -zEntry && z > -zHardStop && zPrev <= -zEntry && z > zPrev && closedGreen) {
       // SL price: where z would equal −zHardStop
       const slPrice = ema - zHardStop * std;
       // TP ladder: 50% at z=0 (EMA), 50% at z=+zTpFinal
@@ -262,7 +268,10 @@ export const zScoreMeanReversion1h: BacktestStrategy = {
     }
 
     // SHORT: mirror
-    if (z >= zEntry && zPrev >= zEntry && z < zPrev && closedRed) {
+    // Mirror SHORT guard: reject entries already past the hard-stop on
+    // the upper side, where slPrice (ema + zHardStop*std) would end up
+    // BELOW entry and trigger immediately.
+    if (z >= zEntry && z < zHardStop && zPrev >= zEntry && z < zPrev && closedRed) {
       const slPrice = ema + zHardStop * std;
       const tp1Price = ema;
       const tp2Price = ema - zTpFinal * std;
