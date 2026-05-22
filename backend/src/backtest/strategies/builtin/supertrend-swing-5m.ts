@@ -23,14 +23,32 @@ import { computeIndicators } from "../../indicators/index.js";
  *   - Smallest per-trade R, fastest turnover
  */
 
-let precomputed: {
+// Per-coin precompute cache. Keyed by `(firstCandleTimestamp, lastCandleTimestamp,
+// candleCount)` of the data passed to precompute — uniquely identifies a backtest
+// run's input. A single shared `precomputed` variable was a real bug in
+// parallel multi-coin batches: every coin's precompute call overwrote the
+// module-level state, so SOL's onCandle would end up reading e.g. DOGE's
+// indicator arrays via SOL's `idx5m` — producing nonsensical SL values
+// like $1.44 on a $95 SOL trade (May 2026 incident).
+type PrecomputeBundle = {
   map5m: Int32Array;
   map4h: Int32Array;
   ind5m: IndicatorValues;
   ind4h: IndicatorValues;
-} | null = null;
+};
+const cache = new Map<string, PrecomputeBundle>();
+
+function cacheKey(allCandles: Candle[]): string {
+  if (allCandles.length === 0) return "empty";
+  const first = allCandles[0].timestamp;
+  const last = allCandles[allCandles.length - 1].timestamp;
+  return `${first}:${last}:${allCandles.length}`;
+}
 
 export function precomputeSupertrendSwing5m(allCandles: Candle[]): void {
+  const key = cacheKey(allCandles);
+  if (cache.has(key)) return; // already done for this exact dataset
+
   const candles5m = resampleCandles(allCandles, 5);
   const candles4h = resampleCandles(allCandles, 240);
 
@@ -54,11 +72,11 @@ export function precomputeSupertrendSwing5m(allCandles: Candle[]): void {
     while (j4 + 1 < candles4h.length && candles4h[j4 + 1].timestamp <= ts) j4++;
     map4h[i] = j4;
   }
-  precomputed = { map5m, map4h, ind5m, ind4h };
+  cache.set(key, { map5m, map4h, ind5m, ind4h });
 }
 
 export function resetSupertrendSwing5mCache(): void {
-  precomputed = null;
+  cache.clear();
 }
 
 export const supertrendSwing5mStrategy: BacktestStrategy = {
@@ -78,7 +96,16 @@ export const supertrendSwing5mStrategy: BacktestStrategy = {
     // Warm-up: largest indicator is EMA(600) on 5m = 600 × 5min = 50h ≈ 2.1
     // days. Plus 4H SuperTrend(10) = 40h ≈ 1.7 days. 5 days of 1m data is
     // a comfortable buffer for both to stabilize.
-    if (!precomputed || index < 5 * 1440) return signals;
+    if (index < 5 * 1440) return signals;
+    // Look up THIS run's precomputed bundle by data identity (first+last
+    // timestamp + length). Engine injects _allCandles into context so we
+    // can recover the same key the precompute step used. Without this
+    // lookup, parallel multi-coin backtests would cross-contaminate via
+    // a single shared module-level variable.
+    const allCandles = (ctx as unknown as { _allCandles?: Candle[] })._allCandles;
+    if (!allCandles || allCandles.length === 0) return signals;
+    const precomputed = cache.get(cacheKey(allCandles));
+    if (!precomputed) return signals;
     const { map5m, map4h, ind5m, ind4h } = precomputed;
 
     const idx5m = map5m[index];
