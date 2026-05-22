@@ -204,7 +204,15 @@ export function BacktestConfigForm({
       const clean = sanity.filter((s) => s.ok && s.run)
       const dirty = sanity.filter((s) => !s.ok)
 
-      // 4) Composite rank: returnPct ↓, drawdown% ↑, PF ↓, win/loss ↓, winRate ↓.
+      // 4) Composite rank — tie-broken in this order (best result wins each tier):
+      //      a. Return %         — HIGHER is better
+      //      b. Drawdown %       — LOWER is better
+      //      c. Profit Factor    — HIGHER is better
+      //      d. Win/Loss ratio   — HIGHER is better (avg-win / avg-loss)
+      //      e. Win Rate %       — HIGHER is better
+      //    Comparators below use `b − a` for "higher better" and `a − b` for
+      //    "lower better" — that's the contract that makes the top-5 actually
+      //    your top-5 profitable runs with lowest pain.
       clean.sort((a, b) => {
         const ar = a.run!
         const br = b.run!
@@ -290,9 +298,10 @@ export function BacktestConfigForm({
             <div className="rounded-md border border-border/50 bg-muted/20 p-3 text-xs text-muted-foreground">
               Strategy will run on all {COINS.length} coins in parallel. After
               every run completes, results are sanity-checked (no inverted-SL
-              artifacts, pnl math consistent) and ranked by composite score:
-              <span className="mt-1 block">
-                <span className="text-foreground">return% ↓ → drawdown% ↑ → profit factor ↓ → win/loss ratio ↓ → win rate ↓</span>
+              artifacts, pnl math consistent) and ranked by composite score
+              (each tier breaks the previous tie):
+              <span className="mt-1 block text-foreground">
+                higher return % → lower drawdown % → higher profit factor → higher win/loss ratio → higher win rate
               </span>
               Top 5 stay in history. The other {COINS.length - 5} (plus any
               with sanity issues) are auto-deleted.
