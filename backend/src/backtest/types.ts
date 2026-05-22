@@ -162,7 +162,20 @@ export interface BacktestTrade {
   exit_price: number;
   pnl: number;
   fee: number;
-  exit_reason: "TP" | "SL" | "SIGNAL" | "END" | "MARGIN_CALL" | "LIQUIDATED";
+  // Either a canonical bucket (TP/SL/END/MARGIN_CALL/LIQUIDATED) used by
+  // metric filters, OR a free-form reason string emitted by the strategy
+  // when it issues a CLOSE_LONG/SHORT/ALL signal (e.g. "5m ST flipped
+  // RED (ADX 25.6)" or "ADX fading 18.4 < 20"). The string variant lets
+  // the trade log surface WHY the strategy chose to exit rather than the
+  // generic "SIGNAL" label.
+  exit_reason:
+    | "TP"
+    | "SL"
+    | "SIGNAL"
+    | "END"
+    | "MARGIN_CALL"
+    | "LIQUIDATED"
+    | string;
   /** For multi-TP positions: 1 = first TP, 2 = second, etc. Undefined for
    *  single-TP / SL / SIGNAL exits. */
   tp_level?: number;
