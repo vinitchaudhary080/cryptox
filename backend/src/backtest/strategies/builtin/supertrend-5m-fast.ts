@@ -23,14 +23,26 @@ import { computeIndicators } from "../../indicators/index.js";
  *   For 1-2-day holds prefer supertrend-strategy (15m).
  */
 
-let precomputed: {
+// Per-coin precompute cache — see feedback-cryptox-strategy-precompute-parallel-safety
+// memory. A module-level singleton gets clobbered when parallel multi-coin
+// backtests share the same Node process.
+type PrecomputeBundle = {
   map5m: Int32Array;
   map15m: Int32Array;
   ind5m: IndicatorValues;
   ind15m: IndicatorValues;
-} | null = null;
+};
+const cache = new Map<string, PrecomputeBundle>();
+
+function cacheKey(allCandles: Candle[]): string {
+  if (allCandles.length === 0) return "empty";
+  return `${allCandles[0].timestamp}:${allCandles[allCandles.length - 1].timestamp}:${allCandles.length}`;
+}
 
 export function precomputeSupertrend5mFast(allCandles: Candle[]): void {
+  const key = cacheKey(allCandles);
+  if (cache.has(key)) return;
+
   const candles5m = resampleCandles(allCandles, 5);
   const candles15m = resampleCandles(allCandles, 15);
 
@@ -54,11 +66,11 @@ export function precomputeSupertrend5mFast(allCandles: Candle[]): void {
     while (j15 + 1 < candles15m.length && candles15m[j15 + 1].timestamp <= ts) j15++;
     map15m[i] = j15;
   }
-  precomputed = { map5m, map15m, ind5m, ind15m };
+  cache.set(key, { map5m, map15m, ind5m, ind15m });
 }
 
 export function resetSupertrend5mFastCache(): void {
-  precomputed = null;
+  cache.clear();
 }
 
 export const supertrend5mFastStrategy: BacktestStrategy = {
@@ -75,7 +87,11 @@ export const supertrend5mFastStrategy: BacktestStrategy = {
     const signals: Signal[] = [];
     const { candle, index, positions, equity, config } = ctx;
 
-    if (!precomputed || index < 200) return signals;
+    if (index < 200) return signals;
+    const allCandles = (ctx as unknown as { _allCandles?: Candle[] })._allCandles;
+    if (!allCandles || allCandles.length === 0) return signals;
+    const precomputed = cache.get(cacheKey(allCandles));
+    if (!precomputed) return signals;
     const { map5m, map15m, ind5m, ind15m } = precomputed;
 
     const idx5 = map5m[index];

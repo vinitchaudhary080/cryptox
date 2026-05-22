@@ -62,7 +62,8 @@ import { computeIndicators } from "../../indicators/index.js";
  *     Strategies, §5.8 (statarb pairs) and §5.10 (volume filter)
  */
 
-let precomputed: {
+// Per-coin precompute cache — feedback-cryptox-strategy-precompute-parallel-safety.
+type PrecomputeBundle = {
   candles1h: Candle[];
   candles4h: Candle[];
   map1h: Int32Array;
@@ -70,7 +71,13 @@ let precomputed: {
   ema200_1h: number[];
   std100Spread_1h: number[];     // rolling 100-bar std-dev of (close − EMA200)
   adx14_4h: number[];
-} | null = null;
+};
+const cache = new Map<string, PrecomputeBundle>();
+
+function cacheKey(allCandles: Candle[]): string {
+  if (allCandles.length === 0) return "empty";
+  return `${allCandles[0].timestamp}:${allCandles[allCandles.length - 1].timestamp}:${allCandles.length}`;
+}
 
 /** Rolling N-bar standard deviation of a series, NaN until window fills. */
 function rollingStd(series: number[], window: number): number[] {
@@ -109,6 +116,8 @@ function rollingStd(series: number[], window: number): number[] {
 }
 
 export function precomputeZScoreMeanReversion1h(allCandles: Candle[]): void {
+  const key = cacheKey(allCandles);
+  if (cache.has(key)) return;
   const candles1h = resampleCandles(allCandles, 60);
   const candles4h = resampleCandles(allCandles, 240);
 
@@ -147,11 +156,11 @@ export function precomputeZScoreMeanReversion1h(allCandles: Candle[]): void {
     map4h[i] = j4h;
   }
 
-  precomputed = { candles1h, candles4h, map1h, map4h, ema200_1h, std100Spread_1h, adx14_4h };
+  cache.set(key, { candles1h, candles4h, map1h, map4h, ema200_1h, std100Spread_1h, adx14_4h });
 }
 
 export function resetZScoreMeanReversion1hCache(): void {
-  precomputed = null;
+  cache.clear();
 }
 
 export const zScoreMeanReversion1h: BacktestStrategy = {
@@ -174,7 +183,11 @@ export const zScoreMeanReversion1h: BacktestStrategy = {
     const signals: Signal[] = [];
     const { candle, index, positions, equity, config } = ctx;
 
-    if (!precomputed || index < 200 * 60) return signals;
+    if (index < 200 * 60) return signals;
+    const allCandles = (ctx as unknown as { _allCandles?: Candle[] })._allCandles;
+    if (!allCandles || allCandles.length === 0) return signals;
+    const precomputed = cache.get(cacheKey(allCandles));
+    if (!precomputed) return signals;
     const { map1h, map4h, ema200_1h, std100Spread_1h, adx14_4h, candles1h } = precomputed;
 
     // Only fire at 1H bucket transitions — operate on just-closed 1H bar

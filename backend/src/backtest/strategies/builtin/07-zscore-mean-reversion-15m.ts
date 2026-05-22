@@ -30,7 +30,8 @@ import { computeIndicators } from "../../indicators/index.js";
  * preserving the same underlying mean-reverting edge horizon.
  */
 
-let precomputed: {
+// Per-coin precompute cache — feedback-cryptox-strategy-precompute-parallel-safety.
+type PrecomputeBundle = {
   candles15m: Candle[];
   candles4h: Candle[];
   map15m: Int32Array;
@@ -38,7 +39,13 @@ let precomputed: {
   ema800_15m: number[];
   std400Spread_15m: number[];    // rolling 400-bar std-dev of (close − EMA800)
   adx14_4h: number[];
-} | null = null;
+};
+const cache = new Map<string, PrecomputeBundle>();
+
+function cacheKey(allCandles: Candle[]): string {
+  if (allCandles.length === 0) return "empty";
+  return `${allCandles[0].timestamp}:${allCandles[allCandles.length - 1].timestamp}:${allCandles.length}`;
+}
 
 /** Rolling N-bar standard deviation of a series, NaN until window fills. */
 function rollingStd(series: number[], window: number): number[] {
@@ -77,6 +84,8 @@ function rollingStd(series: number[], window: number): number[] {
 }
 
 export function precomputeZScoreMeanReversion15m(allCandles: Candle[]): void {
+  const key = cacheKey(allCandles);
+  if (cache.has(key)) return;
   const candles15m = resampleCandles(allCandles, 15);
   const candles4h = resampleCandles(allCandles, 240);
 
@@ -115,11 +124,11 @@ export function precomputeZScoreMeanReversion15m(allCandles: Candle[]): void {
     map4h[i] = j4h;
   }
 
-  precomputed = { candles15m, candles4h, map15m, map4h, ema800_15m, std400Spread_15m, adx14_4h };
+  cache.set(key, { candles15m, candles4h, map15m, map4h, ema800_15m, std400Spread_15m, adx14_4h });
 }
 
 export function resetZScoreMeanReversion15mCache(): void {
-  precomputed = null;
+  cache.clear();
 }
 
 export const zScoreMeanReversion15m: BacktestStrategy = {
@@ -143,7 +152,13 @@ export const zScoreMeanReversion15m: BacktestStrategy = {
     const { candle, index, positions, equity, config } = ctx;
 
     // Warm-up: 250 days of 1m data to comfortably fill 800-bar 15m EMA
-    if (!precomputed || index < 250 * 1440) return signals;
+    // Warm-up: EMA(800) on 15m = 800 × 15min = 200h ≈ 8.3 days.
+    // Rolling 400-bar std on 15m = 100h ≈ 4.2 days. 15 days is a buffer.
+    if (index < 15 * 1440) return signals;
+    const allCandles = (ctx as unknown as { _allCandles?: Candle[] })._allCandles;
+    if (!allCandles || allCandles.length === 0) return signals;
+    const precomputed = cache.get(cacheKey(allCandles));
+    if (!precomputed) return signals;
     const { map15m, map4h, ema800_15m, std400Spread_15m, adx14_4h, candles15m } = precomputed;
 
     // Only fire at 15m bucket transitions — operate on just-closed 15m bar

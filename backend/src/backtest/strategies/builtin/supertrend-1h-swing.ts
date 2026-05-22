@@ -19,14 +19,24 @@ import { computeIndicators } from "../../indicators/index.js";
  *   - Larger MDD per trade but better R:R
  */
 
-let precomputed: {
+// Per-coin precompute cache — feedback-cryptox-strategy-precompute-parallel-safety.
+type PrecomputeBundle = {
   map1h: Int32Array;
   map4h: Int32Array;
   ind1h: IndicatorValues;
   ind4h: IndicatorValues;
-} | null = null;
+};
+const cache = new Map<string, PrecomputeBundle>();
+
+function cacheKey(allCandles: Candle[]): string {
+  if (allCandles.length === 0) return "empty";
+  return `${allCandles[0].timestamp}:${allCandles[allCandles.length - 1].timestamp}:${allCandles.length}`;
+}
 
 export function precomputeSupertrend1hSwing(allCandles: Candle[]): void {
+  const key = cacheKey(allCandles);
+  if (cache.has(key)) return;
+
   const candles1h = resampleCandles(allCandles, 60);
   const candles4h = resampleCandles(allCandles, 240);
 
@@ -50,11 +60,11 @@ export function precomputeSupertrend1hSwing(allCandles: Candle[]): void {
     while (j4 + 1 < candles4h.length && candles4h[j4 + 1].timestamp <= ts) j4++;
     map4h[i] = j4;
   }
-  precomputed = { map1h, map4h, ind1h, ind4h };
+  cache.set(key, { map1h, map4h, ind1h, ind4h });
 }
 
 export function resetSupertrend1hSwingCache(): void {
-  precomputed = null;
+  cache.clear();
 }
 
 export const supertrend1hSwingStrategy: BacktestStrategy = {
@@ -71,7 +81,11 @@ export const supertrend1hSwingStrategy: BacktestStrategy = {
     const signals: Signal[] = [];
     const { candle, index, positions, equity, config } = ctx;
 
-    if (!precomputed || index < 500) return signals;
+    if (index < 500) return signals;
+    const allCandles = (ctx as unknown as { _allCandles?: Candle[] })._allCandles;
+    if (!allCandles || allCandles.length === 0) return signals;
+    const precomputed = cache.get(cacheKey(allCandles));
+    if (!precomputed) return signals;
     const { map1h, map4h, ind1h, ind4h } = precomputed;
 
     const idx1h = map1h[index];

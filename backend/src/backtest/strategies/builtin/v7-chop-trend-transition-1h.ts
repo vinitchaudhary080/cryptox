@@ -98,7 +98,8 @@ import { computeIndicators } from "../../indicators/index.js";
  *     statistical evidence for HTF-trend-filtered entries
  */
 
-let precomputed: {
+// Per-coin precompute cache — feedback-cryptox-strategy-precompute-parallel-safety.
+type PrecomputeBundle = {
   candles1h: Candle[];
   candles4h: Candle[];
   map1h: Int32Array;
@@ -107,7 +108,13 @@ let precomputed: {
   atr14_1h: number[];
   ema50_1h: number[];
   ema200_4h: number[];
-} | null = null;
+};
+const cache = new Map<string, PrecomputeBundle>();
+
+function cacheKey(allCandles: Candle[]): string {
+  if (allCandles.length === 0) return "empty";
+  return `${allCandles[0].timestamp}:${allCandles[allCandles.length - 1].timestamp}:${allCandles.length}`;
+}
 
 function computeATR(candles: Candle[], period: number): number[] {
   const atr: number[] = new Array(candles.length).fill(NaN);
@@ -182,6 +189,8 @@ function computeChoppinessIndex(candles: Candle[], period: number): number[] {
 }
 
 export function precomputeChopTrendTransition1h(allCandles: Candle[]): void {
+  const key = cacheKey(allCandles);
+  if (cache.has(key)) return;
   const candles1h = resampleCandles(allCandles, 60);
   const candles4h = resampleCandles(allCandles, 240);
 
@@ -209,7 +218,7 @@ export function precomputeChopTrendTransition1h(allCandles: Candle[]): void {
     map4h[i] = j4h;
   }
 
-  precomputed = {
+  cache.set(key, {
     candles1h,
     candles4h,
     map1h,
@@ -218,11 +227,11 @@ export function precomputeChopTrendTransition1h(allCandles: Candle[]): void {
     atr14_1h,
     ema50_1h,
     ema200_4h,
-  };
+  });
 }
 
 export function resetChopTrendTransition1hCache(): void {
-  precomputed = null;
+  cache.clear();
 }
 
 // Per-direction "armed" flag — set to true when CI re-enters the chop zone
@@ -265,7 +274,11 @@ export const chopTrendTransition1h: BacktestStrategy = {
 
     // Warmup: 200 EMA on 4H = 200 × 4h = 800h ≈ 33d. Use 40d * 1440 = 57600
     // 1m bars as safe floor (also covers slope lookback).
-    if (!precomputed || index < 40 * 1440) return signals;
+    if (index < 40 * 1440) return signals;
+    const allCandles = (ctx as unknown as { _allCandles?: Candle[] })._allCandles;
+    if (!allCandles || allCandles.length === 0) return signals;
+    const precomputed = cache.get(cacheKey(allCandles));
+    if (!precomputed) return signals;
     const {
       map1h,
       map4h,
