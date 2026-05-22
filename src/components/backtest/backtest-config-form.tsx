@@ -401,7 +401,14 @@ export function BacktestConfigForm({
             </button>
             <button
               type="button"
-              onClick={() => setSizingMode("fixed_cash")}
+              onClick={() => {
+                setSizingMode("fixed_cash");
+                // Fixed-cash mode is dollar-anchored — there's no compounding
+                // benefit from a large starting equity. $100 is the convention
+                // the user picked for this mode so the equity curve reads as
+                // clean $100 → final-value $X without scale noise.
+                setInitialCapital(100);
+              }}
               className={`rounded-xl border p-2.5 text-left transition-all ${
                 sizingMode === "fixed_cash"
                   ? "border-primary bg-primary/10"
