@@ -625,11 +625,15 @@ export function DeployDialog({
                     />
                   </div>
 
-                  {/* Position Size (% of investment deployed per trade) */}
+                  {/* Position Size — % of CURRENT equity per trade (compounding). The
+                      live worker reads `positionSizePercent` from this deploy's config
+                      and multiplies by current equity (investedAmount + realized + unrealized
+                      PnL). Each new trade scales with whatever the deploy is worth at
+                      that moment — pure %equity behaviour, no fixed-cash. */}
                   <div>
                     <div className="flex items-center justify-between">
                       <Label className="text-xs text-muted-foreground">
-                        Position Size (%)
+                        Position Size <span className="text-[10px] font-normal">(% of equity · compounds)</span>
                       </Label>
                       {positionSizeLocked && (
                         <span className="text-[10px] font-medium text-warning">
@@ -667,16 +671,23 @@ export function DeployDialog({
                     <p className="mt-1 text-[10px] text-muted-foreground">
                       {positionSizeLocked
                         ? "This strategy's code sets its own position size, cannot be overridden."
-                        : "Fraction of your investment deployed per entry."}
+                        : "Each entry uses this percent of your CURRENT equity (compounds with PnL). Live worker re-reads equity from DB before every trade."}
                     </p>
-                    {/* Per-trade margin check — must be >= $50 */}
+                    {/* Per-trade margin check — must be >= $50.
+                        This is a HARD BLOCK at deploy-time: the Next button's `disabled`
+                        prop checks the same condition, so a user literally cannot proceed
+                        below $50. The runtime worker has its own MIN_MARGIN_USD = $50 check
+                        as a second line of defence (e.g., if equity compounds DOWN below the
+                        threshold mid-run, future trades skip with a margin_call notification). */}
                     {(() => {
                       const perTrade = amountNum * positionSizeFraction
                       const ok = perTrade >= 50
                       return (
-                        <p className={cn("mt-1.5 text-[11px]", ok ? "text-muted-foreground" : "text-loss")}>
-                          Per-trade margin: <span className="font-semibold">${perTrade.toFixed(2)}</span>
-                          {!ok && " — below $50 minimum, trades will be skipped with a margin-call notification."}
+                        <p className={cn("mt-1.5 text-[11px]", ok ? "text-profit" : "text-loss")}>
+                          {ok
+                            ? <>✓ Per-trade margin <span className="font-semibold">${perTrade.toFixed(2)}</span> meets $50 minimum.</>
+                            : <>⚠ Per-trade margin <span className="font-semibold">${perTrade.toFixed(2)}</span> below $50 minimum — <span className="font-semibold">deploy blocked</span>. Increase investment or position size.</>
+                          }
                         </p>
                       )
                     })()}
@@ -737,15 +748,31 @@ export function DeployDialog({
                       { label: "Strategy", value: strategyName },
                       { label: "Broker", value: selectedBroker ? `${selectedBroker.name} (${selectedBroker.uid})` : "" },
                       { label: "Pair", value: formatPair(selectedPair) },
-                      { label: "Amount", value: `$${amountNum.toLocaleString()}` },
+                      { label: "Investment", value: `$${amountNum.toLocaleString()}` },
+                      { label: "Position Size", value: `${positionSizeNum}% of equity (compounds)` },
                       { label: "Leverage", value: `${leverage}X` },
-                      { label: "Notional", value: `$${effectiveNotional.toFixed(2)}` },
+                      { label: "Per-trade margin", value: `$${(amountNum * positionSizeFraction).toFixed(2)}` },
+                      { label: "Per-trade notional", value: `$${effectiveNotional.toFixed(2)}` },
                     ].map((row) => (
                       <div key={row.label} className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">{row.label}</span>
                         <span className="font-medium">{row.value}</span>
                       </div>
                     ))}
+                  </div>
+
+                  {/* Sizing formula explainer — keeps user oriented on what the live
+                      worker will actually do per trade. The math here matches the
+                      executor's qty calc exactly (strategy-executor.ts:469-482). */}
+                  <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-[11px] text-muted-foreground leading-relaxed">
+                    <p className="font-semibold text-foreground mb-1">How each trade is sized</p>
+                    <p>
+                      qty = <span className="font-mono">current_equity × {positionSizeNum}% × {leverage}x ÷ price</span>
+                    </p>
+                    <p className="mt-1.5">
+                      First trade uses your ${amountNum.toLocaleString()} investment. Subsequent trades use the
+                      compounded equity (investment + realized + unrealized PnL). No fixed-cash sizing — pure %equity.
+                    </p>
                   </div>
 
                   {mode === "PAPER" ? (
