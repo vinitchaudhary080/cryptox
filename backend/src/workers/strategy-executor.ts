@@ -340,7 +340,16 @@ class StrategyWorker {
     isPaperTrade: boolean,
     ticker: Ticker,
   ): Promise<boolean> {
-    const slug = strategySlug(deployed.strategy.name);
+    // Use deployed.strategy.id (the canonical slug in DB) — NOT a slug
+    // derived from the display name. Display names like "Z-Score Mean
+    // Reversion 15m" slugify to "z-score-mean-reversion-15m" but the
+    // actual id is "07-zscore-mean-reversion-15m" (with a 07- prefix
+    // and no dash in zscore). That mismatch silently routed Z-Score
+    // 15m to the legacy mean-reversion handler instead of its real
+    // .ts strategy (May 2026 AVAX incident — qty stuck at un-leveraged
+    // $100-equity base). Falling back to the display-name slug as a
+    // safety net for any deployment where strategy.id might be empty.
+    const slug = deployed.strategy.id || strategySlug(deployed.strategy.name);
     const strategy = getStrategyByName(slug);
     if (!strategy) return false;
 
