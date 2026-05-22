@@ -460,10 +460,17 @@ class StrategyWorker {
         const positionSizePct = Number(config.positionSizePercent ?? 10);
         const leverage = Math.max(1, Number(config.leverage ?? 1));
         const sizeFraction = Math.max(0, Math.min(100, positionSizePct)) / 100;
-        const qty =
+        // Strategy files emit BASE qty (margin / price) — codebase convention
+        // shared across all 50+ builtin strategies. The backtest engine scales
+        // it up by leverage (see backtest-engine.ts:704). The live executor
+        // must do the same, otherwise leveraged strategies trade 1/leverage
+        // smaller on live than in backtest (May 2026 DOGE supertrend-5m-fast
+        // incident — backtest qty 2410, live qty 484 with leverage=5x).
+        const baseQty =
           signal.qty != null && Number.isFinite(signal.qty)
             ? signal.qty
-            : (equity * sizeFraction * leverage) / execPrice;
+            : (equity * sizeFraction) / execPrice;
+        const qty = baseQty * leverage;
         await this.openTrade(
           exchange,
           deployed,
