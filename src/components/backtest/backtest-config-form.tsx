@@ -86,7 +86,10 @@ export function BacktestConfigForm({
   const [sizingValueCash, setSizingValueCash] = useState(50)     // fixed_cash mode (USD)
   const [sizingValuePct, setSizingValuePct] = useState(50)       // percent_equity mode (%)
   const [enforceMinMargin, setEnforceMinMargin] = useState(false)
-  const [initialCapital, setInitialCapital] = useState(250)
+  // Default $100 matches the % Equity / Fixed Cash convention so the form
+  // opens with a clean equity baseline. Contracts mode users typically tweak
+  // both qty and capital anyway, so $100 is fine there too.
+  const [initialCapital, setInitialCapital] = useState(100)
   const [commission, setCommission] = useState(0.05)   // 0.05% per trade
   const [slippageVal, setSlippageVal] = useState(0)    // 0% per trade
   const [isRunning, setIsRunning] = useState(false)
@@ -422,7 +425,12 @@ export function BacktestConfigForm({
             </button>
             <button
               type="button"
-              onClick={() => setSizingMode("percent_equity")}
+              onClick={() => {
+                setSizingMode("percent_equity");
+                // Match the Fixed Cash default — $100 baseline gives a clean
+                // equity curve to read final value as percent return at a glance.
+                setInitialCapital(100);
+              }}
               className={`rounded-xl border p-2.5 text-left transition-all ${
                 sizingMode === "percent_equity"
                   ? "border-primary bg-primary/10"
