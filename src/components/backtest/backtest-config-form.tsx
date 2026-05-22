@@ -205,23 +205,39 @@ export function BacktestConfigForm({
       const dirty = sanity.filter((s) => !s.ok)
 
       // 4) Composite rank — tie-broken in this order (best result wins each tier):
-      //      a. Return %         — HIGHER is better
-      //      b. Drawdown %       — LOWER is better
-      //      c. Profit Factor    — HIGHER is better
-      //      d. Win/Loss ratio   — HIGHER is better (avg-win / avg-loss)
-      //      e. Win Rate %       — HIGHER is better
-      //    Comparators below use `b − a` for "higher better" and `a − b` for
-      //    "lower better" — that's the contract that makes the top-5 actually
-      //    your top-5 profitable runs with lowest pain.
+      //      a. Calmar ratio (return % / drawdown %)  — HIGHER is better  [primary]
+      //      b. Return %                              — HIGHER is better
+      //      c. Drawdown %                            — LOWER is better
+      //      d. Profit Factor                         — HIGHER is better
+      //      e. Win/Loss ratio (avg-win / avg-loss)   — HIGHER is better
+      //      f. Win Rate %                            — HIGHER is better
+      //
+      // Why Calmar first: it answers "how much return for each unit of pain?"
+      // — the standard risk-adjusted profitability metric. Without it the
+      // pure return-first sort favoured coins with extreme returns and
+      // proportionally extreme drawdowns (INJ 2781%/231% beat DOGE
+      // 1154%/153% even though DOGE delivered better risk-adjusted returns).
+      //
+      // Edge cases:
+      //   - drawdown ≈ 0 with positive return → treat Calmar as a large
+      //     sentinel (99999) so it ranks at top.
+      //   - drawdown ≈ 0 with non-positive return → Calmar = 0 (worst).
+      //   - both 0 → 0 (worst); tie-breaks fall through to return next.
+      const calmar = (ret: number, dd: number): number => {
+        if (dd > 0.01) return ret / dd
+        return ret > 0 ? 99_999 : 0
+      }
       clean.sort((a, b) => {
         const ar = a.run!
         const br = b.run!
         const aRet = ar.initialCapital > 0 ? (ar.totalPnl / ar.initialCapital) * 100 : 0
         const bRet = br.initialCapital > 0 ? (br.totalPnl / br.initialCapital) * 100 : 0
-        if (bRet !== aRet) return bRet - aRet
-        // Normalize drawdown to % of initial capital for fair cross-coin comparison
         const aDdPct = ar.initialCapital > 0 ? (ar.maxDrawdown / ar.initialCapital) * 100 : 0
         const bDdPct = br.initialCapital > 0 ? (br.maxDrawdown / br.initialCapital) * 100 : 0
+        const aCalmar = calmar(aRet, aDdPct)
+        const bCalmar = calmar(bRet, bDdPct)
+        if (bCalmar !== aCalmar) return bCalmar - aCalmar
+        if (bRet !== aRet) return bRet - aRet
         if (aDdPct !== bDdPct) return aDdPct - bDdPct
         if (br.profitFactor !== ar.profitFactor) return br.profitFactor - ar.profitFactor
         const aWL = ar.avgLoss !== 0 ? Math.abs(ar.avgWin / ar.avgLoss) : 0
@@ -301,7 +317,10 @@ export function BacktestConfigForm({
               artifacts, pnl math consistent) and ranked by composite score
               (each tier breaks the previous tie):
               <span className="mt-1 block text-foreground">
-                higher return % → lower drawdown % → higher profit factor → higher win/loss ratio → higher win rate
+                higher Calmar (return ÷ drawdown) → higher return % → lower drawdown % → higher profit factor → higher win/loss ratio → higher win rate
+              </span>
+              <span className="mt-1 block text-muted-foreground/70">
+                Calmar = risk-adjusted profitability. A coin with 2× return and 3× drawdown loses to one with 1× return and 1× drawdown.
               </span>
               Top 5 stay in history. The other {COINS.length - 5} (plus any
               with sanity issues) are auto-deleted.
