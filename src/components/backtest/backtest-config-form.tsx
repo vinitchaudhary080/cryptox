@@ -212,17 +212,17 @@ export function BacktestConfigForm({
       //      e. Win/Loss ratio (avg-win / avg-loss)   — HIGHER is better
       //      f. Win Rate %                            — HIGHER is better
       //
-      // Why Calmar first: it answers "how much return for each unit of pain?"
-      // — the standard risk-adjusted profitability metric. Without it the
-      // pure return-first sort favoured coins with extreme returns and
-      // proportionally extreme drawdowns (INJ 2781%/231% beat DOGE
-      // 1154%/153% even though DOGE delivered better risk-adjusted returns).
+      // Drawdown %: TRUE peak-to-trough percent from
+      // `extendedMetrics.maxDrawdownPercent` (same value the report UI
+      // shows as "X.X% peak → trough"). Earlier we used
+      // `maxDrawdown $ / initialCapital * 100`, but that's just $ loss
+      // expressed against starting equity — NOT a real drawdown — and
+      // exploded past 200% on big-return runs (INJ 231%, SUI 396%).
+      // With the real DD %, the ranking lines up with what users see.
       //
       // Edge cases:
-      //   - drawdown ≈ 0 with positive return → treat Calmar as a large
-      //     sentinel (99999) so it ranks at top.
-      //   - drawdown ≈ 0 with non-positive return → Calmar = 0 (worst).
-      //   - both 0 → 0 (worst); tie-breaks fall through to return next.
+      //   - drawdown ≈ 0 with positive return → Calmar 99999 sentinel.
+      //   - drawdown ≈ 0 with non-positive return → Calmar 0 (worst).
       const calmar = (ret: number, dd: number): number => {
         if (dd > 0.01) return ret / dd
         return ret > 0 ? 99_999 : 0
@@ -232,8 +232,15 @@ export function BacktestConfigForm({
         const br = b.run!
         const aRet = ar.initialCapital > 0 ? (ar.totalPnl / ar.initialCapital) * 100 : 0
         const bRet = br.initialCapital > 0 ? (br.totalPnl / br.initialCapital) * 100 : 0
-        const aDdPct = ar.initialCapital > 0 ? (ar.maxDrawdown / ar.initialCapital) * 100 : 0
-        const bDdPct = br.initialCapital > 0 ? (br.maxDrawdown / br.initialCapital) * 100 : 0
+        // Real peak-to-trough drawdown % (from extendedMetrics). Fall back
+        // to maxDrawdown $/initialCapital ONLY if the extendedMetrics field
+        // is missing (e.g., old historic runs before the metric was added).
+        const aDdPct =
+          ar.extendedMetrics?.maxDrawdownPercent ??
+          (ar.initialCapital > 0 ? (ar.maxDrawdown / ar.initialCapital) * 100 : 0)
+        const bDdPct =
+          br.extendedMetrics?.maxDrawdownPercent ??
+          (br.initialCapital > 0 ? (br.maxDrawdown / br.initialCapital) * 100 : 0)
         const aCalmar = calmar(aRet, aDdPct)
         const bCalmar = calmar(bRet, bDdPct)
         if (bCalmar !== aCalmar) return bCalmar - aCalmar
@@ -273,12 +280,18 @@ export function BacktestConfigForm({
     id: string; status: string; totalPnl: number; winRate: number;
     maxDrawdown: number; profitFactor: number; avgWin: number;
     avgLoss: number; initialCapital: number;
+    // extendedMetrics carries the TRUE peak-to-trough drawdown percent that
+    // the report UI shows ("57.51% peak → trough"). Old ranking used
+    // maxDrawdown $ / initialCapital × 100 which is just the dollar loss
+    // relative to starting equity — NOT a real drawdown metric. Switched
+    // to maxDrawdownPercent so the ranking matches what the user sees.
+    extendedMetrics?: { maxDrawdownPercent?: number } | null;
   } | null> => {
     const start = Date.now()
     while (Date.now() - start < 5 * 60_000) {
       const res = await backtestApi.getRun(id)
       if (res.success && res.data) {
-        const r = res.data as { status: string } & Record<string, number>
+        const r = res.data as { status: string } & Record<string, unknown>
         if (r.status !== "RUNNING") return { id, ...r } as never
       }
       await new Promise((r) => setTimeout(r, 1500))
