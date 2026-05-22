@@ -35,10 +35,12 @@ const stagger = {
   visible: { transition: { staggerChildren: 0.06 } },
 };
 
-const COINS = ["BTC", "ETH"] as const;
-type Coin = (typeof COINS)[number];
-const PERIODS = ["1Y", "2Y", "3Y"] as const;
-type Period = (typeof PERIODS)[number];
+// Coin + period chips are derived at runtime from the actual featured runs
+// pushed for this strategy — no longer hardcoded to BTC/ETH/1Y/2Y/3Y. Adding
+// a featured run for any new coin (or a non-standard window like "6M") makes
+// it appear here automatically without a frontend code change.
+type Coin = string;
+type Period = string;
 
 type TopTrade = {
   entry_time: number;
@@ -134,8 +136,11 @@ export default function StrategyBacktestReportPage() {
 
   const [strategy, setStrategy] = useState<StrategyMeta | null>(null);
   const [runs, setRuns] = useState<FeaturedRun[]>([]);
-  const [coin, setCoin] = useState<Coin>("BTC");
-  const [period, setPeriod] = useState<Period>("1Y");
+  // Empty defaults — populated from the first available featured run once
+  // `runs` arrives. Avoids showing a BTC/1Y "empty" view to a user who has
+  // only featured DOT/3Y runs.
+  const [coin, setCoin] = useState<Coin>("");
+  const [period, setPeriod] = useState<Period>("");
   const [trades, setTrades] = useState<Trade[]>([]);
   const [tradePage, setTradePage] = useState(1);
   const [loadingMeta, setLoadingMeta] = useState(true);
@@ -213,6 +218,28 @@ export default function StrategyBacktestReportPage() {
     for (const r of runs) set.add(`${r.coin}::${r.periodLabel}`);
     return set;
   }, [runs]);
+
+  // Distinct coins that have ≥1 featured run — these are the only chips we
+  // render. Sorted alphabetically for stable ordering across renders.
+  const availableCoins = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of runs) set.add(r.coin);
+    return Array.from(set).sort();
+  }, [runs]);
+
+  // Periods available for the CURRENTLY-selected coin. Lets us only render
+  // period chips that actually have a featured run — no greyed-out 2Y chip
+  // if you've only featured 1Y runs for DOT.
+  const availablePeriods = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of runs) if (r.coin === coin) set.add(r.periodLabel);
+    // Keep typical sort order (1Y < 2Y < 3Y) by extracting the leading number.
+    return Array.from(set).sort((a, b) => {
+      const an = parseInt(a, 10) || 0;
+      const bn = parseInt(b, 10) || 0;
+      return an - bn;
+    });
+  }, [runs, coin]);
 
   // Auto-pick the first available slot if the current one has no data
   useEffect(() => {
@@ -292,60 +319,52 @@ export default function StrategyBacktestReportPage() {
         </Card>
       </motion.div>
 
-      {/* Coin + Period tabs */}
-      <motion.div variants={fadeUp} className="flex flex-wrap items-center gap-4">
-        <div className="flex items-center gap-1 rounded-lg border border-border/60 bg-muted/30 p-1">
-          {COINS.map((c) => {
-            const hasAny = PERIODS.some((p) => availableSlots.has(`${c}::${p}`));
-            return (
+      {/* Coin + Period tabs — only show coins/periods that have featured runs */}
+      {availableCoins.length > 0 && (
+        <motion.div variants={fadeUp} className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-1 rounded-lg border border-border/60 bg-muted/30 p-1">
+            {availableCoins.map((c) => (
               <button
                 key={c}
                 onClick={() => setCoin(c)}
-                disabled={!hasAny}
                 className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
                   coin === c
                     ? "bg-primary text-primary-foreground"
-                    : hasAny
-                      ? "text-muted-foreground hover:text-foreground"
-                      : "cursor-not-allowed text-muted-foreground/40"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {c}
               </button>
-            );
-          })}
-        </div>
-
-        <div className="flex items-center gap-1 rounded-lg border border-border/60 bg-muted/30 p-1">
-          {PERIODS.map((p) => {
-            const has = availableSlots.has(`${coin}::${p}`);
-            return (
-              <button
-                key={p}
-                onClick={() => setPeriod(p)}
-                disabled={!has}
-                className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
-                  period === p
-                    ? "bg-primary text-primary-foreground"
-                    : has
-                      ? "text-muted-foreground hover:text-foreground"
-                      : "cursor-not-allowed text-muted-foreground/40"
-                }`}
-              >
-                {p}
-              </button>
-            );
-          })}
-        </div>
-
-        {selectedRun && (
-          <div className="text-xs text-muted-foreground">
-            {formatISTDate(selectedRun.startDate)} →{" "}
-            {formatISTDate(selectedRun.endDate)} · Capital $
-            {selectedRun.initialCapital.toLocaleString()}
+            ))}
           </div>
-        )}
-      </motion.div>
+
+          {availablePeriods.length > 0 && (
+            <div className="flex items-center gap-1 rounded-lg border border-border/60 bg-muted/30 p-1">
+              {availablePeriods.map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPeriod(p)}
+                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                    period === p
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {selectedRun && (
+            <div className="text-xs text-muted-foreground">
+              {formatISTDate(selectedRun.startDate)} →{" "}
+              {formatISTDate(selectedRun.endDate)} · Capital $
+              {selectedRun.initialCapital.toLocaleString()}
+            </div>
+          )}
+        </motion.div>
+      )}
 
       {/* Report body */}
       {!selectedRun ? (
@@ -353,12 +372,25 @@ export default function StrategyBacktestReportPage() {
           <Card className="border-border/50">
             <CardContent className="flex flex-col items-center justify-center py-16 text-center">
               <Info className="mb-3 h-10 w-10 text-muted-foreground/20" />
-              <p className="text-sm font-medium text-muted-foreground">
-                No backtest available for {coin} · {period} yet
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground/60">
-                Try a different coin or period above.
-              </p>
+              {runs.length === 0 ? (
+                <>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    No featured backtest runs for this strategy yet
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground/60">
+                    Run a backtest in the Backtest tab and mark it as featured to publish it here.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    No backtest available for {coin || "this coin"} · {period || "this period"} yet
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground/60">
+                    Try a different coin or period above.
+                  </p>
+                </>
+              )}
             </CardContent>
           </Card>
         </motion.div>
