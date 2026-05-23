@@ -16,6 +16,7 @@ import {
   Rocket,
   BarChart3,
   Check,
+  LineChart as LineChartIcon,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -40,6 +41,7 @@ import {
 } from "@/lib/queries"
 import { MarketOverview } from "@/components/dashboard/market-overview"
 import { DashboardSkeleton } from "@/components/skeletons/dashboard-skeleton"
+import { cn } from "@/lib/utils"
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -303,18 +305,23 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Charts Row, only show if user has data */}
+      {/* Charts Row, only show if user has data.
+          Both cards use flex column + h-full so the chart/legend stretches to
+          fill the row's height — heights match regardless of how many coins
+          the user has deployed. min-h-[320px] sets a comfortable baseline so
+          the chart never collapses too small, even if Asset Allocation has
+          only 1-2 coins. (May 2026 dashboard layout fix) */}
       {!isNewUser && (pnlHistory.length > 0 || allocation.length > 0) && (
         <div className="grid gap-4 lg:grid-cols-3">
           {/* Portfolio Performance, Cumulative PnL */}
-          <motion.div variants={fadeUp} className={allocation.length > 0 ? "lg:col-span-2" : "lg:col-span-3"}>
-            <Card className="border-border/50 bg-card/80">
+          <motion.div variants={fadeUp} className={cn("flex", allocation.length > 0 ? "lg:col-span-2" : "lg:col-span-3")}>
+            <Card className="flex w-full flex-col border-border/50 bg-card/80">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base font-semibold">Portfolio Performance</CardTitle>
               </CardHeader>
-              <CardContent className="pb-4">
+              <CardContent className="flex flex-1 flex-col pb-4">
                 {pnlHistory.length > 0 ? (
-                  <div className="h-[280px]">
+                  <div className="min-h-[280px] flex-1">
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={pnlHistory}>
                         <defs>
@@ -323,35 +330,84 @@ export default function DashboardPage() {
                             <stop offset="95%" stopColor={pnlPositive ? "hsl(142, 76%, 36%)" : "hsl(0, 84%, 60%)"} stopOpacity={0} />
                           </linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
-                        <XAxis dataKey="date" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-                        <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={(v) => `$${Number(v).toFixed(2)}`} width={55} />
+                        {/* CSS vars in globals.css use oklch() — pass them
+                            directly, do NOT wrap in hsl()/rgb(). Theme-aware:
+                            near-white in dark, near-black in light. */}
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.3} />
+                        <XAxis
+                          dataKey="date"
+                          tick={{ fill: "var(--foreground)", fontSize: 11 }}
+                          tickLine={false}
+                          axisLine={false}
+                          interval="preserveStartEnd"
+                          minTickGap={40}
+                          tickFormatter={(v: string) => {
+                            // Human-friendly date labels:
+                            //   - ≤ 31 days of history → "17 May 2026"
+                            //   - 32-180 days          → "17 May"
+                            //   - > 180 days           → "May 2026" (month only)
+                            // Combined with recharts `minTickGap` so labels
+                            // don't overlap regardless of point count.
+                            const d = new Date(v)
+                            if (isNaN(d.getTime())) return v
+                            const day = d.getDate()
+                            const month = d.toLocaleString("en-US", { month: "short" })
+                            const year = d.getFullYear()
+                            if (pnlHistory.length > 180) return `${month} ${year}`
+                            if (pnlHistory.length > 31) return `${day} ${month}`
+                            return `${day} ${month} ${year}`
+                          }}
+                        />
+                        <YAxis tick={{ fill: "var(--foreground)", fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={(v) => `$${Number(v).toFixed(2)}`} width={55} />
                         <RechartsTooltip
-                          contentStyle={{ backgroundColor: "hsl(var(--background))", borderColor: "hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }}
+                          contentStyle={{ backgroundColor: "var(--background)", borderColor: "var(--border)", borderRadius: "8px", fontSize: "12px" }}
+                          itemStyle={{ color: "var(--foreground)" }}
+                          labelStyle={{ color: "var(--foreground)", fontWeight: 500, marginBottom: 4 }}
                           formatter={(value) => [`$${Number(value).toFixed(4)}`, "Cumulative PnL"]}
+                          labelFormatter={(label: string) => {
+                            const d = new Date(label)
+                            if (isNaN(d.getTime())) return label
+                            return d.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })
+                          }}
                         />
                         <Area type="monotone" dataKey="pnl" stroke={pnlPositive ? "hsl(142, 76%, 36%)" : "hsl(0, 84%, 60%)"} strokeWidth={2} fill="url(#colorValue)" />
                       </AreaChart>
                     </ResponsiveContainer>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
-                    No PnL history yet, deploy a strategy to start tracking
+                  /* Empty state — centered both axes inside the flex-1 container
+                     so it looks intentional regardless of how tall the row
+                     stretches (sibling Asset Allocation card dictates row height
+                     via its coin-legend length). */
+                  <div className="flex flex-1 flex-col items-center justify-center gap-2 py-6 text-center">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted/40">
+                      <LineChartIcon className="h-5 w-5 text-muted-foreground/60" />
+                    </div>
+                    <p className="text-sm font-medium text-muted-foreground">No PnL history yet</p>
+                    <p className="text-xs text-muted-foreground/60">
+                      {hasStrategy
+                        ? "Waiting for your first closed trade — chart will populate automatically."
+                        : "Deploy a strategy to start tracking daily PnL."}
+                    </p>
                   </div>
                 )}
               </CardContent>
             </Card>
           </motion.div>
 
-          {/* Asset Allocation, by coin */}
+          {/* Asset Allocation, by coin.
+              Same flex column h-full pattern as Portfolio Performance so the
+              two cards share the row's height. The legend (which grows with
+              coin count) gets a scroll cap once it exceeds 10 entries — past
+              that the dashboard would otherwise grow unbounded vertically. */}
           {allocation.length > 0 && (
-            <motion.div variants={fadeUp}>
-              <Card className="border-border/50 bg-card/80">
+            <motion.div variants={fadeUp} className="flex">
+              <Card className="flex w-full flex-col border-border/50 bg-card/80">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base font-semibold">Asset Allocation</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="h-[200px]">
+                <CardContent className="flex flex-1 flex-col">
+                  <div className="h-[200px] shrink-0">
                     <ResponsiveContainer width="100%" height="100%">
                       <RechartsPieChart>
                         <Pie data={allocation} cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={3} dataKey="value">
@@ -360,13 +416,15 @@ export default function DashboardPage() {
                           ))}
                         </Pie>
                         <RechartsTooltip
-                          contentStyle={{ backgroundColor: "hsl(var(--background))", borderColor: "hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }}
+                          contentStyle={{ backgroundColor: "var(--background)", borderColor: "var(--border)", borderRadius: "8px", fontSize: "12px" }}
+                          itemStyle={{ color: "var(--foreground)" }}
+                          labelStyle={{ color: "var(--foreground)", fontWeight: 500 }}
                           formatter={(value) => [`${value}%`, "Allocation"]}
                         />
                       </RechartsPieChart>
                     </ResponsiveContainer>
                   </div>
-                  <div className="mt-2 space-y-2">
+                  <div className="mt-2 max-h-[260px] space-y-2 overflow-y-auto pr-1">
                     {allocation.map((item) => (
                       <div key={item.name} className="flex items-center justify-between text-sm">
                         <div className="flex items-center gap-2">
