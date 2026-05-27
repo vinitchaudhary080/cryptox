@@ -108,10 +108,11 @@ export const supertrendSwing5mStrategy: BacktestStrategy = {
     if (!precomputed) return signals;
     const { map5m, map4h, ind5m, ind4h } = precomputed;
 
-    const idx5m = map5m[index];
-    const prevIdx5m = idx5m > 0 ? idx5m - 1 : -1;
-    if (prevIdx5m < 0) return signals;
+    // CLOSED-BAR ONLY (no look-ahead) — see feedback-cryptox-no-lookahead-bias memory
     if (map5m[index] === map5m[index - 1]) return signals;
+    const idx5m = map5m[index] - 1;
+    const prevIdx5m = idx5m - 1;
+    if (prevIdx5m < 0) return signals;
 
     const stDir = ind5m.supertrend?.direction[idx5m];
     const prevStDir = ind5m.supertrend?.direction[prevIdx5m];
@@ -123,7 +124,7 @@ export const supertrendSwing5mStrategy: BacktestStrategy = {
         adx === undefined || ema50 === undefined || rsi === undefined) return signals;
     if ([stDir, prevStDir, stValue, adx, ema50, rsi].some((v) => isNaN(v as number))) return signals;
 
-    const idx4h = map4h[index];
+    const idx4h = map4h[index] - 1; // CLOSED 4H HTF
     const stDir4h = ind4h.supertrend?.direction[idx4h];
     if (stDir4h === undefined || isNaN(stDir4h)) return signals;
 

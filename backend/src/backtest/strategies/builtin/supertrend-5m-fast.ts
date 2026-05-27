@@ -94,10 +94,14 @@ export const supertrend5mFastStrategy: BacktestStrategy = {
     if (!precomputed) return signals;
     const { map5m, map15m, ind5m, ind15m } = precomputed;
 
-    const idx5 = map5m[index];
-    const prevIdx5 = idx5 > 0 ? idx5 - 1 : -1;
-    if (prevIdx5 < 0) return signals;
+    // CLOSED-BAR ONLY: live + backtest dono. idx5 = last CLOSED 5m bucket.
+    // `map5m[index]` = in-progress bucket — partial bar pe indicator reads
+    // se phantom flips aate hain (DOT/USD 2026-05-24 incident) aur backtest
+    // me look-ahead bias inflate karta hai PnL.
     if (map5m[index] === map5m[index - 1]) return signals;
+    const idx5 = map5m[index] - 1;
+    const prevIdx5 = idx5 - 1;
+    if (prevIdx5 < 0) return signals;
 
     const stDir = ind5m.supertrend?.direction[idx5];
     const prevStDir = ind5m.supertrend?.direction[prevIdx5];
@@ -109,7 +113,7 @@ export const supertrend5mFastStrategy: BacktestStrategy = {
         adx === undefined || ema50 === undefined || rsi === undefined) return signals;
     if ([stDir, prevStDir, stValue, adx, ema50, rsi].some((v) => isNaN(v as number))) return signals;
 
-    const idx15 = map15m[index];
+    const idx15 = map15m[index] - 1; // CLOSED 15m HTF bar
     const stDir15 = ind15m.supertrend?.direction[idx15];
     if (stDir15 === undefined || isNaN(stDir15)) return signals;
 

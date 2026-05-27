@@ -677,6 +677,8 @@ class StrategyWorker {
             fee,
             status: "OPEN",
             exchangeOrderId: order.id,
+            sl: slOverride ?? null,
+            tp: tpOverride ?? null,
           },
         });
 
@@ -753,6 +755,8 @@ class StrategyWorker {
         entryPrice: price,
         quantity,
         status: "OPEN",
+        sl: slOverride ?? null,
+        tp: tpOverride ?? null,
       },
     });
 
@@ -895,17 +899,47 @@ class StrategyWorker {
     const currentPrice = ticker.last ?? 0;
     if (!currentPrice) return;
 
-    const takeProfit = config.takeProfit ?? 5;
-    const stopLoss = config.stopLoss ?? -3;
+    // Config-default percentage SL/TP (legacy / fallback when strategy
+    // did not emit trade-level price levels).
+    const takeProfitPct = config.takeProfit ?? 5;
+    const stopLossPct = config.stopLoss ?? -3;
 
     for (const trade of deployed.trades.filter((t) => t.status === "OPEN")) {
+      // Trade-level SL/TP (strategy-emitted, stored on the row) take priority.
+      // Compared against currentPrice as absolute levels — same convention as
+      // the backtest engine's position-manager check.
+      if (trade.sl != null || trade.tp != null) {
+        if (trade.sl != null) {
+          const slHit = trade.side === "BUY"
+            ? currentPrice <= trade.sl
+            : currentPrice >= trade.sl;
+          if (slHit) {
+            await this.closeTrade(exchange, deployed, isPaperTrade, trade, currentPrice,
+              `STOP LOSS at $${trade.sl.toFixed(4)}`);
+            continue;
+          }
+        }
+        if (trade.tp != null) {
+          const tpHit = trade.side === "BUY"
+            ? currentPrice >= trade.tp
+            : currentPrice <= trade.tp;
+          if (tpHit) {
+            await this.closeTrade(exchange, deployed, isPaperTrade, trade, currentPrice,
+              `TAKE PROFIT at $${trade.tp.toFixed(4)}`);
+            continue;
+          }
+        }
+        continue; // trade has explicit levels — never fall through to %-defaults
+      }
+
+      // Fallback: config-based percentage SL/TP for trades without explicit levels.
       const pnlPercent = trade.side === "BUY"
         ? ((currentPrice - trade.entryPrice) / trade.entryPrice) * 100
         : ((trade.entryPrice - currentPrice) / trade.entryPrice) * 100;
 
-      if (pnlPercent >= takeProfit) {
+      if (pnlPercent >= takeProfitPct) {
         await this.closeTrade(exchange, deployed, isPaperTrade, trade, currentPrice, `TAKE PROFIT (${pnlPercent.toFixed(2)}%)`);
-      } else if (pnlPercent <= stopLoss) {
+      } else if (pnlPercent <= stopLossPct) {
         await this.closeTrade(exchange, deployed, isPaperTrade, trade, currentPrice, `STOP LOSS (${pnlPercent.toFixed(2)}%)`);
       }
     }
@@ -1059,13 +1093,24 @@ class StrategyWorker {
       const len15 = candles15m.length;
       const len1h = candles1h.length;
 
-      const stDir = ind15m.supertrend?.direction[len15 - 1];
-      const prevStDir = ind15m.supertrend?.direction[len15 - 2];
-      const stValue = ind15m.supertrend?.value[len15 - 1];
-      const adx = ind15m.adx?.[len15 - 1];
-      const ema50 = ind15m.ema?.[50]?.[len15 - 1];
-      const rsi = ind15m.rsi?.[len15 - 1];
-      const stDir1h = ind1h.supertrend?.direction[len1h - 1];
+      // CLOSED-BAR ONLY (no look-ahead) — len-2 = just-closed bar; len-1 is
+      // in-progress. Dedupe per 15m close so this fires exactly once per bar.
+      const closedIdx15 = len15 - 2;
+      const prevIdx15 = len15 - 3;
+      const closedIdx1h = len1h - 2;
+      if (closedIdx15 < 1 || closedIdx1h < 0) return;
+      const closedBar15Ts = candles15m[closedIdx15].timestamp;
+      const lastSeen = this.lastCandleTs.get(deployed.id) ?? 0;
+      if (closedBar15Ts <= lastSeen) return;
+      this.lastCandleTs.set(deployed.id, closedBar15Ts);
+
+      const stDir = ind15m.supertrend?.direction[closedIdx15];
+      const prevStDir = ind15m.supertrend?.direction[prevIdx15];
+      const stValue = ind15m.supertrend?.value[closedIdx15];
+      const adx = ind15m.adx?.[closedIdx15];
+      const ema50 = ind15m.ema?.[50]?.[closedIdx15];
+      const rsi = ind15m.rsi?.[closedIdx15];
+      const stDir1h = ind1h.supertrend?.direction[closedIdx1h];
 
       if ([stDir, prevStDir, stValue, adx, ema50, rsi, stDir1h].some((v) => v === undefined || isNaN(v as number))) return;
 

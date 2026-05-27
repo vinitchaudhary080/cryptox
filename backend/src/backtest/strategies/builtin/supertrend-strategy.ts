@@ -69,8 +69,8 @@ export const supertrendStrategy: BacktestStrategy = {
   description: "SuperTrend on 15m with ADX filter, EMA(50) trend alignment, RSI range filter, and 1h chart confirmation. Dynamic SL at SuperTrend line. Exits on SuperTrend flip or ADX fade.",
   defaultConfig: {
     tpPercent: 6,
-    positionSizePercent: 10,
-    leverage: 1,
+    positionSizePercent: 100,
+    leverage: 5,
   },
   requiredIndicators: [],
 
@@ -82,12 +82,13 @@ export const supertrendStrategy: BacktestStrategy = {
 
     const { map15m, map1h, ind15m, ind1h } = precomputed;
 
-    const idx15 = map15m[index];
-    const prevIdx15 = idx15 > 0 ? idx15 - 1 : -1;
-    if (prevIdx15 < 0) return signals;
-
     // Only trigger on 15m boundary
     if (map15m[index] === map15m[index - 1]) return signals;
+
+    // CLOSED-BAR ONLY (no look-ahead) — see feedback-cryptox-no-lookahead-bias memory
+    const idx15 = map15m[index] - 1;
+    const prevIdx15 = idx15 - 1;
+    if (prevIdx15 < 0) return signals;
 
     // ── 15m indicators ──
     const stDir = ind15m.supertrend?.direction[idx15];
@@ -102,14 +103,14 @@ export const supertrendStrategy: BacktestStrategy = {
     if ([stDir, prevStDir, stValue, adx, ema50, rsi].some((v) => isNaN(v as number))) return signals;
 
     // ── 1h indicators ──
-    const idx1h = map1h[index];
+    const idx1h = map1h[index] - 1; // CLOSED 1H HTF
     const stDir1h = ind1h.supertrend?.direction[idx1h];
     if (stDir1h === undefined || isNaN(stDir1h)) return signals;
 
     // ── Strategy params ──
     const tpPct = Number(config.tpPercent ?? 6) / 100;
     const sizePct = Number(config.positionSizePercent ?? 10) / 100;
-    const leverage = Number(config.leverage ?? 1);
+    const leverage = Number(config.leverage ?? 5);
     const qty = (equity * sizePct) / candle.close;
 
     const hasLong = positions.some((p) => p.side === "BUY");

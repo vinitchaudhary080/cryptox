@@ -154,6 +154,12 @@ model Trade {
   pnl                Float       @default(0)
   fee                Float       @default(0)
   status             TradeStatus @default(OPEN)
+  // Strategy-emitted absolute price-level SL/TP. When set, the worker's
+  // checkStopLossAndTakeProfit uses these instead of the config-based
+  // percentage defaults. Null on legacy trades / strategies that don't
+  // emit per-trade levels — those fall back to config.stopLoss / takeProfit.
+  sl                 Float?
+  tp                 Float?
   exchangeOrderId    String? // order id from exchange
   openedAt           DateTime    @default(now())
   closedAt           DateTime?
