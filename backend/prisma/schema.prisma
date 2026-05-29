@@ -167,6 +167,16 @@ model Trade {
   // not available for the venue.
   entryFunding       Float?
   exitFunding        Float?
+  // Leverage used at trade open (from signal.leverage / deployed.config /
+  // strategy default). Stored so the UI can show per-trade leverage even if
+  // the strategy / deployment leverage was later changed.
+  leverage           Float?
+  // Reason the trade was closed (e.g. "STOP LOSS at $1.2770", "TAKE PROFIT
+  // at $1.3210", "1H ST flipped GREEN (ADX 22.5)", "ADX fading 18.2 < 20",
+  // strategy-emitted CLOSE_* reason text). Mirrors what the worker logs and
+  // emits in notifications; persisting it makes the trade history audit-
+  // ready without log scraping.
+  exitReason         String?
   exchangeOrderId    String? // order id from exchange
   openedAt           DateTime    @default(now())
   closedAt           DateTime?

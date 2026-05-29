@@ -831,6 +831,7 @@ class StrategyWorker {
             sl: slOverride ?? null,
             tp: tpOverride ?? null,
             entryFunding: entryFunding ?? null,
+            leverage: leverageOverride ?? readLeverage(deployed.config),
           },
         });
 
@@ -910,6 +911,7 @@ class StrategyWorker {
         sl: slOverride ?? null,
         tp: tpOverride ?? null,
         entryFunding: entryFunding ?? null,
+        leverage: leverageOverride ?? readLeverage(deployed.config),
       },
     });
 
@@ -1004,6 +1006,7 @@ class StrategyWorker {
           ? `${trade.exchangeOrderId ?? ""}|${closeOrderId}`
           : trade.exchangeOrderId,
         exitFunding: exitFunding ?? null,
+        exitReason: reason,
       },
     });
 

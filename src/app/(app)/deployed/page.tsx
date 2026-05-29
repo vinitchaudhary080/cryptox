@@ -329,6 +329,12 @@ type ApiTrade = {
   status: string
   openedAt: string
   closedAt: string | null
+  sl: number | null
+  tp: number | null
+  leverage: number | null
+  entryFunding: number | null
+  exitFunding: number | null
+  exitReason: string | null
 }
 
 function StrategyDetail({
@@ -664,9 +670,16 @@ function StrategyDetail({
                   <div key={trade.id} className="rounded-lg border border-border/40 bg-muted/20 p-3">
                     <div className="mb-2 flex items-center justify-between">
                       <span className="text-sm font-medium">{trade.pair}</span>
-                      <Badge variant="outline" className={trade.side.toUpperCase() === "BUY" ? "border-profit/30 text-profit" : "border-loss/30 text-loss"}>
-                        {trade.side.toUpperCase()}
-                      </Badge>
+                      <div className="flex items-center gap-1.5">
+                        {trade.leverage != null && (
+                          <Badge variant="outline" className="border-border/40 text-[10px]">
+                            {trade.leverage}x
+                          </Badge>
+                        )}
+                        <Badge variant="outline" className={trade.side.toUpperCase() === "BUY" ? "border-profit/30 text-profit" : "border-loss/30 text-loss"}>
+                          {trade.side.toUpperCase()}
+                        </Badge>
+                      </div>
                     </div>
                     <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
                       <div className="flex justify-between">
@@ -687,6 +700,30 @@ function StrategyDetail({
                           {trade.pnl >= 0 ? "+" : ""}${trade.pnl.toFixed(2)}
                         </span>
                       </div>
+                      {(trade.sl != null || trade.tp != null) && (
+                        <>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">SL</span>
+                            <span className="font-mono">{trade.sl != null ? formatPrice(trade.sl) : "—"}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">TP</span>
+                            <span className="font-mono">{trade.tp != null ? formatPrice(trade.tp) : "—"}</span>
+                          </div>
+                        </>
+                      )}
+                      {(trade.entryFunding != null || trade.exitFunding != null) && (
+                        <>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Fund In</span>
+                            <span className="font-mono">{trade.entryFunding != null ? `${(trade.entryFunding * 100).toFixed(4)}%` : "—"}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Fund Out</span>
+                            <span className="font-mono">{trade.exitFunding != null ? `${(trade.exitFunding * 100).toFixed(4)}%` : "—"}</span>
+                          </div>
+                        </>
+                      )}
                       <div className="col-span-2 flex justify-between border-t border-border/30 pt-1.5 text-[11px] text-muted-foreground">
                         <span>Opened</span>
                         <span>{formatDateTime(trade.openedAt)}</span>
@@ -695,6 +732,14 @@ function StrategyDetail({
                         <span>Closed</span>
                         <span>{formatDateTime(trade.closedAt)}</span>
                       </div>
+                      {trade.exitReason && (
+                        <div className="col-span-2 flex flex-col gap-1 border-t border-border/30 pt-1.5">
+                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Reason</span>
+                          <span className="rounded-full border border-border/40 bg-muted/30 px-2 py-0.5 text-[11px] text-muted-foreground">
+                            {trade.exitReason}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))
@@ -706,13 +751,19 @@ function StrategyDetail({
                   <tr className="border-b border-border/50 text-left text-[10px] uppercase tracking-wider text-muted-foreground">
                     <th className="pb-2.5 pr-3 font-medium">Pair</th>
                     <th className="pb-2.5 pr-3 font-medium">Side</th>
+                    <th className="pb-2.5 pr-3 font-medium">Lev</th>
                     <th className="pb-2.5 pr-3 font-medium">Entry</th>
                     <th className="pb-2.5 pr-3 font-medium">Exit</th>
                     <th className="pb-2.5 pr-3 font-medium">Qty</th>
+                    <th className="pb-2.5 pr-3 font-medium">SL</th>
+                    <th className="pb-2.5 pr-3 font-medium">TP</th>
+                    <th className="pb-2.5 pr-3 font-medium">Fund In</th>
+                    <th className="pb-2.5 pr-3 font-medium">Fund Out</th>
                     <th className="pb-2.5 pr-3 font-medium">PnL</th>
                     <th className="pb-2.5 pr-3 font-medium">Fee</th>
                     <th className="pb-2.5 pr-3 font-medium">Entry Time</th>
-                    <th className="pb-2.5 text-right font-medium">Exit Time</th>
+                    <th className="pb-2.5 pr-3 font-medium">Exit Time</th>
+                    <th className="pb-2.5 text-left font-medium">Reason</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -724,20 +775,42 @@ function StrategyDetail({
                           {trade.side.toUpperCase()}
                         </Badge>
                       </td>
+                      <td className="whitespace-nowrap py-2.5 pr-3 font-mono text-xs">
+                        {trade.leverage != null ? `${trade.leverage}x` : "—"}
+                      </td>
                       <td className="whitespace-nowrap py-2.5 pr-3 font-mono text-xs">{formatPrice(trade.entryPrice)}</td>
                       <td className="whitespace-nowrap py-2.5 pr-3 font-mono text-xs">{formatPrice(trade.exitPrice)}</td>
                       <td className="whitespace-nowrap py-2.5 pr-3 font-mono text-xs">{trade.quantity.toFixed(4)}</td>
+                      <td className="whitespace-nowrap py-2.5 pr-3 font-mono text-xs text-muted-foreground">
+                        {trade.sl != null ? formatPrice(trade.sl) : "—"}
+                      </td>
+                      <td className="whitespace-nowrap py-2.5 pr-3 font-mono text-xs text-muted-foreground">
+                        {trade.tp != null ? formatPrice(trade.tp) : "—"}
+                      </td>
+                      <td className="whitespace-nowrap py-2.5 pr-3 font-mono text-xs text-muted-foreground">
+                        {trade.entryFunding != null ? `${(trade.entryFunding * 100).toFixed(4)}%` : "—"}
+                      </td>
+                      <td className="whitespace-nowrap py-2.5 pr-3 font-mono text-xs text-muted-foreground">
+                        {trade.exitFunding != null ? `${(trade.exitFunding * 100).toFixed(4)}%` : "—"}
+                      </td>
                       <td className={`whitespace-nowrap py-2.5 pr-3 font-medium ${trade.pnl >= 0 ? "text-profit" : "text-loss"}`}>
                         {trade.pnl >= 0 ? "+" : ""}${trade.pnl.toFixed(2)}
                       </td>
                       <td className="whitespace-nowrap py-2.5 pr-3 text-xs text-muted-foreground">${trade.fee.toFixed(2)}</td>
                       <td className="whitespace-nowrap py-2.5 pr-3 text-xs text-muted-foreground">{formatDateTime(trade.openedAt)}</td>
-                      <td className="whitespace-nowrap py-2.5 text-right text-xs text-muted-foreground">{formatDateTime(trade.closedAt)}</td>
+                      <td className="whitespace-nowrap py-2.5 pr-3 text-xs text-muted-foreground">{formatDateTime(trade.closedAt)}</td>
+                      <td className="py-2.5 text-xs text-muted-foreground max-w-[280px]">
+                        {trade.exitReason ? (
+                          <span className="inline-block rounded-full border border-border/40 bg-muted/30 px-2 py-0.5 text-[11px]">
+                            {trade.exitReason}
+                          </span>
+                        ) : "—"}
+                      </td>
                     </tr>
                   ))}
                   {closedTrades.length === 0 && (
                     <tr>
-                      <td colSpan={9} className="py-8 text-center text-xs text-muted-foreground">
+                      <td colSpan={15} className="py-8 text-center text-xs text-muted-foreground">
                         No closed trades yet
                       </td>
                     </tr>
