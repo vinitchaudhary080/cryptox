@@ -486,6 +486,14 @@ class StrategyWorker {
         candles = ohlcvToCandles(ohlcv);
       }
 
+      // Capture current funding rate from the ticker for entry/exit logging
+      // + per-trade storage. Always read it (even for non-funding strategies)
+      // so the trades view can show funding context. Delta India returns
+      // `funding_rate` in ticker.info for perpetuals; other venues may not.
+      const tickerFundingRaw = (ticker.info as { funding_rate?: unknown } | undefined)?.funding_rate;
+      const currentFundingNum = Number(tickerFundingRaw);
+      const currentFunding = Number.isFinite(currentFundingNum) ? currentFundingNum : undefined;
+
       // Funding-rate injection — backtest reads funding from _extras.csv;
       // live needs it on the candle to clear the strategy's funding gate.
       // Forward-fill the current funding rate onto every candle. The strategy
@@ -493,14 +501,12 @@ class StrategyWorker {
       // which after this becomes the current rate — i.e. the actionable value
       // for a decision being made now.
       if (FUNDING_INJECT_SLUGS.has(slug)) {
-        const fundingRaw = (ticker.info as { funding_rate?: unknown } | undefined)?.funding_rate;
-        const fundingRate = Number(fundingRaw);
-        if (Number.isFinite(fundingRate)) {
-          for (const c of candles) c.funding = fundingRate;
+        if (currentFunding !== undefined) {
+          for (const c of candles) c.funding = currentFunding;
           log(
             deployed.strategy.name,
             deployed.pair,
-            `[registry:${slug}] funding injected: ${(fundingRate * 100).toFixed(4)}% / 8h`,
+            `[registry:${slug}] funding injected: ${(currentFunding * 100).toFixed(4)}% / 8h`,
           );
         } else {
           log(
@@ -571,6 +577,7 @@ class StrategyWorker {
           lastCandle,
           equity,
           mergedConfig,
+          currentFunding,
         );
       }
 
@@ -595,6 +602,7 @@ class StrategyWorker {
     candle: Candle,
     equity: number,
     config: Record<string, number | string>,
+    currentFunding?: number,
   ): Promise<void> {
     const execPrice =
       signal.entryPrice != null && Number.isFinite(signal.entryPrice)
@@ -629,6 +637,7 @@ class StrategyWorker {
           signal.sl,
           signal.tp,
           signal.leverage ?? leverage,
+          currentFunding,
         );
         break;
       }
@@ -637,7 +646,7 @@ class StrategyWorker {
           (t) => t.status === "OPEN" && t.side === "BUY",
         )) {
           await this.closeTrade(exchange, deployed, isPaperTrade, t, execPrice,
-            signal.reason ?? "registry CLOSE_LONG");
+            signal.reason ?? "registry CLOSE_LONG", currentFunding);
         }
         break;
       }
@@ -646,14 +655,14 @@ class StrategyWorker {
           (t) => t.status === "OPEN" && t.side === "SELL",
         )) {
           await this.closeTrade(exchange, deployed, isPaperTrade, t, execPrice,
-            signal.reason ?? "registry CLOSE_SHORT");
+            signal.reason ?? "registry CLOSE_SHORT", currentFunding);
         }
         break;
       }
       case "CLOSE_ALL": {
         for (const t of deployed.trades.filter((t) => t.status === "OPEN")) {
           await this.closeTrade(exchange, deployed, isPaperTrade, t, execPrice,
-            signal.reason ?? "registry CLOSE_ALL");
+            signal.reason ?? "registry CLOSE_ALL", currentFunding);
         }
         break;
       }
@@ -726,6 +735,10 @@ class StrategyWorker {
     slOverride?: number,
     tpOverride?: number,
     leverageOverride?: number,
+    // Funding rate at trade open (from exchange ticker). Stored on the
+    // Trade row and logged so funding-strategy entries can be audited
+    // against the gate at entry time.
+    entryFunding?: number,
   ): Promise<Trade | null> {
     const mode = isPaperTrade ? "PAPER" : "LIVE";
 
@@ -817,11 +830,12 @@ class StrategyWorker {
             exchangeOrderId: order.id,
             sl: slOverride ?? null,
             tp: tpOverride ?? null,
+            entryFunding: entryFunding ?? null,
           },
         });
 
         log(deployed.strategy.name, deployed.pair,
-          `[${mode}] OPENED ${side} | Qty: ${trade.quantity.toFixed(6)} | Fill: $${fillPrice} | Fee: $${fee.toFixed(4)} | OrderID: ${order.id} | ${reason}`);
+          `[${mode}] OPENED ${side} | Qty: ${trade.quantity.toFixed(6)} | Fill: $${fillPrice} | Fee: $${fee.toFixed(4)} | OrderID: ${order.id}${entryFunding !== undefined ? ` | funding=${(entryFunding * 100).toFixed(4)}%` : ""} | ${reason}`);
 
         emitTradeUpdate(deployed.userId, {
           type: "OPEN",
@@ -895,11 +909,12 @@ class StrategyWorker {
         status: "OPEN",
         sl: slOverride ?? null,
         tp: tpOverride ?? null,
+        entryFunding: entryFunding ?? null,
       },
     });
 
     log(deployed.strategy.name, deployed.pair,
-      `[${mode}] OPENED ${side} | Qty: ${quantity.toFixed(6)} | Entry: $${price} | ${reason}`);
+      `[${mode}] OPENED ${side} | Qty: ${quantity.toFixed(6)} | Entry: $${price}${entryFunding !== undefined ? ` | funding=${(entryFunding * 100).toFixed(4)}%` : ""} | ${reason}`);
 
     emitTradeUpdate(deployed.userId, {
       type: "OPEN",
@@ -938,6 +953,10 @@ class StrategyWorker {
     trade: Trade,
     exitPrice: number,
     reason: string,
+    // Funding rate at trade close (from exchange ticker). Stored on the
+    // Trade row and logged so funding-strategy exits can be audited (e.g.
+    // detect funding flipping vs the entry value).
+    exitFunding?: number,
   ): Promise<void> {
     const mode = isPaperTrade ? "PAPER" : "LIVE";
     let actualExitPrice = exitPrice;
@@ -984,11 +1003,12 @@ class StrategyWorker {
         exchangeOrderId: closeOrderId
           ? `${trade.exchangeOrderId ?? ""}|${closeOrderId}`
           : trade.exchangeOrderId,
+        exitFunding: exitFunding ?? null,
       },
     });
 
     log(deployed.strategy.name, deployed.pair,
-      `[${mode}] CLOSED ${trade.side} | ${reason} | Exit: $${actualExitPrice} | PnL: $${roundedPnl.toFixed(2)}`);
+      `[${mode}] CLOSED ${trade.side} | ${reason} | Exit: $${actualExitPrice} | PnL: $${roundedPnl.toFixed(2)}${exitFunding !== undefined ? ` | funding=${(exitFunding * 100).toFixed(4)}%` : ""}`);
 
     emitTradeUpdate(deployed.userId, {
       type: "CLOSE",
@@ -1037,6 +1057,13 @@ class StrategyWorker {
     const currentPrice = ticker.last ?? 0;
     if (!currentPrice) return;
 
+    // Current funding rate from ticker (Delta India perps expose
+    // `funding_rate` on ticker.info). Threaded into closeTrade so the
+    // exitFunding column gets populated on SL/TP-driven closes too.
+    const fundingRaw = (ticker.info as { funding_rate?: unknown } | undefined)?.funding_rate;
+    const fundingNum = Number(fundingRaw);
+    const exitFunding = Number.isFinite(fundingNum) ? fundingNum : undefined;
+
     // Config-default percentage SL/TP (legacy / fallback when strategy
     // did not emit trade-level price levels).
     const takeProfitPct = config.takeProfit ?? 5;
@@ -1053,7 +1080,7 @@ class StrategyWorker {
             : currentPrice >= trade.sl;
           if (slHit) {
             await this.closeTrade(exchange, deployed, isPaperTrade, trade, currentPrice,
-              `STOP LOSS at $${trade.sl.toFixed(4)}`);
+              `STOP LOSS at $${trade.sl.toFixed(4)}`, exitFunding);
             continue;
           }
         }
@@ -1063,7 +1090,7 @@ class StrategyWorker {
             : currentPrice <= trade.tp;
           if (tpHit) {
             await this.closeTrade(exchange, deployed, isPaperTrade, trade, currentPrice,
-              `TAKE PROFIT at $${trade.tp.toFixed(4)}`);
+              `TAKE PROFIT at $${trade.tp.toFixed(4)}`, exitFunding);
             continue;
           }
         }
@@ -1076,9 +1103,9 @@ class StrategyWorker {
         : ((trade.entryPrice - currentPrice) / trade.entryPrice) * 100;
 
       if (pnlPercent >= takeProfitPct) {
-        await this.closeTrade(exchange, deployed, isPaperTrade, trade, currentPrice, `TAKE PROFIT (${pnlPercent.toFixed(2)}%)`);
+        await this.closeTrade(exchange, deployed, isPaperTrade, trade, currentPrice, `TAKE PROFIT (${pnlPercent.toFixed(2)}%)`, exitFunding);
       } else if (pnlPercent <= stopLossPct) {
-        await this.closeTrade(exchange, deployed, isPaperTrade, trade, currentPrice, `STOP LOSS (${pnlPercent.toFixed(2)}%)`);
+        await this.closeTrade(exchange, deployed, isPaperTrade, trade, currentPrice, `STOP LOSS (${pnlPercent.toFixed(2)}%)`, exitFunding);
       }
     }
   }

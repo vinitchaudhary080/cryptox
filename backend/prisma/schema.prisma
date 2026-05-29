@@ -160,6 +160,13 @@ model Trade {
   // emit per-trade levels — those fall back to config.stopLoss / takeProfit.
   sl                 Float?
   tp                 Float?
+  // Funding rate (per 8h) captured from the exchange ticker at trade open
+  // and close. Populated only for perpetual venues where the ticker exposes
+  // `funding_rate` (e.g. Delta India). Lets users back out funding-PnL and
+  // analyse whether the funding gate fired correctly. Null when funding is
+  // not available for the venue.
+  entryFunding       Float?
+  exitFunding        Float?
   exchangeOrderId    String? // order id from exchange
   openedAt           DateTime    @default(now())
   closedAt           DateTime?
