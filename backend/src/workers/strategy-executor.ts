@@ -24,8 +24,96 @@ const LEGACY_PAPER_TRADE_EMAIL = "test@cryptox.com";
 const CANDLE_LOOKBACK = 100; // legacy category-based handlers — last 100 1m candles
 // Registered-strategy path: strategy files resample to 1H/4H and need
 // EMA200, ADX14, rolling-100 stdev — 100 1m candles ≈ 1.7 hours, too few.
-// 2000 1m candles ≈ 33 hours of base, enough for most setups.
+// 2000 1m candles ≈ 33 hours of base, enough for 5m strategies.
 const REGISTERED_LOOKBACK = 2000;
+
+// ── 1H-heavy strategy fetch path ────────────────────────────────
+//
+// Strategies that resample to 1H and rely on long-period indicators (EMA200,
+// rolling-100 stdev, ADX(14) on 4H) need ≥200 1H bars = 12,000 1m candles.
+// Delta India's `/v2/history/candles` caps at ~4000 candles per request, so
+// pagination on 1m is fragile. Instead, fetch 1H directly (360 bars in one
+// call) and EXPAND each 1H bar into 60 fake 1m candles preserving OHLC. When
+// the strategy then resamples 1m → 1H internally, it recovers the original
+// 1H series; 1m → 4H aggregates 4 consecutive 1H bars correctly.
+//
+// Maintenance: add a slug here when deploying a new 1H/4H strategy live.
+const HEAVY_HTF_SLUGS = new Set<string>([
+  "supertrend-1h-swing",
+  "supertrend-strategy",                    // 15m + 1H (needs 1H history too)
+  "07-zscore-mean-reversion-1h",
+  "07-v2-zscore-mr-funding-filter-1h",
+  "07-v3-zscore-mr-slope-gated-1h",
+  "07-v3-zscore-mr-btc-tuned-1h",
+  "07-v3-zscore-mr-loose-1h",
+  "07-v3-zscore-mr-tight-1h",
+  "07-v3-zscore-mr-slow-anchor-1h",
+  "07-v3-zscore-mr-funding-loose",
+  "07-v3-zscore-mr-funding-extreme",
+  "07-v3-zscore-mr-funding-multicoin",
+  "07-v3-zscore-mr-funding-proxy",
+  "01-v3-htf-pullback-confluence",
+  "v7-chop-trend-transition-1h",
+  "v10-zscore-mr-adaptive-stops-1h",
+  "v10-zscore-mr-adaptive-link-only",
+  "v10-zscore-mr-adaptive-bnb-only",
+  "v10-chop-trend-adaptive-1h",
+  "v10-chop-trend-adaptive-sol-avax",
+  "v10-funding-filter-adaptive-1h",
+]);
+
+// ── Funding-rate injection ──────────────────────────────────────
+//
+// Backtest reads `candle.funding` from `_extras.csv` (Binance funding rate
+// history merged in by csv-manager). Live worker fetches plain OHLCV; the
+// `funding` field is always undefined unless we inject it. For these
+// strategies, take the current funding rate from the exchange ticker
+// (Delta India returns it on `ticker.info.funding_rate`) and forward-fill it
+// onto every candle in the array. The strategy reads the just-closed 1H bar's
+// funding for the entry gate — that bar now carries the current rate, which
+// is the actionable value for a decision being made NOW.
+const FUNDING_INJECT_SLUGS = new Set<string>([
+  "07-v2-zscore-mr-funding-filter-1h",
+  "07-v3-zscore-mr-funding-loose",
+  "07-v3-zscore-mr-funding-extreme",
+  "07-v3-zscore-mr-funding-multicoin",
+  "07-v3-zscore-mr-funding-proxy",
+  "v7-funding-flip-trend-15m",
+  "v10-funding-filter-adaptive-1h",
+  "funding-squeeze-reversal",
+  "12-funding-carry-trend",
+  "12-v2-negative-funding-carry-long",
+]);
+
+/** Expand 1H OHLCV bars into 60 fake 1m candles per bar with OHLC preserved.
+ *  Resampling these back to 1H reconstructs the input series exactly; 1m → 4H
+ *  groups 4 consecutive 1H bars. */
+function expandHourlyToMinute(ohlcv: OHLCV[]): Candle[] {
+  const out: Candle[] = [];
+  for (const row of ohlcv) {
+    const ts = Number(row[0] ?? 0);
+    const open = Number(row[1] ?? 0);
+    const high = Number(row[2] ?? 0);
+    const low = Number(row[3] ?? 0);
+    const close = Number(row[4] ?? 0);
+    const volumePerMin = Number(row[5] ?? 0) / 60;
+    for (let m = 0; m < 60; m++) {
+      const minTs = ts + m * 60_000;
+      const d = new Date(minTs);
+      out.push({
+        timestamp: minTs,
+        date: d.toISOString().slice(0, 10),
+        time: d.toISOString().slice(11, 19),
+        open: m === 0 ? open : close,
+        high,
+        low,
+        close,
+        volume: volumePerMin,
+      });
+    }
+  }
+  return out;
+}
 
 /** Convert a display name ("Supertrend 5m Fast") to its registry slug
  *  ("supertrend-5m-fast"). The DB row's `id` field is the slug. */
@@ -357,21 +445,71 @@ class StrategyWorker {
     if (!price) return true;
 
     try {
-      const ohlcv = await exchangeService.getCandles(
-        exchange,
-        deployed.pair,
-        "1m",
-        REGISTERED_LOOKBACK,
-      );
-      if (!ohlcv || ohlcv.length < 200) {
-        log(
-          deployed.strategy.name,
+      let candles: Candle[];
+      const useHtfPath = HEAVY_HTF_SLUGS.has(slug);
+
+      if (useHtfPath) {
+        // Fetch 1H candles directly (Delta caps 1m fetches at ~4k → need
+        // pagination for 12k+; instead just pull 1H natively, then expand
+        // each bar into 60 fake 1m candles. Strategy's internal resample
+        // recovers the original 1H series — and 4H aggregates 4 1H bars.
+        const ohlcv1h = await exchangeService.getCandles(
+          exchange,
           deployed.pair,
-          `[registry:${slug}] insufficient candles (${ohlcv?.length ?? 0}) — skipping`,
+          "1h",
+          360, // 360 1H ≈ 15 days; covers EMA200 + std100 + 4H ADX warmup
         );
-        return true;
+        if (!ohlcv1h || ohlcv1h.length < 220) {
+          log(
+            deployed.strategy.name,
+            deployed.pair,
+            `[registry:${slug}] insufficient 1H candles (${ohlcv1h?.length ?? 0}) — need ≥220 — skipping`,
+          );
+          return true;
+        }
+        candles = expandHourlyToMinute(ohlcv1h);
+      } else {
+        const ohlcv = await exchangeService.getCandles(
+          exchange,
+          deployed.pair,
+          "1m",
+          REGISTERED_LOOKBACK,
+        );
+        if (!ohlcv || ohlcv.length < 200) {
+          log(
+            deployed.strategy.name,
+            deployed.pair,
+            `[registry:${slug}] insufficient candles (${ohlcv?.length ?? 0}) — skipping`,
+          );
+          return true;
+        }
+        candles = ohlcvToCandles(ohlcv);
       }
-      const candles = ohlcvToCandles(ohlcv);
+
+      // Funding-rate injection — backtest reads funding from _extras.csv;
+      // live needs it on the candle to clear the strategy's funding gate.
+      // Forward-fill the current funding rate onto every candle. The strategy
+      // only inspects the just-closed 1H bar's funding for the entry gate,
+      // which after this becomes the current rate — i.e. the actionable value
+      // for a decision being made now.
+      if (FUNDING_INJECT_SLUGS.has(slug)) {
+        const fundingRaw = (ticker.info as { funding_rate?: unknown } | undefined)?.funding_rate;
+        const fundingRate = Number(fundingRaw);
+        if (Number.isFinite(fundingRate)) {
+          for (const c of candles) c.funding = fundingRate;
+          log(
+            deployed.strategy.name,
+            deployed.pair,
+            `[registry:${slug}] funding injected: ${(fundingRate * 100).toFixed(4)}% / 8h`,
+          );
+        } else {
+          log(
+            deployed.strategy.name,
+            deployed.pair,
+            `[registry:${slug}] ticker has no funding_rate field — entry gate will fail closed`,
+          );
+        }
+      }
 
       const precompute = getPrecomputeFn(slug);
       if (precompute) precompute(candles);
